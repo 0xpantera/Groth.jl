@@ -1,6 +1,43 @@
-# Groth16 zkSNARK Implementation in Julia
+```
+                    ╔═══════════════════════════════════════════════════╗
+                    ║                                                   ║
+                    ║    ▄████  ██▀███   ▒█████  ▄▄▄█████▓ ██░ ██     ║
+                    ║   ██▒ ▀█▒▓██ ▒ ██▒▒██▒  ██▒▓  ██▒ ▓▒▓██░ ██▒    ║
+                    ║  ▒██░▄▄▄░▓██ ░▄█ ▒▒██░  ██▒▒ ▓██░ ▒░▒██▀▀██░    ║
+                    ║  ░▓█  ██▓▒██▀▀█▄  ▒██   ██░░ ▓██▓ ░ ░▓█ ░██     ║
+                    ║  ░▒▓███▀▒░██▓ ▒██▒░ ████▓▒░  ▒██▒ ░ ░▓█▒░██▓    ║
+                    ║   ░▒   ▒ ░ ▒▓ ░▒▓░░ ▒░▒░▒░   ▒ ░░    ▒ ░░▒░▒    ║
+                    ║    ░   ░   ░▒ ░ ▒░  ░ ▒ ▒░     ░     ▒ ░▒░ ░    ║
+                    ║  ░ ░   ░   ░░   ░ ░ ░ ░ ▒    ░       ░  ░░ ░    ║
+                    ║        ░    ░         ░ ░             ░  ░  ░    ║
+                    ╚═══════════════════════════════════════════════════╝
+                          ∴‥∵‥∴ zkSNARK SUPREMACY ∴‥∵‥∴
+                           
+                    ░▒▓█►  ρяσνє єνєяутнιηg, яєνєαℓ ησтнιηg  ◄█▓▒░
+                    
+         ╔═════════════════════════════════════════════════════════════╗
+         ║  "In cryptography we trust, in zero-knowledge we thrive"   ║
+         ║              ∞ milady privacy maximalism ∞                 ║ 
+         ╚═════════════════════════════════════════════════════════════╝
+                                   
+                        ▓▓▓▓▓▓▓   ▓▓▓▓▓▓▓
+                       ▓       ▓ ▓       ▓    ┌─────────────┐
+                       ▓  ╳ ╳  ▓ ▓  ╳ ╳  ▓    │ COMMITMENT  │
+                       ▓       ▓ ▓       ▓    │   HIDDEN    │
+                        ▓     ▓   ▓     ▓     │  KNOWLEDGE  │
+                         ▓▓▓▓▓     ▓▓▓▓▓      └─────────────┘
+                           ║         ║
+                        ═══╬═════════╬═══ 
+                           ║         ║
+                     ╔═════╩═════════╩═════╗
+                     ║  TRUSTED SETUP CULT  ║
+                     ╚═════════════════════╝
+```
 
-A modular, educational implementation of the Groth16 zero-knowledge proof system, built from scratch in Julia for learning and research purposes.
+# Groth.jl
+
+**A modular, educational implementation of the Groth16 zero-knowledge proof system**  
+*Built from scratch in Julia for learning, research, and cryptographic enlightenment*
 
 ## Project Structure
 

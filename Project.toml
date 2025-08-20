@@ -1,3 +1,8 @@
+name = "Groth"
+uuid = "e34f7f6a-9c7d-4ec3-a9f1-96c8f2b5c8d1"
+authors = ["Franco <franco@example.com>"]
+version = "0.1.0"
+
 [deps]
 GrothAlgebra = "c7a79d44-cfd6-4e24-8a20-28d2d2e8370b"
 GrothCrypto = "08fad72d-3c18-4088-bc06-6cd170572595"
