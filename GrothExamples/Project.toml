@@ -1,0 +1,18 @@
+name = "GrothExamples"
+uuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+authors = ["Franco"]
+version = "0.1.0"
+
+[deps]
+GrothAlgebra = "c7a79d44-cfd6-4e24-8a20-28d2d2e8370b"
+GrothCurves = "5abac9ed-d1ba-4f09-bf87-1d0505e406bb"
+GrothProofs = "a08a9250-f3dc-4127-bcf9-3e12d47ce125"
+
+[compat]
+julia = "1.11"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
