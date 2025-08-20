@@ -1,0 +1,42 @@
+# Julia files
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+*.jl.*.mem
+
+# Manifest files - we track these for reproducibility
+# Manifest.toml
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+/docs/build/
+/docs/site/
+
+# Benchmark results
+/benchmarks/results/
+*.benchmark
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Log files
+*.log
+
+# Package development
+.julia/
+
+# Local environment files
+.env
+.env.local
