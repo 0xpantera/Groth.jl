@@ -1,0 +1,19 @@
+name = "GrothAlgebra"
+uuid = "c7a79d44-cfd6-4e24-8a20-28d2d2e8370b"
+authors = ["0xpantera <0xpantera@proton.me>"]
+version = "1.0.0-DEV"
+
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+BitIntegers = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[compat]
+julia = "1.11"
+
+[extras]
+AbstractAlgebra = "c3fe647b-3220-5bb0-a1ea-a7954cac585d"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["AbstractAlgebra", "Test"]
