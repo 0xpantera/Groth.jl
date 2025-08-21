@@ -40,3 +40,6 @@ temp/
 # Local environment files
 .env
 .env.local
+
+# Claude planning and documentation files
+CLAUDE_*
