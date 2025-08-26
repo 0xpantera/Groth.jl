@@ -10,7 +10,7 @@ The BN254 curve has:
 using GrothAlgebra
 using StaticArrays
 
-include("BN254Fields.jl")
+# BN254Fields.jl is already included in GrothCurves.jl, don't include it again
 
 # Curve parameters
 struct BN254Curve <: AbstractCurve end
@@ -54,6 +54,22 @@ end
 Base.zero(::Type{G1Point}) = G1Point(one(BN254Field), one(BN254Field), zero(BN254Field))
 Base.zero(::G1Point) = zero(G1Point)
 Base.iszero(p::G1Point) = iszero(z_coord(p))
+
+# Equality
+function Base.:(==)(p::G1Point, q::G1Point)
+    # Both are infinity
+    if iszero(p) && iszero(q)
+        return true
+    end
+    # One is infinity
+    if iszero(p) || iszero(q)
+        return false
+    end
+    # Compare in affine coordinates
+    p_aff = to_affine(p)
+    q_aff = to_affine(q)
+    return p_aff[1] == q_aff[1] && p_aff[2] == q_aff[2]
+end
 
 # Check if point is on curve
 function is_on_curve(p::G1Point)
@@ -166,6 +182,11 @@ function G2Point(x0::Integer, x1::Integer, y0::Integer, y1::Integer)
     G2Point(X, Y, Z)
 end
 
+# Constructor for affine coordinates
+function G2Point(X::Fp2Element, Y::Fp2Element)
+    G2Point(X, Y, one(Fp2Element))
+end
+
 # Access coordinates
 Base.getindex(p::G2Point, i::Int) = p.coords[i]
 x_coord(p::G2Point) = p[1]
@@ -177,6 +198,22 @@ Base.zero(::Type{G2Point}) = G2Point(one(Fp2Element), one(Fp2Element), zero(Fp2E
 Base.zero(::G2Point) = zero(G2Point)
 Base.iszero(p::G2Point) = iszero(z_coord(p))
 
+# Equality
+function Base.:(==)(p::G2Point, q::G2Point)
+    # Both are infinity
+    if iszero(p) && iszero(q)
+        return true
+    end
+    # One is infinity
+    if iszero(p) || iszero(q)
+        return false
+    end
+    # Compare in affine coordinates
+    p_aff = to_affine(p)
+    q_aff = to_affine(q)
+    return p_aff[1] == q_aff[1] && p_aff[2] == q_aff[2]
+end
+
 # Convert to affine
 function to_affine(p::G2Point)
     if iszero(p)
@@ -186,6 +223,28 @@ function to_affine(p::G2Point)
     z_inv2 = z_inv^2
     z_inv3 = z_inv2 * z_inv
     return (x_coord(p) * z_inv2, y_coord(p) * z_inv3)
+end
+
+# Check if point is on curve
+function is_on_curve(p::G2Point)
+    if iszero(p)
+        return true
+    end
+    X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
+    Z2 = Z^2
+    Z4 = Z2^2
+    Z6 = Z4 * Z2
+    
+    # G2 curve equation: Y² = X³ + b/ξ where ξ = 9 + u
+    # b = 3, so b/ξ = 3/(9+u)
+    # In Jacobian: Y² = X³ + (3/ξ)*Z⁶
+    
+    # Compute b_twist = 3/ξ
+    ξ = Fp2Element(9, 1)  # 9 + u
+    b_twist = Fp2Element(3) * inv(ξ)
+    
+    # Check Y² = X³ + b_twist*Z⁶
+    return Y^2 == X^3 + b_twist * Z6
 end
 
 """
