@@ -217,17 +217,16 @@ function evaluate_line(coeffs::LineCoeffs, P::G1Point)
     xP = Fp2Element(P_x, zero(BN254Field))
     yP = Fp2Element(P_y, zero(BN254Field))
     
-    # M-twist 0-1-4 mapping for BN254:
-    #   slot 0 → b*y_P   (Fp12.c0.c0)
-    #   slot 1 → a*x_P   (Fp12.c1.c0)
-    #   slot 4 → c       (Fp12.c1.c1)
-    c0_val = coeffs.b * yP           # y-term -> Fp12.c0.c0 (slot 0)
-    c1_val = coeffs.a * xP           # x-term -> Fp12.c1.c0 (slot 1)
-    c4_val = coeffs.c                # constant -> Fp12.c1.c1 (slot 4)
+    # M-twist embedding for ψ: x→xv, y→yw
+    # Line ℓ(ψ(P)) = (a*xP*v + c) + (b*yP)*w
+    # This gives us Fp12((a*xP*v + c), b*yP)
+    # In Fp6 coordinates:
+    #   c0 = (c, a*xP, 0) since v = (0,1,0)
+    #   c1 = (b*yP, 0, 0)
     
-    # Build sparse Fp12 element
-    c0_fp6 = Fp6Element(c0_val, zero(Fp2Element), zero(Fp2Element))
-    c1_fp6 = Fp6Element(c1_val, c4_val, zero(Fp2Element))
+    # Build sparse Fp12 element with correct M-twist mapping
+    c0_fp6 = Fp6Element(coeffs.c, coeffs.a * xP, zero(Fp2Element))
+    c1_fp6 = Fp6Element(coeffs.b * yP, zero(Fp2Element), zero(Fp2Element))
     
     return Fp12Element(c0_fp6, c1_fp6)
 end
