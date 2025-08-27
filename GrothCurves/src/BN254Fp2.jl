@@ -13,10 +13,6 @@ using StaticArrays
 # Just re-export what we need
 const BN254_PRIME = prime(BN254Field)
 
-# Note: SimpleBN254Field.jl is kept for reference but not used
-# It contains an alternative BigInt-based implementation created
-# during the migration from UInt256 to BigInt
-
 """
     Fp2Element
 
