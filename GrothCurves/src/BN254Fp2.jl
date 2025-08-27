@@ -6,8 +6,8 @@ The BN254 curve (also known as alt-bn128) is defined over:
 - Extension field Fp2 = Fp[u]/(u² + 1)
 """
 
-using GrothAlgebra
-using StaticArrays
+# using GrothAlgebra
+# using StaticArrays
 
 # BN254Field is now provided by GrothAlgebra
 # Just re-export what we need
@@ -20,8 +20,8 @@ Element of the quadratic extension field Fp2 = Fp[u]/(u² + 1).
 Represented as c0 + c1*u where c0, c1 ∈ Fp.
 """
 struct Fp2Element
-    coeffs::SVector{2, BN254Field}
-    
+    coeffs::SVector{2,BN254Field}
+
     function Fp2Element(c0::BN254Field, c1::BN254Field)
         new(SVector(c0, c1))
     end
@@ -117,11 +117,11 @@ function Base.:^(a::Fp2Element, n::Integer)
     elseif n < 0
         return inv(a)^(-n)
     end
-    
+
     result = one(Fp2Element)
     base = a
     exp = n
-    
+
     while exp > 0
         if exp & 1 == 1
             result = result * base
@@ -129,7 +129,7 @@ function Base.:^(a::Fp2Element, n::Integer)
         base = base * base
         exp >>= 1
     end
-    
+
     return result
 end
 

@@ -10,7 +10,7 @@ The pairing e: G1 × G2 → GT satisfies bilinearity:
 - e(P, Q + S) = e(P, Q) · e(P, S)
 """
 
-using GrothAlgebra
+# using GrothAlgebra
 
 # Import necessary functions
 import GrothCurves: miller_loop, final_exponentiation
@@ -34,13 +34,13 @@ function optimal_ate_pairing(P::G1Point, Q::G2Point)
     if iszero(P) || iszero(Q)
         return one(GTElement)
     end
-    
+
     # Step 1: Miller loop
     f = miller_loop(P, Q)
-    
+
     # Step 2: Final exponentiation
     result = final_exponentiation(f)
-    
+
     return result
 end
 
@@ -63,11 +63,11 @@ function pairing_batch(P_vec::Vector{G1Point}, Q_vec::Vector{G2Point})
     if length(P_vec) != length(Q_vec)
         throw(ArgumentError("Input vectors must have the same length"))
     end
-    
+
     if isempty(P_vec)
         return one(GTElement)
     end
-    
+
     # Accumulate Miller loop results
     f = one(Fp12Element)
     for (P, Q) in zip(P_vec, Q_vec)
@@ -75,7 +75,7 @@ function pairing_batch(P_vec::Vector{G1Point}, Q_vec::Vector{G2Point})
             f = f * miller_loop(P, Q)
         end
     end
-    
+
     # Single final exponentiation
     return final_exponentiation(f)
 end

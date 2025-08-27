@@ -1,7 +1,7 @@
 module GrothCurves
 
-using GrothAlgebra
-using StaticArrays
+using GrothAlgebra: BN254Field, bn254_field, AbstractCurve, GroupElem, prime
+using StaticArrays: SVector
 
 # Include BN254 curve implementation
 include("BN254Fp2.jl")  # Quadratic extension Fp2/Fp

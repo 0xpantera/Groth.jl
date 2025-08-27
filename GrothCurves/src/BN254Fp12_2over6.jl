@@ -4,7 +4,7 @@ BN254 Fp12 implementation as quadratic extension of Fp6.
 Fp12 = Fp6[w]/(w² - v)
 """
 
-using StaticArrays
+# using StaticArrays
 
 """
     Fp12Element
@@ -13,8 +13,8 @@ Element of dodecic extension Fp12 = Fp6[w]/(w² - v).
 Represented as c0 + c1*w where c0, c1 ∈ Fp6.
 """
 struct Fp12Element
-    coeffs::SVector{2, Fp6Element}
-    
+    coeffs::SVector{2,Fp6Element}
+
     function Fp12Element(c0::Fp6Element, c1::Fp6Element)
         new(SVector(c0, c1))
     end
@@ -55,10 +55,10 @@ The product (a0 + a1*w)(b0 + b1*w) is computed as:
 function Base.:*(a::Fp12Element, b::Fp12Element)
     # v is represented as (0, 1, 0) in Fp6
     v = Fp6Element(zero(Fp2Element), one(Fp2Element), zero(Fp2Element))
-    
+
     c0 = a[1] * b[1] + a[2] * b[2] * v
     c1 = a[1] * b[2] + a[2] * b[1]
-    
+
     return Fp12Element(c0, c1)
 end
 
@@ -69,10 +69,10 @@ Optimized squaring in Fp12.
 """
 function square(a::Fp12Element)
     v = Fp6Element(zero(Fp2Element), one(Fp2Element), zero(Fp2Element))
-    
+
     c0 = square(a[1]) + square(a[2]) * v
     c1 = Fp6Element(2) * a[1] * a[2]
-    
+
     return Fp12Element(c0, c1)
 end
 
@@ -95,13 +95,13 @@ function Base.inv(a::Fp12Element)
     if iszero(a)
         throw(DivideError())
     end
-    
+
     v = Fp6Element(zero(Fp2Element), one(Fp2Element), zero(Fp2Element))
-    
+
     # Norm = a0² - a1²*v
     norm = square(a[1]) - square(a[2]) * v
     norm_inv = inv(norm)
-    
+
     # (a0 - a1*w) / norm
     conj = conjugate(a)
     return Fp12Element(conj[1] * norm_inv, conj[2] * norm_inv)
@@ -122,11 +122,11 @@ function Base.:^(a::Fp12Element, n::Integer)
     elseif n < 0
         return inv(a)^(-n)
     end
-    
+
     result = one(Fp12Element)
     base = a
     exp = n
-    
+
     while exp > 0
         if exp & 1 == 1
             result = result * base
@@ -134,7 +134,7 @@ function Base.:^(a::Fp12Element, n::Integer)
         base = square(base)
         exp >>= 1
     end
-    
+
     return result
 end
 
