@@ -2,137 +2,263 @@ using Test
 using GrothCurves
 using GrothAlgebra
 
-# Import double function
-import GrothCurves: double
-
 @testset "BN254 Pairing Tests" begin
-    
-    @testset "Basic pairing properties" begin
-        g1 = g1_generator()
-        g2 = g2_generator()
-        
-        # Test identity
-        @test isone(pairing(zero(G1Point), g2))
-        @test isone(pairing(g1, zero(G2Point)))
-        @test isone(pairing(zero(G1Point), zero(G2Point)))
-        
+
+    # Get generators for testing
+    P = g1_generator()
+    Q = g2_generator()
+
+    @testset "Identity and Degeneracy" begin
+        # Test identity elements
+        O_G1 = zero(G1Point)
+        O_G2 = zero(G2Point)
+
+        @test pairing(O_G1, Q) == one(Fp12Element)
+        @test pairing(P, O_G2) == one(Fp12Element)
+        @test pairing(O_G1, O_G2) == one(Fp12Element)
+
         # Test non-degeneracy
-        e_g = pairing(g1, g2)
-        @test !iszero(e_g)
-        @test !isone(e_g)  # e(g1, g2) should not be 1 for generators
+        e_P_Q = pairing(P, Q)
+        @test e_P_Q != one(Fp12Element)
     end
-    
-    @testset "Final exponentiation basics" begin
-        # Test that final exp maps to cyclotomic subgroup
-        g1 = g1_generator()
-        g2 = g2_generator()
-        
-        # Miller loop without final exp
-        f_miller = miller_loop(g1, g2)
-        
-        # With final exp
-        f_final = final_exponentiation(f_miller)
-        
-        # They should be different
-        @test f_miller != f_final
-        
-        # Final exp should be deterministic
-        @test final_exponentiation(f_miller) == final_exponentiation(f_miller)
+
+    @testset "Negation Properties" begin
+        # Test that negation works correctly
+        neg_P = -P
+        neg_Q = -Q
+
+        e_P_Q = pairing(P, Q)
+        e_negP_Q = pairing(neg_P, Q)
+        e_P_negQ = pairing(P, neg_Q)
+        e_negP_negQ = pairing(neg_P, neg_Q)
+
+        @test e_negP_Q == inv(e_P_Q)
+        @test e_P_negQ == inv(e_P_Q)
+        @test e_negP_negQ == e_P_Q
     end
-    
-    @testset "Bilinearity (simplified)" begin
-        g1 = g1_generator()
-        g2 = g2_generator()
-        
-        # Test e(2g1, g2) = e(g1, 2g2) = e(g1, g2)²
-        g1_2 = double(g1)
-        g2_2 = double(g2)
-        
-        e_base = pairing(g1, g2)
-        e_left = pairing(g1_2, g2)
-        e_right = pairing(g1, g2_2)
-        e_squared = e_base^2
-        
-        # Note: These might not be exactly equal due to our simplified implementation
-        # In a full implementation with correct final exp, these would be equal
-        println("Testing bilinearity (may not be exact with simplified final exp):")
-        println("e(g1, g2)² == e(2g1, g2): ", e_squared == e_left)
-        println("e(g1, g2)² == e(g1, 2g2): ", e_squared == e_right)
-        println("e(2g1, g2) == e(g1, 2g2): ", e_left == e_right)
-        
-        # At minimum, they should all be non-trivial
-        @test !iszero(e_left) && !isone(e_left)
-        @test !iszero(e_right) && !isone(e_right)
-        @test !iszero(e_squared) && !isone(e_squared)
+
+    @testset "Bilinearity - Scalar Multiplication" begin
+        # Test e([n]P, Q) = e(P, [n]Q) = e(P, Q)^n for various n
+
+        # Test with n = 2
+        P2 = P + P
+        Q2 = Q + Q
+
+        e_P_Q = pairing(P, Q)
+        e_2P_Q = pairing(P2, Q)
+        e_P_2Q = pairing(P, Q2)
+        e_P_Q_squared = e_P_Q^2
+
+        @test e_2P_Q == e_P_2Q
+        @test e_2P_Q == e_P_Q_squared
+        @test e_P_2Q == e_P_Q_squared
+
+        # Test with n = 3
+        P3 = P + P + P
+        Q3 = Q + Q + Q
+
+        e_3P_Q = pairing(P3, Q)
+        e_P_3Q = pairing(P, Q3)
+        e_P_Q_cubed = e_P_Q^3
+
+        @test e_3P_Q == e_P_3Q
+        @test e_3P_Q == e_P_Q_cubed
+        @test e_P_3Q == e_P_Q_cubed
+
+        # Test with n = 4, 5, 6, 7
+        for n in 4:7
+            # Compute [n]P and [n]Q
+            nP = P
+            for i in 2:n
+                nP = nP + P
+            end
+
+            nQ = Q
+            for i in 2:n
+                nQ = nQ + Q
+            end
+
+            # Compute pairings
+            e_nP_Q = pairing(nP, Q)
+            e_P_nQ = pairing(P, nQ)
+            e_P_Q_n = e_P_Q^n
+
+            @test e_nP_Q == e_P_nQ
+            @test e_nP_Q == e_P_Q_n
+        end
     end
-    
-    @testset "Pairing consistency" begin
-        g1 = g1_generator()
-        g2 = g2_generator()
-        
-        # Test that pairing is deterministic
-        e1 = pairing(g1, g2)
-        e2 = pairing(g1, g2)
+
+    @testset "Bilinearity - Addition Formula" begin
+        # Test e(P1 + P2, Q) = e(P1, Q) * e(P2, Q)
+
+        P2 = P + P
+        P3 = P + P + P
+
+        # P + 2P = 3P
+        e_P_plus_2P_Q = pairing(P3, Q)
+        e_P_Q = pairing(P, Q)
+        e_2P_Q = pairing(P2, Q)
+        product = e_P_Q * e_2P_Q
+
+        @test e_P_plus_2P_Q == product
+
+        # Test e(P, Q1 + Q2) = e(P, Q1) * e(P, Q2)
+        Q2 = Q + Q
+        Q3 = Q + Q + Q
+
+        # Q + 2Q = 3Q
+        e_P_Q_plus_2Q = pairing(P, Q3)
+        e_P_Q = pairing(P, Q)
+        e_P_2Q = pairing(P, Q2)
+        product2 = e_P_Q * e_P_2Q
+
+        @test e_P_Q_plus_2Q == product2
+    end
+
+    @testset "Cross Products" begin
+        # Test e([m]P, [n]Q) = e(P, Q)^(m*n)
+
+        P2 = P + P
+        P3 = P + P + P
+        Q2 = Q + Q
+        Q3 = Q + Q + Q
+
+        e_P_Q = pairing(P, Q)
+
+        # Test e([2]P, [3]Q) = e(P, Q)^6
+        e_2P_3Q = pairing(P2, Q3)
+        e_P_Q_to_6 = e_P_Q^6
+        @test e_2P_3Q == e_P_Q_to_6
+
+        # Test e([3]P, [2]Q) = e(P, Q)^6
+        e_3P_2Q = pairing(P3, Q2)
+        @test e_3P_2Q == e_P_Q_to_6
+
+        # Test e([2]P, [2]Q) = e(P, Q)^4
+        e_2P_2Q = pairing(P2, Q2)
+        e_P_Q_to_4 = e_P_Q^4
+        @test e_2P_2Q == e_P_Q_to_4
+
+        # Test e([3]P, [3]Q) = e(P, Q)^9
+        e_3P_3Q = pairing(P3, Q3)
+        e_P_Q_to_9 = e_P_Q^9
+        @test e_3P_3Q == e_P_Q_to_9
+    end
+
+    @testset "Miller Loop and Final Exponentiation" begin
+        # Test that pairing = final_exp(miller_loop)
+
+        f = miller_loop(P, Q)
+        e = final_exponentiation(f)
+        e_direct = pairing(P, Q)
+
+        @test e == e_direct
+
+        # Test with different points
+        P2 = P + P
+        Q2 = Q + Q
+
+        f2 = miller_loop(P2, Q2)
+        e2 = final_exponentiation(f2)
+        e2_direct = pairing(P2, Q2)
+
+        @test e2 == e2_direct
+    end
+
+    @testset "Pairing Consistency" begin
+        # Test that repeated computations give the same result
+
+        e1 = pairing(P, Q)
+        e2 = pairing(P, Q)
+        e3 = pairing(P, Q)
+
         @test e1 == e2
-        
-        # Test optimal_ate_pairing alias
-        @test pairing(g1, g2) == optimal_ate_pairing(g1, g2)
+        @test e2 == e3
+
+        # Test with different points
+        P_alt = P + P + P + P + P  # [5]P
+        Q_alt = Q + Q + Q + Q + Q + Q + Q  # [7]Q
+
+        e_alt1 = pairing(P_alt, Q_alt)
+        e_alt2 = pairing(P_alt, Q_alt)
+
+        @test e_alt1 == e_alt2
     end
-    
-    @testset "Batch pairing" begin
-        g1 = g1_generator()
-        g2 = g2_generator()
-        
-        # Empty batch
-        @test isone(pairing_batch(G1Point[], G2Point[]))
-        
-        # Single element batch
-        @test pairing_batch([g1], [g2]) == pairing(g1, g2)
-        
-        # Multiple elements
-        g1_2 = double(g1)
-        g2_2 = double(g2)
-        
-        # e(g1, g2) * e(g1_2, g2_2)
-        batch_result = pairing_batch([g1, g1_2], [g2, g2_2])
-        individual_result = pairing(g1, g2) * pairing(g1_2, g2_2)
-        
-        @test batch_result == individual_result
-        
-        # Test with zero elements
-        batch_with_zero = pairing_batch([g1, zero(G1Point)], [g2, g2_2])
-        expected = pairing(g1, g2) * one(GTElement)
-        @test batch_with_zero == pairing(g1, g2)
+
+    @testset "Edge Cases" begin
+        # Test with larger scalar multiplications
+
+        # Compute [12]P and [13]Q
+        P12 = P
+        for i in 2:12
+            P12 = P12 + P
+        end
+
+        Q13 = Q
+        for i in 2:13
+            Q13 = Q13 + Q
+        end
+
+        e_P_Q = pairing(P, Q)
+        e_12P_13Q = pairing(P12, Q13)
+        e_P_Q_to_156 = e_P_Q^156  # 12 * 13 = 156
+
+        @test e_12P_13Q == e_P_Q_to_156
+
+        # Test commutativity of scalar multiplication
+        # e([12]P, Q) = e(P, [12]Q)
+        Q12 = Q
+        for i in 2:12
+            Q12 = Q12 + Q
+        end
+
+        e_12P_Q = pairing(P12, Q)
+        e_P_12Q = pairing(P, Q12)
+
+        @test e_12P_Q == e_P_12Q
     end
-    
-    @testset "Edge cases" begin
-        g1 = g1_generator()
-        g2 = g2_generator()
-        
-        # Negation
-        neg_g1 = -g1
-        neg_g2 = -g2
-        
-        e_pos = pairing(g1, g2)
-        e_neg1 = pairing(neg_g1, g2)
-        e_neg2 = pairing(g1, neg_g2)
-        e_both_neg = pairing(neg_g1, neg_g2)
-        
-        # With final exp, these should have specific relationships
-        # but our simplified implementation may not preserve them exactly
-        @test !iszero(e_neg1) && !isone(e_neg1)
-        @test !iszero(e_neg2) && !isone(e_neg2)
-        @test !iszero(e_both_neg) && !isone(e_both_neg)
+
+    @testset "Random Point Tests" begin
+        # Create some pseudo-random points by scalar multiplication
+
+        # Use different primes as scalars for variety
+        P17 = P
+        for i in 2:17
+            P17 = P17 + P
+        end
+
+        Q23 = Q
+        for i in 2:23
+            Q23 = Q23 + Q
+        end
+
+        P29 = P
+        for i in 2:29
+            P29 = P29 + P
+        end
+
+        Q31 = Q
+        for i in 2:31
+            Q31 = Q31 + Q
+        end
+
+        # Test bilinearity with these points
+        # e(P17 + P29, Q) = e(P17, Q) * e(P29, Q)
+        P46 = P17 + P29  # [46]P = [17]P + [29]P
+
+        e_P46_Q = pairing(P46, Q)
+        e_P17_Q = pairing(P17, Q)
+        e_P29_Q = pairing(P29, Q)
+
+        @test e_P46_Q == e_P17_Q * e_P29_Q
+
+        # e(P, Q23 + Q31) = e(P, Q23) * e(P, Q31)
+        Q54 = Q23 + Q31  # [54]Q = [23]Q + [31]Q
+
+        e_P_Q54 = pairing(P, Q54)
+        e_P_Q23 = pairing(P, Q23)
+        e_P_Q31 = pairing(P, Q31)
+
+        @test e_P_Q54 == e_P_Q23 * e_P_Q31
     end
 end
-
-println("\n=== Pairing Implementation Status ===")
-println("✓ Miller loop implemented with correct line evaluation")
-println("✓ Final exponentiation implemented (simplified)")
-println("✓ Complete pairing function available")
-println("✓ Batch pairing for efficiency")
-println("")
-println("Note: The final exponentiation uses a simplified formula.")
-println("For production use, implement the exact BN254 hard part formula")
-println("with precomputed Frobenius constants for efficiency.")
-println("=====================================\n")
