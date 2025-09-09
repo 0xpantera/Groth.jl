@@ -158,3 +158,34 @@ export FiniteFieldElement, FieldElem
 export BN254Field, bn254_field  
 export Secp256k1Field, secp256k1_field
 export prime, is_zero, is_one, is_unity
+
+# ===========================================
+# BN254 Scalar Field (Fr) Implementation
+# ===========================================
+
+"""
+BN254ScalarField (aka Fr) — scalar field of BN254 groups.
+
+Prime order r = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+This is distinct from the base field Fp used for curve coordinates.
+"""
+struct BN254ScalarField <: FiniteFieldElement
+    value::BigInt
+    
+    function BN254ScalarField(value::BigInt, normalized::Bool=false)
+        if normalized
+            new(value)
+        else
+            p = prime(BN254ScalarField)
+            new(mod(value, p))
+        end
+    end
+end
+
+prime(::Type{BN254ScalarField}) = parse(BigInt, "21888242871839275222246405745257275088548364400416034343698204186575808495617")
+field_name(::Type{BN254ScalarField}) = "BN254Fr"
+
+BN254ScalarField(x::Integer) = BN254ScalarField(BigInt(x))
+bn254_scalar(x) = BN254ScalarField(x)
+
+export BN254ScalarField, bn254_scalar
