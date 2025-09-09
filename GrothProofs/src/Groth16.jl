@@ -1,35 +1,20 @@
 """
-Groth16 proof system implementation.
+Groth16 proof system implementation (production-style scaffold).
 
-Implements trusted setup, proof generation, and verification.
+Provides Proving/Verification keys and standard Groth16 equations.
+The implementation currently uses dense polynomial paths (no FFT yet).
 """
 
 using GrothAlgebra
 using GrothCurves
 using Random
 
-include("R1CS.jl")
-include("QAP.jl")
+# R1CS and QAP are included at the package level (GrothProofs.jl)
 
 """
-    TrustedSetup
-
-Common Reference String (CRS) for Groth16.
+Internal helper to convert a field element to an Integer scalar for scalar_mul.
 """
-struct TrustedSetup
-    # Powers of tau in G1: [τ^i]₁ for i = 0 to n-1
-    tau_powers_g1::Vector{G1Point}
-    # Powers of tau in G2: [τ^i]₂ for i = 0 to n-1
-    tau_powers_g2::Vector{G2Point}
-    # QAP polynomials evaluated at tau in G1
-    u_tau_g1::Vector{G1Point}  # [u_i(τ)]₁
-    v_tau_g1::Vector{G1Point}  # [v_i(τ)]₁
-    w_tau_g1::Vector{G1Point}  # [w_i(τ)]₁
-    # QAP polynomials evaluated at tau in G2 (only v needed)
-    v_tau_g2::Vector{G2Point}  # [v_i(τ)]₂
-    # Target polynomial at tau in G1
-    t_tau_g1::G1Point  # [t(τ)]₁
-end
+_to_int(x) = Integer(x.value)
 
 """
     Groth16Proof
@@ -43,131 +28,256 @@ struct Groth16Proof
 end
 
 """
-    setup(qap::QAP{F}, rng::AbstractRNG=Random.GLOBAL_RNG) where F
+Production-style key structures for Groth16.
 
-Generate the trusted setup (CRS) for the given QAP.
-This is a simplified version - production would use multi-party computation.
+This follows the conventional separation:
+- ProvingKey contains query vectors and delta terms for prover computation
+- VerificationKey contains minimal elements for the verifier equation
 """
-function setup(qap::QAP{F}, rng::AbstractRNG=Random.GLOBAL_RNG) where F
-    # Sample random tau (toxic waste - must be destroyed after setup)
-    tau = F(rand(rng, 1:1000000))  # In practice, this would be much larger and secure
-    
-    # Get generators
+struct ProvingKey
+    # Fixed elements
+    alpha_g1::G1Point
+    beta_g1::G1Point
+    beta_g2::G2Point
+    delta_g1::G1Point
+    delta_g2::G2Point
+
+    # Query vectors (per-variable)
+    A_query_g1::Vector{G1Point}   # [u_i(τ)]₁
+    B_query_g1::Vector{G1Point}   # [v_i(τ)]₁ (for cross-term in C)
+    B_query_g2::Vector{G2Point}   # [v_i(τ)]₂
+    C_query_g1::Vector{G1Point}   # [w_i(τ)]₁
+
+    # h and l queries
+    H_query_g1::Vector{G1Point}   # [τ^k · t(τ) / δ]₁ for k = 0..(deg(h))
+    L_query_g1::Vector{G1Point}   # [(β·u_i(τ) + α·v_i(τ) + w_i(τ)) / δ]₁ for private i
+
+    # Metadata
+    num_public::Int               # includes constant 1
+end
+
+struct VerificationKey
+    alpha_g1::G1Point
+    beta_g2::G2Point
+    gamma_g2::G2Point
+    delta_g2::G2Point
+    IC::Vector{G1Point}  # [ (β·u_i(τ) + α·v_i(τ) + w_i(τ)) / γ ]₁ for public i (including 1)
+end
+
+struct Keypair
+    pk::ProvingKey
+    vk::VerificationKey
+end
+
+# Export types
+export Groth16Proof
+
+"""
+    setup_full(qap::QAP{F}; rng=Random.GLOBAL_RNG) where F
+
+Generate production-style Groth16 keys (ProvingKey, VerificationKey).
+This implementation uses the current dense polynomial machinery (no FFT yet).
+"""
+function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG) where F
+    # Sample toxic waste
+    α = F(rand(rng, 1:1000000))
+    β = F(rand(rng, 1:1000000))
+    γ = F(rand(rng, 1:1000000))
+    δ = F(rand(rng, 1:1000000))
+    τ = F(rand(rng, 1:1000000))
+
+    # Generators
     g1 = g1_generator()
     g2 = g2_generator()
-    
-    # Compute powers of tau
-    max_degree = qap.num_constraints + 1
-    tau_powers_g1 = Vector{G1Point}(undef, max_degree)
-    tau_powers_g2 = Vector{G2Point}(undef, max_degree)
-    
-    tau_power = one(F)
-    for i in 1:max_degree
-        tau_powers_g1[i] = scalar_mul(g1, Integer(tau_power.value))
-        tau_powers_g2[i] = scalar_mul(g2, Integer(tau_power.value))
-        tau_power = tau_power * tau
+
+    # Precompute inverses
+    γ_inv = inv(γ)
+    δ_inv = inv(δ)
+
+    # Evaluate QAP polynomials at τ
+    m = qap.num_vars
+    A_eval = Vector{F}(undef, m)
+    B_eval = Vector{F}(undef, m)
+    C_eval = Vector{F}(undef, m)
+    for i in 1:m
+        A_eval[i] = evaluate(qap.u[i], τ)
+        B_eval[i] = evaluate(qap.v[i], τ)
+        C_eval[i] = evaluate(qap.w[i], τ)
     end
-    
-    # Evaluate QAP polynomials at tau
-    num_vars = qap.num_vars
-    u_tau_g1 = Vector{G1Point}(undef, num_vars)
-    v_tau_g1 = Vector{G1Point}(undef, num_vars)
-    v_tau_g2 = Vector{G2Point}(undef, num_vars)
-    w_tau_g1 = Vector{G1Point}(undef, num_vars)
-    
-    for i in 1:num_vars
-        u_eval = evaluate(qap.u[i], tau)
-        v_eval = evaluate(qap.v[i], tau)
-        w_eval = evaluate(qap.w[i], tau)
-        
-        u_tau_g1[i] = scalar_mul(g1, Integer(u_eval.value))
-        v_tau_g1[i] = scalar_mul(g1, Integer(v_eval.value))
-        v_tau_g2[i] = scalar_mul(g2, Integer(v_eval.value))
-        w_tau_g1[i] = scalar_mul(g1, Integer(w_eval.value))
+
+    # Map evaluations into group queries
+    A_query_g1 = [scalar_mul(g1, _to_int(A_eval[i])) for i in 1:m]
+    B_query_g2 = [scalar_mul(g2, _to_int(B_eval[i])) for i in 1:m]
+    B_query_g1 = [scalar_mul(g1, _to_int(B_eval[i])) for i in 1:m]
+    C_query_g1 = [scalar_mul(g1, _to_int(C_eval[i])) for i in 1:m]
+
+    # Target polynomial at τ
+    t_tau = evaluate(qap.t, τ)
+
+    # τ^k powers for H query (match arkworks m_raw - 1 ≈ num_constraints + num_vars - 1)
+    # This supports h(τ) expansion: Σ h_k τ^k
+    max_k = qap.num_constraints + qap.num_vars - 1
+    tau_powers = Vector{F}(undef, max_k)
+    tau_powers[1] = one(F)
+    for k in 2:max_k
+        tau_powers[k] = tau_powers[k-1] * τ
     end
-    
-    # Evaluate target polynomial at tau
-    t_eval = evaluate(qap.t, tau)
-    t_tau_g1 = scalar_mul(g1, Integer(t_eval.value))
-    
-    return TrustedSetup(
-        tau_powers_g1,
-        tau_powers_g2,
-        u_tau_g1,
-        v_tau_g1,
-        w_tau_g1,
-        v_tau_g2,
-        t_tau_g1
+
+    # H_query_g1: [τ^k · t(τ) / δ]₁
+    H_query_g1 = [scalar_mul(g1, _to_int(t_tau * tau_powers[k] * δ_inv)) for k in 1:max_k]
+
+    # L_query for private variables only: [(β·u_i(τ) + α·v_i(τ) + w_i(τ)) / δ]₁
+    num_public = qap.num_public
+    L_query_g1 = G1Point[]
+    for i in (num_public+1):m
+        acc = β * A_eval[i] + α * B_eval[i] + C_eval[i]
+        push!(L_query_g1, scalar_mul(g1, _to_int(acc * δ_inv)))
+    end
+
+    # IC for public inputs: [(β·u_i(τ) + α·v_i(τ) + w_i(τ)) / γ]₁, including 1
+    IC = G1Point[]
+    for i in 1:num_public
+        acc = β * A_eval[i] + α * B_eval[i] + C_eval[i]
+        push!(IC, scalar_mul(g1, _to_int(acc * γ_inv)))
+    end
+
+    # Fixed elements
+    alpha_g1 = scalar_mul(g1, _to_int(α))
+    beta_g1  = scalar_mul(g1, _to_int(β))
+    beta_g2  = scalar_mul(g2, _to_int(β))
+    gamma_g2 = scalar_mul(g2, _to_int(γ))
+    delta_g1 = scalar_mul(g1, _to_int(δ))
+    delta_g2 = scalar_mul(g2, _to_int(δ))
+
+    pk = ProvingKey(
+        alpha_g1,
+        beta_g1,
+        beta_g2,
+        delta_g1,
+        delta_g2,
+        A_query_g1,
+        B_query_g1,
+        B_query_g2,
+        C_query_g1,
+        H_query_g1,
+        L_query_g1,
+        num_public,
     )
+
+    vk = VerificationKey(
+        alpha_g1,
+        beta_g2,
+        gamma_g2,
+        delta_g2,
+        IC,
+    )
+
+    return Keypair(pk, vk)
 end
 
 """
-    prove(setup::TrustedSetup, qap::QAP{F}, witness::Witness{F}) where F
+    prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng=Random.GLOBAL_RNG) where F
 
-Generate a Groth16 proof for the given witness.
+Generate a Groth16 proof using the production-style proving key.
+Uses current dense polynomial path for h and H.
 """
-function prove(setup::TrustedSetup, qap::QAP{F}, witness::Witness{F}) where F
+function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::AbstractRNG=Random.GLOBAL_RNG, debug_no_random::Bool=false) where F
     w_vals = witness.values
-    
-    # Sample random r and s for zero-knowledge
-    rng = Random.GLOBAL_RNG
-    r = F(rand(rng, 1:1000000))
-    s = F(rand(rng, 1:1000000))
-    
-    # Compute A = Σ w_i * u_i(τ) + r * δ (simplified: ignoring δ term)
-    A = zero(G1Point)
-    for i in 1:qap.num_vars
-        A = A + scalar_mul(setup.u_tau_g1[i], Integer(w_vals[i].value))
+    m = qap.num_vars
+
+    # Randomizers
+    r = debug_no_random ? zero(F) : F(rand(rng, 1:1000000))
+    s = debug_no_random ? zero(F) : F(rand(rng, 1:1000000))
+
+    # Accumulators for queries
+    A_acc_g1 = zero(G1Point)
+    B_acc_g2 = zero(G2Point)
+    B_acc_g1 = zero(G1Point)  # for cross term in C
+    C_acc_g1 = zero(G1Point)
+    for i in 1:m
+        wi = w_vals[i]
+        iszero(wi) && continue
+        si = _to_int(wi)
+        A_acc_g1 += scalar_mul(pk.A_query_g1[i], si)
+        B_acc_g2 += scalar_mul(pk.B_query_g2[i], si)
+        B_acc_g1 += scalar_mul(pk.B_query_g1[i], si)
+        C_acc_g1 += scalar_mul(pk.C_query_g1[i], si)
     end
-    
-    # Compute B = Σ w_i * v_i(τ) + s * δ (simplified: ignoring δ term)
-    B = zero(G2Point)
-    for i in 1:qap.num_vars
-        B = B + scalar_mul(setup.v_tau_g2[i], Integer(w_vals[i].value))
-    end
-    
-    # Compute h(x) polynomial
+
+    # A and B
+    A1_g1 = pk.alpha_g1 + A_acc_g1
+    B1_g1 = pk.beta_g1  + B_acc_g1
+    A = A1_g1 + scalar_mul(pk.delta_g1, _to_int(r))
+    B = pk.beta_g2  + B_acc_g2 + scalar_mul(pk.delta_g2, _to_int(s))
+
+    # h(x): compute via dense division path and map coefficients via H_query
     h_poly = compute_h_polynomial(qap, witness)
-    
-    # Evaluate h at powers of tau to get h(τ)
-    # This is simplified - in practice we'd use the CRS elements
-    h_coeffs = h_poly.coeffs
-    h_tau_g1 = zero(G1Point)
-    for (i, coeff) in enumerate(h_coeffs)
-        if !iszero(coeff)
-            h_tau_g1 = h_tau_g1 + scalar_mul(setup.tau_powers_g1[i], Integer(coeff.value))
+    H = zero(G1Point)
+    for (k, coeff) in enumerate(h_poly.coeffs)
+        iszero(coeff) && continue
+        if k > length(pk.H_query_g1)
+            # Conservatively ignore higher terms for now (shouldn't happen if H_query length is sufficient)
+            continue
         end
+        H += scalar_mul(pk.H_query_g1[k], _to_int(coeff))
     end
-    
-    # Compute C' = Σ w_i * w_i(τ)
-    C_prime = zero(G1Point)
-    for i in 1:qap.num_vars
-        C_prime = C_prime + scalar_mul(setup.w_tau_g1[i], Integer(w_vals[i].value))
+
+    # L for private variables
+    L = zero(G1Point)
+    for (j, i) in enumerate((pk.num_public+1):m)
+        wi = w_vals[i]
+        iszero(wi) && continue
+        L += scalar_mul(pk.L_query_g1[j], _to_int(wi))
     end
-    
-    # Compute C = C' + h(τ) * t(τ) (simplified: using precomputed t(τ))
-    # In practice, we'd compute h(τ) * t(τ) properly
-    C = C_prime + h_tau_g1
-    
+
+    # Cross terms in C (arkworks style): C = s*g_a + r*g1_b - r*s*δ + L + H
+    # where g_a = A (includes r*δ), and g1_b = (β + Σ v_i) + s*δ in G1
+    rs_delta = scalar_mul(pk.delta_g1, _to_int(r*s))
+    g1_b_full = B1_g1 + scalar_mul(pk.delta_g1, _to_int(s))
+    C = H + L + scalar_mul(g1_b_full, _to_int(r)) + scalar_mul(A, _to_int(s)) - rs_delta
+
     return Groth16Proof(A, B, C)
 end
 
 """
-    verify(setup::TrustedSetup, proof::Groth16Proof, public_inputs::Vector{F}) where F
+    verify_full(vk::VerificationKey, proof::Groth16Proof, public_inputs::Vector{F}) where F
 
-Verify a Groth16 proof.
-Returns true if the proof is valid.
+Verify a Groth16 proof using the production-style verification key.
+Checks the standard equation: e(A,B) == e(α,β) · e(vk_x,γ) · e(C,δ).
+Performs on-curve and subgroup checks for A, B, C.
 """
-function verify(setup::TrustedSetup, proof::Groth16Proof, public_inputs::Vector{F}) where F
-    # Check pairing equation: e(A, B) = e(C, [1]₂)
-    # This is simplified - full Groth16 has additional terms
-    
+function verify_full(vk::VerificationKey, proof::Groth16Proof, public_inputs::Vector{F}) where F
+    # On-curve checks
+    if !(GrothCurves.is_on_curve(proof.A) && GrothCurves.is_on_curve(proof.B) && GrothCurves.is_on_curve(proof.C))
+        return false
+    end
+
+    # Subgroup checks: multiply by r and ensure infinity
+    r = GrothCurves.BN254_ORDER_R
+    if !(iszero(scalar_mul(proof.A, r)) && iszero(scalar_mul(proof.B, r)) && iszero(scalar_mul(proof.C, r)))
+        return false
+    end
+
+    # Compute vk_x = IC[1] + Σ_{i=2..num_public} input[i] * IC[i]
+    # public_inputs is expected to include the leading 1 at index 1
+    if length(public_inputs) < 1 || length(vk.IC) < 1
+        return false
+    end
+    if length(public_inputs) > length(vk.IC)
+        return false
+    end
+    vk_x = vk.IC[1]
+    for i in 2:length(public_inputs)
+        xi = public_inputs[i]
+        iszero(xi) && continue
+        vk_x += scalar_mul(vk.IC[i], _to_int(xi))
+    end
+
     lhs = pairing(proof.A, proof.B)
-    rhs = pairing(proof.C, g2_generator())
-    
+    rhs = pairing(vk.alpha_g1, vk.beta_g2) * pairing(vk_x, vk.gamma_g2) * pairing(proof.C, vk.delta_g2)
     return lhs == rhs
 end
 
-# Export types and functions
-export TrustedSetup, Groth16Proof
-export setup, prove, verify
+# Export production-style API
+export ProvingKey, VerificationKey, Keypair
+export setup_full, prove_full, verify_full

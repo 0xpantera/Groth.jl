@@ -55,16 +55,14 @@ function main()
     println("   ✓ QAP created with degree-$(degree(qap.t)) target polynomial")
     println("   Evaluation domain: $(qap.domain)")
     
-    # Step 4: Generate trusted setup
-    println("\n4. Generating trusted setup (CRS)")
-    crs = setup(qap)
-    println("   ✓ Trusted setup complete")
-    println("   - Generated $(length(crs.tau_powers_g1)) powers of τ in G1")
-    println("   - Generated $(length(crs.tau_powers_g2)) powers of τ in G2")
+    # Step 4: Generate production-style keys (CRS)
+    println("\n4. Generating Groth16 keys (CRS)")
+    keypair = setup_full(qap)
+    println("   ✓ Keys generated (ProvingKey + VerificationKey)")
     
     # Step 5: Generate proof
     println("\n5. Generating Groth16 proof")
-    proof = prove(crs, qap, witness)
+    proof = prove_full(keypair.pk, qap, witness)
     println("   ✓ Proof generated:")
     println("   - [A]₁ ∈ G1")
     println("   - [B]₂ ∈ G2")
@@ -86,11 +84,8 @@ function main()
     public_inputs = witness.values[1:r1cs.num_public]
     
     # Verify using pairing check
-    println("   Checking pairing equation: e(A, B) = e(C, [1]₂)")
-    
-    # For demonstration, we'll show the pairing computation
-    # (Note: our pairing is simplified for demonstration)
-    is_valid = verify(crs, proof, public_inputs)
+    println("   Checking pairing equation: e(A,B) = e(α,β) · e(vk_x,γ) · e(C,δ)")
+    is_valid = verify_full(keypair.vk, proof, public_inputs)
     
     if is_valid
         println("   ✓ Proof is VALID!")
