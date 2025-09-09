@@ -75,7 +75,7 @@ Create the R1CS for r = x * y * z * u as described in the example.
 Variables: [1, r, x, y, z, u, v1, v2] where v1 = x*y, v2 = z*u, r = v1*v2
 """
 function create_r1cs_example_multiplication()
-    F = BN254Field
+    F = BN254ScalarField
     
     # 8 variables: [1, r, x, y, z, u, v1, v2]
     num_vars = 8
@@ -116,7 +116,7 @@ end
 Create a witness for r = x * y * z * u.
 """
 function create_witness_multiplication(x::Integer, y::Integer, z::Integer, u::Integer)
-    F = BN254Field
+    F = BN254ScalarField
     
     # Compute intermediate values
     v1 = x * y
@@ -126,13 +126,13 @@ function create_witness_multiplication(x::Integer, y::Integer, z::Integer, u::In
     # Create witness vector: [1, r, x, y, z, u, v1, v2]
     witness_values = [
         one(F),
-        bn254_field(r),
-        bn254_field(x),
-        bn254_field(y),
-        bn254_field(z),
-        bn254_field(u),
-        bn254_field(v1),
-        bn254_field(v2)
+        bn254_scalar(r),
+        bn254_scalar(x),
+        bn254_scalar(y),
+        bn254_scalar(z),
+        bn254_scalar(u),
+        bn254_scalar(v1),
+        bn254_scalar(v2)
     ]
     
     return Witness{F}(witness_values)
@@ -141,3 +141,72 @@ end
 # Export types and functions
 export R1CS, Witness, is_satisfied
 export create_r1cs_example_multiplication, create_witness_multiplication
+
+"""
+    create_r1cs_example_sum_of_products()
+
+Create the R1CS for r = x*y + z*u.
+Variables: [1, r, x, y, z, u, v1, v2] where v1 = x*y, v2 = z*u, r = v1 + v2
+"""
+function create_r1cs_example_sum_of_products()
+    F = BN254ScalarField
+
+    # 8 variables: [1, r, x, y, z, u, v1, v2]
+    num_vars = 8
+    # 3 constraints
+    num_constraints = 3
+    # 6 public inputs: [1, r, x, y, z, u]
+    num_public = 6
+
+    # Initialize matrices with zeros
+    L = zeros(F, num_constraints, num_vars)
+    R = zeros(F, num_constraints, num_vars)
+    O = zeros(F, num_constraints, num_vars)
+
+    # Constraint 1: v1 = x * y
+    L[1, 3] = one(F)  # x
+    R[1, 4] = one(F)  # y
+    O[1, 7] = one(F)  # v1
+
+    # Constraint 2: v2 = z * u
+    L[2, 5] = one(F)  # z
+    R[2, 6] = one(F)  # u
+    O[2, 8] = one(F)  # v2
+
+    # Constraint 3: r = v1 + v2 -> (r - v1 - v2) * 1 = 0
+    L[3, 2] = one(F)   # r
+    L[3, 7] = -one(F)  # -v1
+    L[3, 8] = -one(F)  # -v2
+    R[3, 1] = one(F)   # multiply by 1
+    # O row remains zero (equals 0)
+
+    return R1CS{F}(num_vars, num_constraints, num_public, L, R, O)
+end
+
+"""
+    create_witness_sum_of_products(x, y, z, u)
+
+Create a witness for r = x*y + z*u.
+"""
+function create_witness_sum_of_products(x::Integer, y::Integer, z::Integer, u::Integer)
+    F = BN254ScalarField
+
+    v1 = x * y
+    v2 = z * u
+    r = v1 + v2
+
+    witness_values = [
+        one(F),
+        bn254_scalar(r),
+        bn254_scalar(x),
+        bn254_scalar(y),
+        bn254_scalar(z),
+        bn254_scalar(u),
+        bn254_scalar(v1),
+        bn254_scalar(v2),
+    ]
+
+    return Witness{F}(witness_values)
+end
+
+export create_r1cs_example_sum_of_products, create_witness_sum_of_products
