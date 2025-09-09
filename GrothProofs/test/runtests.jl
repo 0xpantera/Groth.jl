@@ -110,6 +110,11 @@ end
         public_inputs = witness.values[1:r1cs.num_public]
         proof = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(x + y + z + u))
         @test verify_full(keypair.vk, proof, public_inputs)
+
+        # Prepared verifier path should agree
+        pvk = prepare_verifying_key(keypair.vk)
+        pin = prepare_inputs(pvk, public_inputs)
+        @test verify_with_prepared(pvk, proof, pin)
     end
 
     # Rerandomization invariance: different seeds produce valid proofs
@@ -120,6 +125,10 @@ end
     proof2 = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(2))
     @test verify_full(keypair.vk, proof1, public_inputs)
     @test verify_full(keypair.vk, proof2, public_inputs)
+    pvk = prepare_verifying_key(keypair.vk)
+    pin = prepare_inputs(pvk, public_inputs)
+    @test verify_with_prepared(pvk, proof1, pin)
+    @test verify_with_prepared(pvk, proof2, pin)
 end
 
 @testset "QAP divisibility spot-checks" begin

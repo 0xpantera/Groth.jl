@@ -281,3 +281,73 @@ end
 # Export production-style API
 export ProvingKey, VerificationKey, Keypair
 export setup_full, prove_full, verify_full
+
+"""
+Prepared verification key caching e(α,β) and holding γ, δ for prepared verification.
+"""
+struct PreparedVerificationKey
+    vk::VerificationKey
+    alpha_g1_beta_g2::GTElement
+    gamma_g2_neg::G2Point
+    delta_g2_neg::G2Point
+end
+
+"""
+    prepare_verifying_key(vk::VerificationKey)
+
+Compute cached pairing e(α,β) and negated γ, δ for prepared verification.
+"""
+function prepare_verifying_key(vk::VerificationKey)
+    return PreparedVerificationKey(
+        vk,
+        pairing(vk.alpha_g1, vk.beta_g2),
+        -vk.gamma_g2,
+        -vk.delta_g2,
+    )
+end
+
+"""
+    prepare_inputs(pvk::PreparedVerificationKey, public_inputs::Vector{F}) where F
+
+Compute vk_x = IC[1] + Σ_{i=2..} input[i] * IC[i].
+public_inputs must include the leading 1 at index 1.
+"""
+function prepare_inputs(pvk::PreparedVerificationKey, public_inputs::Vector{F}) where F
+    vk = pvk.vk
+    if isempty(public_inputs) || isempty(vk.IC) || length(public_inputs) > length(vk.IC)
+        throw(ArgumentError("Invalid public inputs for prepared inputs"))
+    end
+    acc = vk.IC[1]
+    for i in 2:length(public_inputs)
+        xi = public_inputs[i]
+        iszero(xi) && continue
+        acc += scalar_mul(vk.IC[i], _to_int(xi))
+    end
+    return acc
+end
+
+"""
+    verify_with_prepared(pvk::PreparedVerificationKey, proof::Groth16Proof, prepared_inputs::G1Point)
+
+Verify using prepared verifier: compare product pairing to cached e(α,β).
+Includes on-curve and subgroup checks as in verify_full.
+"""
+function verify_with_prepared(pvk::PreparedVerificationKey, proof::Groth16Proof, prepared_inputs::G1Point)
+    # On-curve and subgroup checks
+    if !(GrothCurves.is_on_curve(proof.A) && GrothCurves.is_on_curve(proof.B) && GrothCurves.is_on_curve(proof.C))
+        return false
+    end
+    r = GrothCurves.BN254_ORDER_R
+    if !(iszero(scalar_mul(proof.A, r)) && iszero(scalar_mul(proof.B, r)) && iszero(scalar_mul(proof.C, r)))
+        return false
+    end
+
+    # Multi-pairing product, single final exponentiation
+    prod = pairing_batch(
+        [proof.A, prepared_inputs, proof.C],
+        [proof.B, pvk.gamma_g2_neg, pvk.delta_g2_neg],
+    )
+    return prod == pvk.alpha_g1_beta_g2
+end
+
+export PreparedVerificationKey, prepare_verifying_key, prepare_inputs, verify_with_prepared
