@@ -12,14 +12,14 @@
                     ║        ░    ░         ░ ░             ░  ░  ░    ║
                     ╚═══════════════════════════════════════════════════╝
                           ∴‥∵‥∴ zkSNARK SUPREMACY ∴‥∵‥∴
-                           
+
                     ░▒▓█►  ρяσνє єνєяутнιηg, яєνєαℓ ησтнιηg  ◄█▓▒░
-                    
+
          ╔═════════════════════════════════════════════════════════════╗
          ║  "In cryptography we trust, in zero-knowledge we thrive"   ║
-         ║              ∞ milady privacy maximalism ∞                 ║ 
+         ║              ∞ milady privacy maximalism ∞                 ║
          ╚═════════════════════════════════════════════════════════════╝
-                                   
+
                         ▓▓▓▓▓▓▓   ▓▓▓▓▓▓▓
                        ▓       ▓ ▓       ▓    ┌─────────────┐
                        ▓  ╳ ╳  ▓ ▓  ╳ ╳  ▓    │ COMMITMENT  │
@@ -27,7 +27,7 @@
                         ▓     ▓   ▓     ▓     │  KNOWLEDGE  │
                          ▓▓▓▓▓     ▓▓▓▓▓      └─────────────┘
                            ║         ║
-                        ═══╬═════════╬═══ 
+                        ═══╬═════════╬═══
                            ║         ║
                      ╔═════╩═════════╩═════╗
                      ║  TRUSTED SETUP CULT  ║
@@ -36,8 +36,10 @@
 
 # Groth.jl
 
-**A modular, educational implementation of the Groth16 zero-knowledge proof system**  
-*Built from scratch in Julia for learning, research, and cryptographic enlightenment*
+Research-focused, modular implementation of the Groth16 zero-knowledge proof system in Julia.
+This repo explores cryptographic primitives (finite fields, curves, pairings) and the Groth16 protocol end-to-end in Julia.
+
+Note: This project is for research and experimentation. It is not intended for production use.
 
 ## Project Structure
 
@@ -56,50 +58,33 @@ This is a monorepo containing several interconnected Julia packages:
 - **[docs/](./docs)** - Overall project documentation and theory explanations
 - **[benchmarks/](./benchmarks)** - Performance benchmarks across packages
 
-## Implementation Priorities
+## Status Overview
 
-To build a complete Groth16 implementation following the QAP approach, here are the recommended implementation priorities:
+- Algebra (GrothAlgebra)
+  - Prime fields (Fp) and scalar field (Fr) implementations; polynomial arithmetic with interpolation and evaluation.
+  - FFT/NTT and roots-of-unity domain planned (not yet implemented).
+- Curves & Pairing (GrothCurves)
+  - BN254 G1/G2 with Fp2/Fp6/Fp12 tower, optimal ate Miller loop, and final exponentiation.
+  - Comprehensive tests for field extensions and pairings.
+- Proofs (GrothProofs)
+  - R1CS and QAP conversion in Fr; end-to-end Groth16 (CRS, prover, verifier) aligned with arkworks structure and equations.
+  - Verifier enforces on-curve and subgroup checks; tests include positive/negative cases for a sample circuit.
+- Examples (GrothExamples)
+  - End-to-end demonstration of the Groth16 pipeline.
 
-### 1. Complete BN254 Curve in GrothCurves
+## Roadmap Highlights
 
-- Implement base field Fp and extension field Fp2
-- Add G1/G2 point operations (addition, doubling, scalar multiplication)
-- Implement basic pairing map functionality
-
-### 2. Implement R1CS Structure
-
-- Define constraint matrices (A, B, C)
-- Handle variable assignments (public inputs, private witnesses)
-- Add constraint satisfaction checking
-
-### 3. QAP Transformation
-
-- Implement Lagrange interpolation of constraint matrices
-- Compute polynomials A(x), B(x), C(x)
-- Generate target polynomial t(x) = ∏(x - ωⁱ)
-
-### 4. FFT for Efficient Polynomial Operations
-
-- Find primitive roots of unity in the field
-- Implement radix-2 FFT/IFFT algorithms
-- Enable polynomial multiplication via convolution
-
-### 5. Basic Prover and Verifier
-
-- Implement simplified trusted setup ceremony
-- Add proof generation algorithm
-- Implement verification equation checks
-
-## Current Status
-
-- **Completed**: Field arithmetic, polynomial operations, group abstractions
-- **In Progress**: Elliptic curve implementations
-- **TODO**: R1CS, QAP transformation, trusted setup, proof system
+- Broaden Groth16 tests (multiple circuits, randomized r,s, multi-input IC).
+- Prepared verifier (cache e(α,β); aggregate pairings via one multi-Miller loop + single final exp).
+- FFT/NTT + roots-of-unity domain for QAP and faster polynomial ops.
+- MSM and windowed scalar multiplication for the prover; batch normalization.
 
 ## Development
 
-This project follows Julia best practices with comprehensive testing and documentation. Each module has its own test suite and documentation.
+- This is a research project: APIs may evolve. Not for production use.
+- Each package is a standalone Julia project with its own tests and docs.
 
 ## References
 
-Following the RareSkills ZK Book for theoretical background and implementation guidance.
+- arkworks-rs (groth16, algebra, relations)
+- RareSkills ZK Book
