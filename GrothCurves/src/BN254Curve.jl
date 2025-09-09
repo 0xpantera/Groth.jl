@@ -15,6 +15,10 @@ The BN254 curve has:
 # Curve parameters
 struct BN254Curve <: AbstractCurve end
 
+# BN254 scalar field / subgroup order r (Q)
+# This is the prime order of the G1/G2 subgroups used by Groth16 (aka Fr modulus).
+const BN254_ORDER_R = parse(BigInt, "21888242871839275222246405745257275088548364400416034343698204186575808495617")
+
 """
     G1Point
 
@@ -347,3 +351,4 @@ export BN254Curve, G1Point, G2Point
 export to_affine, is_on_curve, double
 export g1_generator, g2_generator
 export x_coord, y_coord, z_coord
+export BN254_ORDER_R
