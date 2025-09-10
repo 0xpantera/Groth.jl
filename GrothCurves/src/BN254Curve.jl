@@ -352,3 +352,85 @@ export to_affine, is_on_curve, double
 export g1_generator, g2_generator
 export x_coord, y_coord, z_coord
 export BN254_ORDER_R
+ 
+"""
+    batch_to_affine!(pts::Vector{G1Point})
+
+Convert a vector of G1 points from Jacobian to affine coordinates using a single
+field inversion (Montgomery's trick). Points at infinity are left as-is.
+"""
+function batch_to_affine!(pts::Vector{G1Point})
+    n = length(pts)
+    if n == 0
+        return pts
+    end
+    # Collect indices of non-infinity points
+    idxs = [i for i in 1:n if !iszero(pts[i])]
+    if isempty(idxs)
+        return pts
+    end
+    # Prefix products of Z for non-zero points
+    prefix = Vector{BN254Field}(undef, length(idxs))
+    prefix[1] = z_coord(pts[idxs[1]])
+    for k in 2:length(idxs)
+        prefix[k] = prefix[k-1] * z_coord(pts[idxs[k]])
+    end
+    inv_total = inv(prefix[end])
+    # Backward pass to compute each Z^{-1}
+    zinv = Vector{BN254Field}(undef, length(idxs))
+    for k in length(idxs):-1:1
+        z_k = z_coord(pts[idxs[k]])
+        prev = k == 1 ? one(BN254Field) : prefix[k-1]
+        zinv_k = inv_total * prev
+        zinv[k] = zinv_k
+        inv_total = inv_total * z_k
+    end
+    # Update points to affine
+    for (t, i) in enumerate(idxs)
+        P = pts[i]
+        z_inv = zinv[t]
+        z_inv2 = z_inv^2
+        z_inv3 = z_inv2 * z_inv
+        pts[i] = G1Point(x_coord(P) * z_inv2, y_coord(P) * z_inv3, one(BN254Field))
+    end
+    return pts
+end
+
+"""
+    batch_to_affine!(pts::Vector{G2Point})
+
+Convert a vector of G2 points from Jacobian to affine coordinates using a single
+Fp2 inversion (Montgomery's trick). Points at infinity are left as-is.
+"""
+function batch_to_affine!(pts::Vector{G2Point})
+    n = length(pts)
+    if n == 0
+        return pts
+    end
+    idxs = [i for i in 1:n if !iszero(pts[i])]
+    if isempty(idxs)
+        return pts
+    end
+    prefix = Vector{Fp2Element}(undef, length(idxs))
+    prefix[1] = z_coord(pts[idxs[1]])
+    for k in 2:length(idxs)
+        prefix[k] = prefix[k-1] * z_coord(pts[idxs[k]])
+    end
+    inv_total = inv(prefix[end])
+    zinv = Vector{Fp2Element}(undef, length(idxs))
+    for k in length(idxs):-1:1
+        z_k = z_coord(pts[idxs[k]])
+        prev = k == 1 ? one(Fp2Element) : prefix[k-1]
+        zinv_k = inv_total * prev
+        zinv[k] = zinv_k
+        inv_total = inv_total * z_k
+    end
+    for (t, i) in enumerate(idxs)
+        P = pts[i]
+        z_inv = zinv[t]
+        z_inv2 = z_inv^2
+        z_inv3 = z_inv2 * z_inv
+        pts[i] = G2Point(x_coord(P) * z_inv2, y_coord(P) * z_inv3, one(Fp2Element))
+    end
+    return pts
+end

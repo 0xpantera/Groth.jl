@@ -189,20 +189,11 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
     r = debug_no_random ? zero(F) : F(rand(rng, 1:1000000))
     s = debug_no_random ? zero(F) : F(rand(rng, 1:1000000))
 
-    # Accumulators for queries
-    A_acc_g1 = zero(G1Point)
-    B_acc_g2 = zero(G2Point)
-    B_acc_g1 = zero(G1Point)  # for cross term in C
-    C_acc_g1 = zero(G1Point)
-    for i in 1:m
-        wi = w_vals[i]
-        iszero(wi) && continue
-        si = _to_int(wi)
-        A_acc_g1 += scalar_mul(pk.A_query_g1[i], si)
-        B_acc_g2 += scalar_mul(pk.B_query_g2[i], si)
-        B_acc_g1 += scalar_mul(pk.B_query_g1[i], si)
-        C_acc_g1 += scalar_mul(pk.C_query_g1[i], si)
-    end
+    # Accumulators for queries via MSM (fallbacks to scalar loops for tiny sizes)
+    scalars = [_to_int(w_vals[i]) for i in 1:m]
+    A_acc_g1 = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, scalars)
+    B_acc_g2 = GrothAlgebra.multi_scalar_mul(pk.B_query_g2, scalars)
+    B_acc_g1 = GrothAlgebra.multi_scalar_mul(pk.B_query_g1, scalars)
 
     # A and B
     A1_g1 = pk.alpha_g1 + A_acc_g1
@@ -212,22 +203,18 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
 
     # h(x): compute via dense division path and map coefficients via H_query
     h_poly = compute_h_polynomial(qap, witness)
-    H = zero(G1Point)
-    for (k, coeff) in enumerate(h_poly.coeffs)
-        iszero(coeff) && continue
-        if k > length(pk.H_query_g1)
-            # Conservatively ignore higher terms for now (shouldn't happen if H_query length is sufficient)
-            continue
-        end
-        H += scalar_mul(pk.H_query_g1[k], _to_int(coeff))
-    end
+    hk = length(h_poly.coeffs)
+    pts_h = pk.H_query_g1[1:hk]
+    scalars_h = [_to_int(c) for c in h_poly.coeffs]
+    H = GrothAlgebra.multi_scalar_mul(pts_h, scalars_h)
 
     # L for private variables
-    L = zero(G1Point)
-    for (j, i) in enumerate((pk.num_public+1):m)
-        wi = w_vals[i]
-        iszero(wi) && continue
-        L += scalar_mul(pk.L_query_g1[j], _to_int(wi))
+    # L for private variables via MSM
+    if m > pk.num_public
+        priv_scalars = [_to_int(w_vals[i]) for i in (pk.num_public+1):m]
+        L = GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars)
+    else
+        L = zero(G1Point)
     end
 
     # Cross terms in C (arkworks style): C = s*g_a + r*g1_b - r*s*δ + L + H
@@ -266,11 +253,12 @@ function verify_full(vk::VerificationKey, proof::Groth16Proof, public_inputs::Ve
     if length(public_inputs) > length(vk.IC)
         return false
     end
-    vk_x = vk.IC[1]
-    for i in 2:length(public_inputs)
-        xi = public_inputs[i]
-        iszero(xi) && continue
-        vk_x += scalar_mul(vk.IC[i], _to_int(xi))
+    if length(public_inputs) > 1
+        pts_ic = vk.IC[2:length(public_inputs)]
+        scal_ic = [_to_int(public_inputs[i]) for i in 2:length(public_inputs)]
+        vk_x = vk.IC[1] + GrothAlgebra.multi_scalar_mul(pts_ic, scal_ic)
+    else
+        vk_x = vk.IC[1]
     end
 
     lhs = pairing(proof.A, proof.B)
