@@ -1,0 +1,15 @@
+name = "GrothBenchmarks"
+uuid = "f3e19a3a-2c8d-4d9f-9a7c-000000000001"
+authors = ["Groth.jl contributors"]
+version = "0.1.0"
+
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+GrothAlgebra = "c7a79d44-cfd6-4e24-8a20-28d2d2e8370b"
+GrothCurves = "5abac9ed-d1ba-4f09-bf87-1d0505e406bb"
+GrothProofs = "a08a9250-f3dc-4127-bcf9-3e12d47ce125"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[compat]
+julia = "1.11"
+BenchmarkTools = "1"
