@@ -105,11 +105,15 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG) where F
         C_eval[i] = evaluate(qap.w[i], τ)
     end
 
-    # Map evaluations into group queries
-    A_query_g1 = [scalar_mul(g1, _to_int(A_eval[i])) for i in 1:m]
-    B_query_g2 = [scalar_mul(g2, _to_int(B_eval[i])) for i in 1:m]
-    B_query_g1 = [scalar_mul(g1, _to_int(B_eval[i])) for i in 1:m]
-    C_query_g1 = [scalar_mul(g1, _to_int(C_eval[i])) for i in 1:m]
+    # Fixed-base tables for batch generation
+    g1tab = GrothAlgebra.build_fixed_table(g1)
+    g2tab = GrothAlgebra.build_fixed_table(g2)
+
+    # Map evaluations into group queries using fixed-base batch mul
+    A_query_g1 = GrothAlgebra.batch_mul(g1tab, [_to_int(A_eval[i]) for i in 1:m])
+    B_query_g2 = GrothAlgebra.batch_mul(g2tab, [_to_int(B_eval[i]) for i in 1:m])
+    B_query_g1 = GrothAlgebra.batch_mul(g1tab, [_to_int(B_eval[i]) for i in 1:m])
+    C_query_g1 = GrothAlgebra.batch_mul(g1tab, [_to_int(C_eval[i]) for i in 1:m])
 
     # Target polynomial at τ
     t_tau = evaluate(qap.t, τ)
@@ -124,22 +128,33 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG) where F
     end
 
     # H_query_g1: [τ^k · t(τ) / δ]₁
-    H_query_g1 = [scalar_mul(g1, _to_int(t_tau * tau_powers[k] * δ_inv)) for k in 1:max_k]
+    H_query_g1 = GrothAlgebra.batch_mul(g1tab, [_to_int(t_tau * tau_powers[k] * δ_inv) for k in 1:max_k])
 
     # L_query for private variables only: [(β·u_i(τ) + α·v_i(τ) + w_i(τ)) / δ]₁
     num_public = qap.num_public
     L_query_g1 = G1Point[]
-    for i in (num_public+1):m
-        acc = β * A_eval[i] + α * B_eval[i] + C_eval[i]
-        push!(L_query_g1, scalar_mul(g1, _to_int(acc * δ_inv)))
+    if m > num_public
+        L_scalars = BigInt[]
+        sizehint!(L_scalars, m - num_public)
+        for i in (num_public+1):m
+            acc = β * A_eval[i] + α * B_eval[i] + C_eval[i]
+            push!(L_scalars, _to_int(acc * δ_inv))
+        end
+        L_query_g1 = GrothAlgebra.batch_mul(g1tab, L_scalars)
     end
 
     # IC for public inputs: [(β·u_i(τ) + α·v_i(τ) + w_i(τ)) / γ]₁, including 1
-    IC = G1Point[]
-    for i in 1:num_public
-        acc = β * A_eval[i] + α * B_eval[i] + C_eval[i]
-        push!(IC, scalar_mul(g1, _to_int(acc * γ_inv)))
-    end
+    IC_scalars = [_to_int((β * A_eval[i] + α * B_eval[i] + C_eval[i]) * γ_inv) for i in 1:num_public]
+    IC = GrothAlgebra.batch_mul(g1tab, IC_scalars)
+
+    # Normalize queries to affine for efficient storage
+    GrothCurves.batch_to_affine!(A_query_g1)
+    GrothCurves.batch_to_affine!(B_query_g1)
+    GrothCurves.batch_to_affine!(C_query_g1)
+    GrothCurves.batch_to_affine!(H_query_g1)
+    GrothCurves.batch_to_affine!(IC)
+    GrothCurves.batch_to_affine!(L_query_g1)
+    GrothCurves.batch_to_affine!(B_query_g2)
 
     # Fixed elements
     alpha_g1 = scalar_mul(g1, _to_int(α))

@@ -219,13 +219,14 @@ function wnaf_encode(k::Integer, w::Int=4)
     end
 
     naf = Int[]
-    temp_k = abs(k)
+    temp_k = BigInt(abs(k))
 
     while temp_k > 0
-        if temp_k & 1 == 1  # k is odd
+        if isodd(temp_k)  # k is odd
             # Extract the bottom w bits
-            mask = (1 << w) - 1
-            digit = temp_k & mask
+            mask = BigInt((1 << w) - 1)
+            digit_big = temp_k & mask
+            digit = Int(digit_big)  # safe: digit < 2^w
 
             # If digit is too large, make it negative
             if digit >= (1 << (w-1))
@@ -233,7 +234,7 @@ function wnaf_encode(k::Integer, w::Int=4)
             end
 
             push!(naf, digit)
-            temp_k -= digit
+            temp_k -= BigInt(digit)
         else
             push!(naf, 0)
         end
@@ -290,6 +291,78 @@ function scalar_mul_wnaf(P::GroupElem{C}, k::Integer, w::Int=4) where C
     end
 
     return result
+end
+
+# Fixed-base precomputation (w-NAF table)
+
+"""
+    FixedBaseTable{G}
+
+Table of precomputed odd multiples for a fixed base point, used to accelerate
+multiple scalar multiplications with the same base via w-NAF.
+"""
+struct FixedBaseTable{G<:GroupElem}
+    window::Int
+    precomp::Vector{G}  # [1P, 3P, 5P, ..., (2^(w-1)-1)P]
+end
+
+"""
+    build_fixed_table(base::G; window::Int=5) where {G<:GroupElem}
+
+Build a fixed-base table of odd multiples for `base` with given window size.
+"""
+function build_fixed_table(base::G; window::Int=5) where {G<:GroupElem}
+    if window < 2
+        throw(ArgumentError("Window size must be at least 2"))
+    end
+    max_odd = (1 << (window - 1)) - 1
+    precomp = Vector{G}(undef, max_odd)
+    precomp[1] = base
+    if max_odd > 1
+        twoP = base + base
+        for i in 2:max_odd
+            precomp[i] = precomp[i-1] + twoP
+        end
+    end
+    return FixedBaseTable{G}(window, precomp)
+end
+
+"""
+    mul_fixed(table::FixedBaseTable{G}, k::Integer) where {G<:GroupElem}
+
+Multiply using a fixed-base table and w-NAF digits for the scalar.
+"""
+function mul_fixed(table::FixedBaseTable{G}, k::Integer) where {G<:GroupElem}
+    # Handle trivial cases
+    if k == 0
+        return zero(table.precomp[1])
+    elseif k == 1
+        return table.precomp[1]
+    elseif k == -1
+        return -table.precomp[1]
+    end
+
+    naf = wnaf_encode(k, table.window)
+    acc = zero(table.precomp[1])
+    for i in length(naf):-1:1
+        acc = acc + acc
+        d = naf[i]
+        if d > 0
+            acc = acc + table.precomp[div(d + 1, 2)]
+        elseif d < 0
+            acc = acc + (-table.precomp[div(-d + 1, 2)])
+        end
+    end
+    return acc
+end
+
+"""
+    batch_mul(table::FixedBaseTable{G}, scalars::Vector{<:Integer}) where {G<:GroupElem}
+
+Compute [k_i · base] for a batch of scalars using a single fixed-base table.
+"""
+function batch_mul(table::FixedBaseTable{G}, scalars::Vector{<:Integer}) where {G<:GroupElem}
+    return [mul_fixed(table, ki) for ki in scalars]
 end
 
 # Helper functions

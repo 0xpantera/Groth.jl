@@ -23,6 +23,7 @@ export prime, is_zero, is_one, is_unity
 export AbstractCurve, GroupElem
 export scalar_mul, group_identity, inv, iszero, isone
 export multi_scalar_mul, wnaf_encode, scalar_mul_wnaf
+export FixedBaseTable, build_fixed_table, mul_fixed, batch_mul
 export double, triple, order, is_on_curve
 
 # Export polynomial operations
