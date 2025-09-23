@@ -20,23 +20,25 @@ function load_results(path::String)
     end
 end
 
-function parse_ns(s::String)
-    # TrialEstimate string, take the first number and unit
-    # e.g., "TrialEstimate(939.764 ms)" -> 939.764, unit ms
-    m = match(r"TrialEstimate\(([^\)]+)\)", s)
-    v = m === nothing ? NaN : parse(Float64, split(m.captures[1])[1])
-    u = m === nothing ? "" : split(m.captures[1])[2]
-    # Convert to milliseconds
-    factor = u == "ns" ? 1e-6 : u == "μs" ? 1e-3 : u == "ms" ? 1.0 : u == "s" ? 1e3 : 1.0
-    return v * factor
-end
+median_ms(entry) = entry["median_seconds"] * 1e3
 
 function plot_group(results::Dict, key::Symbol, title::String, labels::Vector{String}, outfile::String)
-    keystr = String(key)
-    Ns = sort(parse.(Int, collect(keys(results[keystr]))))
-    data = [parse_ns(results[keystr][string(N)][labels[j]]["med"]) for j in eachindex(labels), N in Ns]
+    group = get(results, String(key), nothing)
+    group === nothing && return
+    Ns = sort(parse.(Int, collect(keys(group))))
+    data = [median_ms(group[string(N)][labels[j]]) for j in eachindex(labels), N in Ns]
     groupedbar(string.(Ns), permutedims(data), bar_position=:dodge,
         legend=:topleft, title=title, xlabel="N", ylabel="median time (ms)", label=labels)
+    png(joinpath(@__DIR__, outfile))
+end
+
+function plot_single_ops(results::Dict, key::Symbol, order::Vector{String}, title::String, outfile::String)
+    group = get(results, String(key), nothing)
+    group === nothing && return
+    labels = [label for label in order if haskey(group, label)]
+    values = [median_ms(group[label]) for label in labels]
+    pretty = [replace(label, "_" => " ") for label in labels]
+    bar(pretty, values; legend=false, title=title, ylabel="median time (ms)", xticks=:auto, xrotation=30)
     png(joinpath(@__DIR__, outfile))
 end
 
@@ -45,13 +47,25 @@ function main()
     println("Loading ", file)
     res = load_results(file)
 
-    # Fixed-base G1/G2
+    # Fixed-base / MSM / normalization
     plot_group(res, :fixed_g1, "Fixed-base G1 (median)", ["naive","batch"], "fixed_g1.png")
     plot_group(res, :fixed_g2, "Fixed-base G2 (median)", ["naive","batch"], "fixed_g2.png")
     plot_group(res, :msm_g1, "MSM G1 (median)", ["naive","msm"], "msm_g1.png")
     plot_group(res, :msm_g2, "MSM G2 (median)", ["naive","msm"], "msm_g2.png")
     plot_group(res, :norm_g1, "Batch norm G1 (median)", ["each","batch"], "norm_g1.png")
     plot_group(res, :norm_g2, "Batch norm G2 (median)", ["each","batch"], "norm_g2.png")
+
+    # Pairing summaries
+    plot_group(res, :pairing, "Pairing sequential vs batch", ["sequential","batch"], "pairing.png")
+    plot_single_ops(res, :pairing_single,
+        ["pairing", "miller_loop", "final_exponentiation"],
+        "Pairing micro-operations", "pairing_ops.png")
+
+    # Groth16 end-to-end
+    plot_single_ops(res, :groth16,
+        ["r1cs_to_qap", "setup", "prove", "verify_full", "prepare_vk", "prepare_inputs", "verify_prepared"],
+        "Groth16 pipeline", "groth16.png")
+
     println("Saved plots to benchmarks/*.png")
 end
 
