@@ -38,9 +38,6 @@ const ATE_LOOP_COUNT_NAF = Int8[
     -1, 0, 0, 0, 1, 0, 1, 1,
 ]
 
-# G2 curve parameter: b' = 3/(u+9) for the twist curve y² = x³ + b'
-const G2_B_TWIST = Fp2Element(3, 0) / Fp2Element(9, 1)  # 3/(u+9)
-
 # ============================================================================
 # p-power Endomorphism Constants for G2 Pairing
 # ============================================================================
@@ -283,15 +280,15 @@ function frobenius_g2(Q::G2Point, power::Int)
 end
 
 """
-    miller_loop(P::G1Point, Q::G2Point) -> Fp12Element
+    miller_loop(::BN254Engine, P::G1Point, Q::G2Point) -> Fp12Element
 
-Compute the Miller loop for the optimal ate pairing.
+Compute the Miller loop for the optimal ate pairing using the BN254 backend.
 This is the main computational component of the pairing.
 
 The loop iterates over u (not 6u+2), with two Frobenius correction lines
 at the end to achieve the full optimal ate pairing.
 """
-function miller_loop(P::G1Point, Q::G2Point)
+function miller_loop(::BN254Engine, P::G1Point, Q::G2Point)
     # Handle special cases
     if iszero(P) || iszero(Q)
         return one(Fp12Element)
@@ -347,6 +344,13 @@ function miller_loop(P::G1Point, Q::G2Point)
 
     return f
 end
+
+"""
+    miller_loop(P::G1Point, Q::G2Point)
+
+Convenience overload that reuses the shared BN254 engine.
+"""
+miller_loop(P::G1Point, Q::G2Point) = miller_loop(BN254_ENGINE, P, Q)
 
 # Export functions
 export LineCoeffs, doubling_step, addition_step, evaluate_line, miller_loop

@@ -56,29 +56,31 @@ struct ProvingKey
     num_public::Int               # includes constant 1
 end
 
-struct VerificationKey
+struct VerificationKey{E<:AbstractPairingEngine}
     alpha_g1::G1Point
     beta_g2::G2Point
     gamma_g2::G2Point
     delta_g2::G2Point
     IC::Vector{G1Point}  # [ (β·u_i(τ) + α·v_i(τ) + w_i(τ)) / γ ]₁ for public i (including 1)
+    engine::E
 end
 
-struct Keypair
+struct Keypair{E<:AbstractPairingEngine}
     pk::ProvingKey
-    vk::VerificationKey
+    vk::VerificationKey{E}
 end
 
 # Export types
 export Groth16Proof
 
 """
-    setup_full(qap::QAP{F}; rng=Random.GLOBAL_RNG) where F
+    setup_full(qap::QAP{F}; rng=Random.GLOBAL_RNG, engine=BN254_ENGINE) where F
 
 Generate production-style Groth16 keys (ProvingKey, VerificationKey).
 This implementation uses the current dense polynomial machinery (no FFT yet).
 """
-function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG) where F
+function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::AbstractPairingEngine=BN254_ENGINE) where F
+    E = typeof(engine)
     # Sample toxic waste
     α = F(rand(rng, 1:1000000))
     β = F(rand(rng, 1:1000000))
@@ -179,15 +181,16 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG) where F
         num_public,
     )
 
-    vk = VerificationKey(
+    vk = VerificationKey{E}(
         alpha_g1,
         beta_g2,
         gamma_g2,
         delta_g2,
         IC,
+        engine,
     )
 
-    return Keypair(pk, vk)
+    return Keypair{E}(pk, vk)
 end
 
 """
@@ -248,7 +251,7 @@ Verify a Groth16 proof using the production-style verification key.
 Checks the standard equation: e(A,B) == e(α,β) · e(vk_x,γ) · e(C,δ).
 Performs on-curve and subgroup checks for A, B, C.
 """
-function verify_full(vk::VerificationKey, proof::Groth16Proof, public_inputs::Vector{F}) where F
+function verify_full(vk::VerificationKey{E}, proof::Groth16Proof, public_inputs::Vector{F}) where {E<:AbstractPairingEngine, F}
     # On-curve checks
     if !(GrothCurves.is_on_curve(proof.A) && GrothCurves.is_on_curve(proof.B) && GrothCurves.is_on_curve(proof.C))
         return false
@@ -276,8 +279,9 @@ function verify_full(vk::VerificationKey, proof::Groth16Proof, public_inputs::Ve
         vk_x = vk.IC[1]
     end
 
-    lhs = pairing(proof.A, proof.B)
-    rhs = pairing(vk.alpha_g1, vk.beta_g2) * pairing(vk_x, vk.gamma_g2) * pairing(proof.C, vk.delta_g2)
+    engine = vk.engine
+    lhs = pairing(engine, proof.A, proof.B)
+    rhs = pairing(engine, vk.alpha_g1, vk.beta_g2) * pairing(engine, vk_x, vk.gamma_g2) * pairing(engine, proof.C, vk.delta_g2)
     return lhs == rhs
 end
 
@@ -288,8 +292,8 @@ export setup_full, prove_full, verify_full
 """
 Prepared verification key caching e(α,β) and holding γ, δ for prepared verification.
 """
-struct PreparedVerificationKey
-    vk::VerificationKey
+struct PreparedVerificationKey{E<:AbstractPairingEngine}
+    vk::VerificationKey{E}
     alpha_g1_beta_g2::GTElement
     gamma_g2_neg::G2Point
     delta_g2_neg::G2Point
@@ -300,10 +304,11 @@ end
 
 Compute cached pairing e(α,β) and negated γ, δ for prepared verification.
 """
-function prepare_verifying_key(vk::VerificationKey)
-    return PreparedVerificationKey(
+function prepare_verifying_key(vk::VerificationKey{E}) where {E<:AbstractPairingEngine}
+    engine = vk.engine
+    return PreparedVerificationKey{E}(
         vk,
-        pairing(vk.alpha_g1, vk.beta_g2),
+        pairing(engine, vk.alpha_g1, vk.beta_g2),
         -vk.gamma_g2,
         -vk.delta_g2,
     )
@@ -315,7 +320,7 @@ end
 Compute vk_x = IC[1] + Σ_{i=2..} input[i] * IC[i].
 public_inputs must include the leading 1 at index 1.
 """
-function prepare_inputs(pvk::PreparedVerificationKey, public_inputs::Vector{F}) where F
+function prepare_inputs(pvk::PreparedVerificationKey{E}, public_inputs::Vector{F}) where {E<:AbstractPairingEngine, F}
     vk = pvk.vk
     if isempty(public_inputs) || isempty(vk.IC) || length(public_inputs) > length(vk.IC)
         throw(ArgumentError("Invalid public inputs for prepared inputs"))
@@ -335,7 +340,7 @@ end
 Verify using prepared verifier: compare product pairing to cached e(α,β).
 Includes on-curve and subgroup checks as in verify_full.
 """
-function verify_with_prepared(pvk::PreparedVerificationKey, proof::Groth16Proof, prepared_inputs::G1Point)
+function verify_with_prepared(pvk::PreparedVerificationKey{E}, proof::Groth16Proof, prepared_inputs::G1Point) where {E<:AbstractPairingEngine}
     # On-curve and subgroup checks
     if !(GrothCurves.is_on_curve(proof.A) && GrothCurves.is_on_curve(proof.B) && GrothCurves.is_on_curve(proof.C))
         return false
@@ -346,7 +351,8 @@ function verify_with_prepared(pvk::PreparedVerificationKey, proof::Groth16Proof,
     end
 
     # Multi-pairing product, single final exponentiation
-    prod = pairing_batch(
+    engine = pvk.vk.engine
+    prod = pairing_batch(engine,
         [proof.A, prepared_inputs, proof.C],
         [proof.B, pvk.gamma_g2_neg, pvk.delta_g2_neg],
     )

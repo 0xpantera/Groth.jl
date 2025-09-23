@@ -13,7 +13,7 @@ The pairing e: G1 × G2 → GT satisfies bilinearity:
 # using GrothAlgebra
 
 # Import necessary functions
-import GrothCurves: miller_loop, final_exponentiation
+import GrothCurves: miller_loop, final_exponentiation, pairing, pairing_batch
 
 # GT is the target group - cyclotomic subgroup of Fp12*
 const GTElement = Fp12Element
@@ -29,27 +29,30 @@ This performs:
 
 The result is an element in GT ⊂ Fp12* of order r.
 """
-function optimal_ate_pairing(P::G1Point, Q::G2Point)
+function optimal_ate_pairing(engine::BN254Engine, P::G1Point, Q::G2Point)
     # Handle special cases
     if iszero(P) || iszero(Q)
         return one(GTElement)
     end
 
     # Step 1: Miller loop
-    f = miller_loop(P, Q)
+    f = miller_loop(engine, P, Q)
 
     # Step 2: Final exponentiation
-    result = final_exponentiation(f)
+    result = final_exponentiation(engine, f)
 
     return result
 end
+
+optimal_ate_pairing(P::G1Point, Q::G2Point) = optimal_ate_pairing(BN254_ENGINE, P, Q)
 
 """
     pairing(P::G1Point, Q::G2Point)
 
 Alias for optimal_ate_pairing.
 """
-pairing(P::G1Point, Q::G2Point) = optimal_ate_pairing(P, Q)
+pairing(engine::BN254Engine, P::G1Point, Q::G2Point) = optimal_ate_pairing(engine, P, Q)
+pairing(P::G1Point, Q::G2Point) = pairing(BN254_ENGINE, P, Q)
 
 """
     pairing_batch(P_vec::Vector{G1Point}, Q_vec::Vector{G2Point})
@@ -59,7 +62,7 @@ Compute the product of pairings: ∏ e(Pᵢ, Qᵢ)
 This is more efficient than computing individual pairings and multiplying,
 as we can share the final exponentiation.
 """
-function pairing_batch(P_vec::Vector{G1Point}, Q_vec::Vector{G2Point})
+function pairing_batch(engine::BN254Engine, P_vec::Vector{G1Point}, Q_vec::Vector{G2Point})
     if length(P_vec) != length(Q_vec)
         throw(ArgumentError("Input vectors must have the same length"))
     end
@@ -72,13 +75,17 @@ function pairing_batch(P_vec::Vector{G1Point}, Q_vec::Vector{G2Point})
     f = one(Fp12Element)
     for (P, Q) in zip(P_vec, Q_vec)
         if !iszero(P) && !iszero(Q)
-            f = f * miller_loop(P, Q)
+            f = f * miller_loop(engine, P, Q)
         end
     end
 
     # Single final exponentiation
-    return final_exponentiation(f)
+    return final_exponentiation(engine, f)
 end
 
-# Export pairing functions
-export GTElement, optimal_ate_pairing, pairing, pairing_batch
+pairing_batch(P_vec::Vector{G1Point}, Q_vec::Vector{G2Point}) =
+    pairing_batch(BN254_ENGINE, P_vec, Q_vec)
+
+# Export pairing functions and engine
+export GTElement, BN254Engine, BN254_ENGINE
+export optimal_ate_pairing, pairing, pairing_batch
