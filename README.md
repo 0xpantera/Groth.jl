@@ -55,7 +55,7 @@ This is a monorepo containing several interconnected Julia packages:
 
 ### Documentation & Tools
 
-- **[docs/](./docs)** - Overall project documentation and theory explanations
+- **[docs/](./docs)** - Project documentation including the RareSkills→Groth16 map and polishing roadmap
 - **[benchmarks/](./benchmarks)** - Performance benchmarks across packages
 
 ## Status Overview
@@ -65,19 +65,25 @@ This is a monorepo containing several interconnected Julia packages:
   - FFT/NTT and roots-of-unity domain planned (not yet implemented).
 - Curves & Pairing (GrothCurves)
   - BN254 G1/G2 with Fp2/Fp6/Fp12 tower, optimal ate Miller loop, and final exponentiation.
-  - Comprehensive tests for field extensions and pairings.
+  - Pairing engine abstraction (`AbstractPairingEngine`, `BN254Engine`) to support future curves while keeping BN254 optimized.
 - Proofs (GrothProofs)
   - R1CS and QAP conversion in Fr; end-to-end Groth16 (CRS, prover, verifier) aligned with arkworks structure and equations.
-  - Verifier enforces on-curve and subgroup checks; tests include positive/negative cases for a sample circuit.
+  - Verifier enforces on-curve and subgroup checks; prepared verifier path batches pairings through the engine interface.
 - Examples (GrothExamples)
   - End-to-end demonstration of the Groth16 pipeline.
 
 ## Roadmap Highlights
 
-- Broaden Groth16 tests (multiple circuits, randomized r,s, multi-input IC).
-- Prepared verifier (cache e(α,β); aggregate pairings via one multi-Miller loop + single final exp).
+- Grow curve/generalization support: extend the pairing-engine interface to additional curves and trait-style abstractions.
 - FFT/NTT + roots-of-unity domain for QAP and faster polynomial ops.
-- MSM and windowed scalar multiplication for the prover; batch normalization.
+- MSM, fixed-base tables, and threaded hot paths for the prover plus batch normalization of CRS elements.
+- Documentation polish: Documenter.jl site, Pluto notebooks, and contributor guides for multiple dispatch patterns.
+
+## Pairing Engine Interface
+
+- Depend on `AbstractPairingEngine` (re-exported by `GrothCurves`) when writing code that needs pairings. The interface consists of `miller_loop`, `final_exponentiation`, `pairing`, and `pairing_batch` methods specialised on an engine type parameterised by the curve family.
+- `BN254Engine` is the default zero-sized backend; use the explicit form `pairing(BN254_ENGINE, P, Q)` or pass `engine=BN254_ENGINE` into helpers such as `GrothProofs.setup_full`. Convenience overloads without the engine argument remain available for interactive use.
+- The engine test harness lives in `GrothCurves/test/test_pairing_engine_interface.jl` and checks zero-handling, bilinearity, and batch pairing consistency. Mirror those checks when introducing additional engines.
 
 ## Development
 
