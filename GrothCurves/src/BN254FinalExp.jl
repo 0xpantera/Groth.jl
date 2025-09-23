@@ -311,3 +311,10 @@ end
 export frobenius_map, frobenius_p1, frobenius_p2, frobenius_p3
 export final_exponentiation_easy, final_exponentiation_hard
 export final_exponentiation, exp_by_u
+
+"""
+    final_exponentiation(::BN254Engine, f::Fp12Element)
+
+Engine-aware overload that forwards to the BN254 final exponentiation.
+"""
+final_exponentiation(::BN254Engine, f::Fp12Element) = final_exponentiation(f)

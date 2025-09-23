@@ -7,43 +7,42 @@ The BN254 curve has:
 - Pairing: e: G1 × G2 → GT
 """
 
-# using GrothAlgebra
-# using StaticArrays
-
-# BN254Fields.jl is already included in GrothCurves.jl, don't include it again
-
-# Curve parameters
+# Curve tag used by the generic projective point representation
 struct BN254Curve <: AbstractCurve end
 
 # BN254 scalar field / subgroup order r (Q)
 # This is the prime order of the G1/G2 subgroups used by Groth16 (aka Fr modulus).
 const BN254_ORDER_R = parse(BigInt, "21888242871839275222246405745257275088548364400416034343698204186575808495617")
 
-"""
-    G1Point
+# Shared projective point storage (X:Y:Z) in Jacobian coordinates
+const G1Point = ProjectivePoint{BN254Curve, BN254Field}
+const G2Point = ProjectivePoint{BN254Curve, Fp2Element}
 
-Point on the BN254 G1 curve: y² = x³ + 3 over Fp.
-Uses Jacobian coordinates (X, Y, Z) where x = X/Z² and y = Y/Z³.
-"""
-struct G1Point <: GroupElem{BN254Curve}
-    coords::SVector{3,BN254Field}
+# Twist coefficient for the BN254 D-twist (y² = x³ + b')
+const G2_B_TWIST = Fp2Element(3, 0) / Fp2Element(9, 1)
 
-    function G1Point(X::BN254Field, Y::BN254Field, Z::BN254Field)
-        new(SVector(X, Y, Z))
-    end
-end
-
-# Convenient constructors
-G1Point(x::Integer, y::Integer, z::Integer) = G1Point(bn254_field(x), bn254_field(y), bn254_field(z))
+# Convenient constructors for G1
+G1Point(x::Integer, y::Integer, z::Integer) =
+    G1Point(bn254_field(x), bn254_field(y), bn254_field(z))
 G1Point(x::Integer, y::Integer) = G1Point(bn254_field(x), bn254_field(y), one(BN254Field))
 
-# Access coordinates
-Base.getindex(p::G1Point, i::Int) = p.coords[i]
-x_coord(p::G1Point) = p[1]
-y_coord(p::G1Point) = p[2]
-z_coord(p::G1Point) = p[3]
+# Convenient constructors for G2
+function G2Point(x0::Integer, x1::Integer, y0::Integer, y1::Integer, z0::Integer, z1::Integer)
+    X = Fp2Element(bn254_field(x0), bn254_field(x1))
+    Y = Fp2Element(bn254_field(y0), bn254_field(y1))
+    Z = Fp2Element(bn254_field(z0), bn254_field(z1))
+    G2Point(X, Y, Z)
+end
 
-# Convert to affine coordinates
+function G2Point(x0::Integer, x1::Integer, y0::Integer, y1::Integer)
+    X = Fp2Element(bn254_field(x0), bn254_field(x1))
+    Y = Fp2Element(bn254_field(y0), bn254_field(y1))
+    G2Point(X, Y, one(Fp2Element))
+end
+
+G2Point(X::Fp2Element, Y::Fp2Element) = G2Point(X, Y, one(Fp2Element))
+
+# Affine conversion specialised for each field type
 function to_affine(p::G1Point)
     if iszero(p)
         return (zero(BN254Field), zero(BN254Field))
@@ -54,28 +53,18 @@ function to_affine(p::G1Point)
     return (x_coord(p) * z_inv2, y_coord(p) * z_inv3)
 end
 
-# Identity element (point at infinity in Jacobian coordinates)
-Base.zero(::Type{G1Point}) = G1Point(one(BN254Field), one(BN254Field), zero(BN254Field))
-Base.zero(::G1Point) = zero(G1Point)
-Base.iszero(p::G1Point) = iszero(z_coord(p))
-
-# Equality
-function Base.:(==)(p::G1Point, q::G1Point)
-    # Both are infinity
-    if iszero(p) && iszero(q)
-        return true
+function to_affine(p::G2Point)
+    if iszero(p)
+        return (zero(Fp2Element), zero(Fp2Element))
     end
-    # One is infinity
-    if iszero(p) || iszero(q)
-        return false
-    end
-    # Compare in affine coordinates
-    p_aff = to_affine(p)
-    q_aff = to_affine(q)
-    return p_aff[1] == q_aff[1] && p_aff[2] == q_aff[2]
+    z_inv = inv(z_coord(p))
+    z_inv2 = z_inv^2
+    z_inv3 = z_inv2 * z_inv
+    return (x_coord(p) * z_inv2, y_coord(p) * z_inv3)
 end
 
-# Check if point is on curve
+# Curve membership checks ---------------------------------------------------
+
 function is_on_curve(p::G1Point)
     if iszero(p)
         return true
@@ -84,15 +73,22 @@ function is_on_curve(p::G1Point)
     Z2 = Z^2
     Z4 = Z2^2
     Z6 = Z4 * Z2
-    # Check Y² = X³ + 3*Z⁶ in Jacobian coordinates
     return Y^2 == X^3 + bn254_field(3) * Z6
 end
 
-"""
-    double(p::G1Point)
+function is_on_curve(p::G2Point)
+    if iszero(p)
+        return true
+    end
+    X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
+    Z2 = Z^2
+    Z4 = Z2^2
+    Z6 = Z4 * Z2
+    return Y^2 == X^3 + G2_B_TWIST * Z6
+end
 
-Point doubling in Jacobian coordinates.
-"""
+# G1 arithmetic -------------------------------------------------------------
+
 function double(p::G1Point)
     if iszero(p)
         return p
@@ -100,9 +96,8 @@ function double(p::G1Point)
 
     X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
 
-    # Using efficient doubling formulas
     S = bn254_field(4) * X * Y^2
-    M = bn254_field(3) * X^2  # For curve y² = x³ + b, we have a = 0
+    M = bn254_field(3) * X^2
     X3 = M^2 - bn254_field(2) * S
     Y3 = M * (S - X3) - bn254_field(8) * Y^4
     Z3 = bn254_field(2) * Y * Z
@@ -110,11 +105,6 @@ function double(p::G1Point)
     return G1Point(X3, Y3, Z3)
 end
 
-"""
-    +(p::G1Point, q::G1Point)
-
-Point addition in Jacobian coordinates.
-"""
 function Base.:+(p::G1Point, q::G1Point)
     if iszero(p)
         return q
@@ -155,107 +145,11 @@ end
 Base.:-(p::G1Point) = G1Point(x_coord(p), -y_coord(p), z_coord(p))
 Base.:-(p::G1Point, q::G1Point) = p + (-q)
 
-# Scalar multiplication (use the one from GrothAlgebra.Group)
-# It will automatically use our + operation
+# G2 parameters -------------------------------------------------------------
 
-"""
-    G2Point
+# BN254 parameter u = 4965661367192848881 (from BN254MillerLoop)
+# G2 arithmetic -------------------------------------------------------------
 
-Point on the BN254 G2 curve over Fp2.
-"""
-struct G2Point <: GroupElem{BN254Curve}
-    coords::SVector{3,Fp2Element}
-
-    function G2Point(X::Fp2Element, Y::Fp2Element, Z::Fp2Element)
-        new(SVector(X, Y, Z))
-    end
-end
-
-# Convenient constructors
-function G2Point(x0::Integer, x1::Integer, y0::Integer, y1::Integer, z0::Integer, z1::Integer)
-    X = Fp2Element(bn254_field(x0), bn254_field(x1))
-    Y = Fp2Element(bn254_field(y0), bn254_field(y1))
-    Z = Fp2Element(bn254_field(z0), bn254_field(z1))
-    G2Point(X, Y, Z)
-end
-
-function G2Point(x0::Integer, x1::Integer, y0::Integer, y1::Integer)
-    X = Fp2Element(bn254_field(x0), bn254_field(x1))
-    Y = Fp2Element(bn254_field(y0), bn254_field(y1))
-    Z = one(Fp2Element)
-    G2Point(X, Y, Z)
-end
-
-# Constructor for affine coordinates
-function G2Point(X::Fp2Element, Y::Fp2Element)
-    G2Point(X, Y, one(Fp2Element))
-end
-
-# Access coordinates
-Base.getindex(p::G2Point, i::Int) = p.coords[i]
-x_coord(p::G2Point) = p[1]
-y_coord(p::G2Point) = p[2]
-z_coord(p::G2Point) = p[3]
-
-# Identity element
-Base.zero(::Type{G2Point}) = G2Point(one(Fp2Element), one(Fp2Element), zero(Fp2Element))
-Base.zero(::G2Point) = zero(G2Point)
-Base.iszero(p::G2Point) = iszero(z_coord(p))
-
-# Equality
-function Base.:(==)(p::G2Point, q::G2Point)
-    # Both are infinity
-    if iszero(p) && iszero(q)
-        return true
-    end
-    # One is infinity
-    if iszero(p) || iszero(q)
-        return false
-    end
-    # Compare in affine coordinates
-    p_aff = to_affine(p)
-    q_aff = to_affine(q)
-    return p_aff[1] == q_aff[1] && p_aff[2] == q_aff[2]
-end
-
-# Convert to affine
-function to_affine(p::G2Point)
-    if iszero(p)
-        return (zero(Fp2Element), zero(Fp2Element))
-    end
-    z_inv = inv(z_coord(p))
-    z_inv2 = z_inv^2
-    z_inv3 = z_inv2 * z_inv
-    return (x_coord(p) * z_inv2, y_coord(p) * z_inv3)
-end
-
-# Check if point is on curve
-function is_on_curve(p::G2Point)
-    if iszero(p)
-        return true
-    end
-    X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
-    Z2 = Z^2
-    Z4 = Z2^2
-    Z6 = Z4 * Z2
-
-    # G2 curve equation: Y² = X³ + b/ξ where ξ = 9 + u
-    # b = 3, so b/ξ = 3/(9+u)
-    # In Jacobian: Y² = X³ + (3/ξ)*Z⁶
-
-    # Compute b_twist = 3/ξ
-    ξ = Fp2Element(9, 1)  # 9 + u
-    b_twist = Fp2Element(3) * inv(ξ)
-
-    # Check Y² = X³ + b_twist*Z⁶
-    return Y^2 == X^3 + b_twist * Z6
-end
-
-"""
-    double(p::G2Point)
-
-Point doubling for G2.
-"""
 function double(p::G2Point)
     if iszero(p)
         return p
@@ -263,8 +157,11 @@ function double(p::G2Point)
 
     X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
 
+    XX = X^2
+    ZZ = Z^2
+    ZZ2 = ZZ^2
     S = Fp2Element(4) * X * Y^2
-    M = Fp2Element(3) * X^2
+    M = Fp2Element(3) * XX
     X3 = M^2 - Fp2Element(2) * S
     Y3 = M * (S - X3) - Fp2Element(8) * Y^4
     Z3 = Fp2Element(2) * Y * Z
@@ -272,11 +169,6 @@ function double(p::G2Point)
     return G2Point(X3, Y3, Z3)
 end
 
-"""
-    +(p::G2Point, q::G2Point)
-
-Point addition for G2.
-"""
 function Base.:+(p::G2Point, q::G2Point)
     if iszero(p)
         return q
@@ -317,29 +209,18 @@ end
 Base.:-(p::G2Point) = G2Point(x_coord(p), -y_coord(p), z_coord(p))
 Base.:-(p::G2Point, q::G2Point) = p + (-q)
 
-# Generator points for BN254
-"""
-    g1_generator()
+# Generators ---------------------------------------------------------------
 
-Returns the standard generator for G1.
-"""
 function g1_generator()
-    return G1Point(1, 2)
+    G1Point(1, 2)
 end
 
-"""
-    g2_generator()
-
-Returns the standard generator for G2.
-"""
 function g2_generator()
-    # Standard generator coordinates for BN254 G2
     x0 = parse(BigInt, "10857046999023057135944570762232829481370756359578518086990519993285655852781")
     x1 = parse(BigInt, "11559732032986387107991004021392285783925812861821192530917403151452391805634")
     y0 = parse(BigInt, "8495653923123431417604973247489272438418190587263600148770280649306958101930")
     y1 = parse(BigInt, "4082367875863433681332203403145435568316851327593401208105741076214120093531")
-
-    return G2Point(
+    G2Point(
         Fp2Element(bn254_field(x0), bn254_field(x1)),
         Fp2Element(bn254_field(y0), bn254_field(y1)),
         one(Fp2Element)
@@ -352,31 +233,24 @@ export to_affine, is_on_curve, double
 export g1_generator, g2_generator
 export x_coord, y_coord, z_coord
 export BN254_ORDER_R
- 
-"""
-    batch_to_affine!(pts::Vector{G1Point})
 
-Convert a vector of G1 points from Jacobian to affine coordinates using a single
-field inversion (Montgomery's trick). Points at infinity are left as-is.
-"""
+# Batch normalisation ------------------------------------------------------
+
 function batch_to_affine!(pts::Vector{G1Point})
     n = length(pts)
     if n == 0
         return pts
     end
-    # Collect indices of non-infinity points
     idxs = [i for i in 1:n if !iszero(pts[i])]
     if isempty(idxs)
         return pts
     end
-    # Prefix products of Z for non-zero points
     prefix = Vector{BN254Field}(undef, length(idxs))
     prefix[1] = z_coord(pts[idxs[1]])
     for k in 2:length(idxs)
         prefix[k] = prefix[k-1] * z_coord(pts[idxs[k]])
     end
     inv_total = inv(prefix[end])
-    # Backward pass to compute each Z^{-1}
     zinv = Vector{BN254Field}(undef, length(idxs))
     for k in length(idxs):-1:1
         z_k = z_coord(pts[idxs[k]])
@@ -385,7 +259,6 @@ function batch_to_affine!(pts::Vector{G1Point})
         zinv[k] = zinv_k
         inv_total = inv_total * z_k
     end
-    # Update points to affine
     for (t, i) in enumerate(idxs)
         P = pts[i]
         z_inv = zinv[t]
@@ -396,12 +269,6 @@ function batch_to_affine!(pts::Vector{G1Point})
     return pts
 end
 
-"""
-    batch_to_affine!(pts::Vector{G2Point})
-
-Convert a vector of G2 points from Jacobian to affine coordinates using a single
-Fp2 inversion (Montgomery's trick). Points at infinity are left as-is.
-"""
 function batch_to_affine!(pts::Vector{G2Point})
     n = length(pts)
     if n == 0

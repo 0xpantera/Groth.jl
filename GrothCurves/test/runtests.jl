@@ -26,6 +26,8 @@ using Test
     if isfile("test_dtwist_line.jl")
         include("test_dtwist_line.jl")
     end
+
+    include("test_pairing_engine_interface.jl")
 end
 
 println("\n" * "="^70)
