@@ -37,6 +37,80 @@
 # Groth.jl
 
 Research-focused, modular implementation of the Groth16 zero-knowledge proof system in Julia.
+This repository explores cryptographic primitives (finite fields, curves, pairings) and the Groth16 protocol end-to-end in Julia. It is a research codebase and **not** production software.
+
+## Repository layout
+
+```
+Groth.jl/
+ ├── GrothAlgebra/   # finite fields, polynomials, group utilities
+ ├── GrothCurves/    # BN254 curve + pairing engine
+ ├── GrothProofs/    # R1CS, QAP, Groth16 prover/verifier
+ ├── GrothExamples/  # tutorial scripts and walkthroughs
+ ├── GrothCrypto/    # placeholder for higher-level protocols
+ ├── benchmarks/     # BenchmarkTools environment + plots
+ └── docs/           # Roadmap, package reference, arkworks mapping
+```
+
+- `docs/PACKAGE_REFERENCE.md` — per-package summary, key modules, follow-ups
+- `docs/Implementation_vs_Arkworks.md` — how our implementation compares to
+  arkworks (domains, MSM, pairing, Groth16 pipeline)
+- `docs/ROADMAP.md` — current priorities and completed milestones
+- `docs/RareSkills_Groth16_Map.md` — link between the RareSkills ZK book and
+  the Julia code
+
+The sibling repositories `ark-works/` and `zk-book/` are reference checkouts
+only; all active work lives in `Groth.jl/`.
+
+## Getting started
+
+```
+# develop packages locally
+julia --project -e 'using Pkg; Pkg.develop("GrothAlgebra"); Pkg.develop("GrothCurves"); Pkg.develop("GrothProofs")'
+
+# run tests
+julia --project=GrothAlgebra -e 'using Pkg; Pkg.test()'
+julia --project=GrothProofs  -e 'using Pkg; Pkg.test()'
+
+# benchmarks
+julia --project=benchmarks benchmarks/run.jl
+julia --project=benchmarks benchmarks/plot.jl
+```
+
+Key tutorials live in `GrothExamples/`; run `demonstrate_r1cs_qap()` or
+`multiplication_proof_example()` to see the Groth16 pipeline end-to-end.
+
+## Project status
+
+- **GrothAlgebra** — prime fields, polynomial utilities, MSM helpers. Coset FFT
+  path uses coefficient-first padding; domain alignment with arkworks is the
+  next major task.
+- **GrothCurves** — BN254 tower, Jacobian curve ops, optimal ate pairing, and
+  a pairing-engine abstraction ready for additional curves.
+- **GrothProofs** — R1CS/QAP conversion, Groth16 setup/prove/verify mirroring
+  arkworks. Coset FFT path is default; dense path retained only for assertions.
+- **Benchmarks** — `benchmarks/results_2025-09-29_121914.json` captures the
+  current coset-enabled timings; plots regenerated via `benchmarks/plot.jl`.
+
+See `docs/ROADMAP.md` for detailed milestones and follow-up work (domain
+alignment, MSM optimisations, second curve prototype, proof aggregation).
+
+## Development guidelines
+
+- Follow Julia style conventions: 4-space indent, `lowercase_with_underscores`
+  for functions, docstrings on exported methods, and dispatch-friendly
+  signatures that match existing APIs.
+- Run the relevant `Pkg.test()` suites and update benchmarks when performance
+  changes.
+- Use concise imperative commit messages (e.g., `groth16: align coset domain`).
+- Keep tutorial/docs in sync when user-visible output changes; the docs listed
+  above are the canonical references.
+
+## References
+
+- [arkworks](https://github.com/arkworks-rs) (Groth16 and algebra implementations)
+- [RareSkills Zero Knowledge Book](https://github.com/zkCollective/zk-book)
+
 This repo explores cryptographic primitives (finite fields, curves, pairings) and the Groth16 protocol end-to-end in Julia.
 
 Note: This project is for research and experimentation. It is not intended for production use.
