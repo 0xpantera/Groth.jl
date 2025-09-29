@@ -197,7 +197,7 @@ end
     prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng=Random.GLOBAL_RNG) where F
 
 Generate a Groth16 proof using the production-style proving key.
-Uses current dense polynomial path for h and H.
+Compute Groth16 proof using the coset FFT-based quotient path.
 """
 function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::AbstractRNG=Random.GLOBAL_RNG, debug_no_random::Bool=false) where F
     w_vals = witness.values
@@ -219,7 +219,7 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
     A = A1_g1 + scalar_mul(pk.delta_g1, _to_int(r))
     B = pk.beta_g2  + B_acc_g2 + scalar_mul(pk.delta_g2, _to_int(s))
 
-    # h(x): compute via dense division path and map coefficients via H_query
+    # h(x): compute via coset FFT path and map coefficients via H_query
     h_poly = compute_h_polynomial(qap, witness)
     hk = length(h_poly.coeffs)
     pts_h = pk.H_query_g1[1:hk]

@@ -70,12 +70,14 @@ function main()
     qap = r1cs_to_qap(r1cs)
     
     println("   Target polynomial t(x) = ∏(x - ωⁱ)")
-    println("   Roots: $(qap.domain)")
+    println("   Roots: $(qap.points)")
+    println("   Coset offset for FFTs: $(coset_offset(qap.coset_domain))")
+    println("   Domain size (FFT) = $(qap.coset_domain.size)")
     println("   Degree: $(degree(qap.t))")
     
     # Step 5: Check QAP at roots
     println("\n5. Verifying QAP at roots of t(x)")
-    for (i, root) in enumerate(qap.domain)
+    for (i, root) in enumerate(qap.points)
         u_val, v_val, w_val = evaluate_qap(qap, witness, root)
         if u_val * v_val == w_val
             println("   ✓ At ω$i = $(root.value): U*V = W")
@@ -86,8 +88,10 @@ function main()
     
     # Step 6: Compute h(x)
     println("\n6. Computing quotient polynomial h(x)")
-    h = compute_h_polynomial(qap, witness)
-    println("   Degree of h(x): $(degree(h))")
+    h_coset = compute_h_polynomial(qap, witness; use_coset=true)
+    h_dense = compute_h_polynomial(qap, witness; use_coset=false)
+    println("   Degree of h_coset(x): $(degree(h_coset))")
+    println("   Coset vs dense match? $(h_coset == h_dense)")
     
     # The key property: U(x)*V(x) - W(x) = h(x)*t(x)
     println("\n   Key property: U(x)*V(x) - W(x) = h(x)*t(x)")

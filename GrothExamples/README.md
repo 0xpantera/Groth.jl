@@ -27,6 +27,17 @@ using GrothExamples
 multiplication_proof_example()
 ```
 
+
+### Coset-Aware QAP Check
+```julia
+using GrothExamples
+multiplication_proof_example()  # prints coset vs dense quotient parity
+```
+The script now prints both coset- and dense-derived `h(x)` so you can see the FFT-backed interpolation agrees with the dense fallback.
+
+> **Why cosets show up:** evaluating on the subgroup forces the vanishing polynomial `t(ωᵢ)` to zero, so the FFT quotient would hit a divide-by-zero. We dodge that by sampling on a shifted domain (a coset) where `t(g·ωᵢ)` stays invertible. For circuits with fewer constraints than the FFT domain, we first recover the true degree-<n coefficients and *then* pad in coefficient space; padding evaluations would fabricate extra “zero constraints” and change the polynomial we’re dividing by. The example output highlights this by printing both the coset and dense results.
+
+
 ## Learning Path
 
 1. Start with `test_r1cs_qap.jl` to understand the R1CS to QAP conversion

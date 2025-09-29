@@ -41,6 +41,8 @@ Microbenchmarks run at sizes N ∈ {32, 128, 512}. Results are printed with min/
 
 ### Plots
 
+> Plots below were regenerated from `results_2025-09-29_121914.json` (coset path default).
+
 ![fixed_g1](./fixed_g1.png)
 ![fixed_g2](./fixed_g2.png)
 ![msm_g1](./msm_g1.png)
@@ -93,6 +95,24 @@ Microbenchmarks run at sizes N ∈ {32, 128, 512}. Results are printed with min/
 | `prepare_verifying_key` | 0.086 |
 | `prepare_inputs` | 0.00037 |
 | `verify_with_prepared` | 0.224 |
+
+
+## Benchmark 2025-09-29 (coset path default)
+
+- JSON summary: `results_2025-09-29_121914.json`
+- Groth16 now computes `h(x)` via the coset FFT pipeline by default. Median timings remain in the same ballpark as the September 23 baseline; the prover shows an 8.1 ms median while `r1cs_to_qap` drops to ~0.53 ms thanks to the FFT-backed interpolation.
+
+| Groth16 pipeline (sum-of-products circuit) | median (s) |
+| --- | --- |
+| `r1cs_to_qap` | 0.00053 |
+| `setup_full` | 0.197 |
+| `prove_full` | 0.00814 |
+| `verify_full` | 0.376 |
+| `prepare_verifying_key` | 0.0699 |
+| `prepare_inputs` | 0.000277 |
+| `verify_with_prepared` | 0.194 |
+
+Microbenchmarks at N ∈ {32, 128, 512} remain unchanged relative to the earlier baseline (the coset refactor does not affect group/MSM routines); `results_2025-09-29_121914.json` captures the raw numbers.
 
 ## Usage
 
