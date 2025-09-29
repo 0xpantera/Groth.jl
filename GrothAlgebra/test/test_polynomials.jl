@@ -192,4 +192,75 @@ using Test
         linear_dp = derivative(linear_p)
         @test linear_dp == Polynomial([bn254_field(2)])
     end
+
+    @testset "Roots of unity" begin
+        roots = roots_of_unity(8, BN254ScalarField)
+        @test length(roots) == 8
+        ω = roots[2]
+        oneF = one(BN254ScalarField)
+        for (idx, val) in enumerate(roots)
+            @test val == ω^(idx - 1)
+        end
+        @test ω^8 == oneF
+        @test ω^4 != oneF
+    end
+
+    @testset "NTT round-trip" begin
+        coeffs = [bn254_scalar(i) for i in 0:7]
+        domain = EvaluationDomain(BN254ScalarField, 8)
+        evals = fft(coeffs, domain)
+        recovered = ifft(evals, domain)
+        @test recovered == coeffs
+    end
+
+    @testset "FFT polynomial multiply" begin
+        p = Polynomial([bn254_scalar(1), bn254_scalar(2), bn254_scalar(3)])
+        q = Polynomial([bn254_scalar(4), bn254_scalar(5)])
+        naive = p * q
+        via_fft = fft_polynomial_multiply(p, q)
+        @test via_fft == naive
+    end
+
+    @testset "FFT interpolation" begin
+        domain = EvaluationDomain(BN254ScalarField, 8)
+        ω = domain.generator
+        points = [one(BN254ScalarField)]
+        for _ in 2:4
+            push!(points, points[end] * ω)
+        end
+        values = [bn254_scalar(i) for i in 1:4]
+        poly_fft = interpolate_fft(domain, values)
+        poly_naive = interpolate(points, values)
+        for root in points
+            @test evaluate(poly_fft, root) == evaluate(poly_naive, root)
+        end
+    end
+
+    @testset "Coset FFT" begin
+        offset = bn254_scalar(5)
+        domain = EvaluationDomain(BN254ScalarField, 8; offset=offset)
+        coeffs = [bn254_scalar(i) for i in 0:7]
+        evals = fft(coeffs, domain)
+        points = Vector{BN254ScalarField}(undef, domain.size)
+        points[1] = coset_offset(domain)
+        for i in 2:domain.size
+            points[i] = points[i-1] * domain.generator
+        end
+        poly = Polynomial(coeffs)
+        for (val, root) in zip(evals, points)
+            @test val == evaluate(poly, root)
+        end
+        recovered = ifft(evals, domain)
+        @test recovered == coeffs
+    end
+
+    @testset "Coset helper" begin
+        base = EvaluationDomain(BN254ScalarField, 8)
+        offset = bn254_scalar(7)
+        coset = get_coset(base, offset)
+        @test coset.size == base.size
+        @test coset.generator == base.generator
+        @test coset_offset(coset) == offset
+        @test coset_offset_inv(coset) * coset_offset(coset) == one(BN254ScalarField)
+    end
 end

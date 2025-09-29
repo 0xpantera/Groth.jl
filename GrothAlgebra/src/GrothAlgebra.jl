@@ -30,6 +30,9 @@ export double, triple, order, is_on_curve
 export Polynomial, degree, evaluate, interpolate
 export leading_coefficient, is_constant, is_monic
 export constant_polynomial, monomial, derivative
+export roots_of_unity, primitive_root_of_unity, EvaluationDomain
+export get_coset, coset_offset, coset_offset_inv, coset_offset_pow_size
+export ntt!, fft, ifft, interpolate_fft, fft_polynomial_multiply
 
 # Export utility functions
 export isequal

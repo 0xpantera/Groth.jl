@@ -446,26 +446,212 @@ function Base.show(io::IO, p::Polynomial{F}) where F
     end
 end
 
-# FFT helpers (basic implementation)
+# -----------------------------------------------------------------------------
+# FFT helpers and roots of unity
+# -----------------------------------------------------------------------------
+
+const BN254_TWO_ADICITY = 28
+const BN254_PRIMITIVE_ROOT = BN254ScalarField(parse(BigInt, "19103219067921713944291392827692070036145651957329286315305642004821462161904"), true)
+
+max_power_of_two(::Type{F}) where F = throw(ArgumentError("No two-adicity metadata for field $(F)"))
+primitive_root_constant(::Type{F}) where F = throw(ArgumentError("No primitive root configured for field $(F)"))
+
+max_power_of_two(::Type{BN254ScalarField}) = BN254_TWO_ADICITY
+primitive_root_constant(::Type{BN254ScalarField}) = BN254_PRIMITIVE_ROOT
 
 """
-    fft_polynomial_multiply(p::Polynomial{F}, q::Polynomial{F}) where F
+    primitive_root_of_unity(F::Type{<:FieldElem}, log_n::Int)
 
-Multiply two polynomials using FFT (placeholder for future implementation).
-Currently falls back to naive multiplication.
+Return a primitive 2^log_n-th root of unity for field type `F`.
 """
-function fft_polynomial_multiply(p::Polynomial{F}, q::Polynomial{F}) where F
-    # TODO: Implement FFT-based multiplication
-    # For now, fall back to naive multiplication
-    return p * q
+function primitive_root_of_unity(F::Type{<:FieldElem}, log_n::Int)
+    log_n >= 0 || throw(ArgumentError("log_n must be non-negative"))
+    max_pow = max_power_of_two(F)
+    log_n <= max_pow || throw(ArgumentError("Requested 2^$log_n-th root exceeds two-adicity $max_pow for field $(F)"))
+    exponent = 1 << (max_pow - log_n)
+    return primitive_root_constant(F)^exponent
 end
 
 """
     roots_of_unity(n::Integer, ::Type{F}) where F<:FieldElem
 
-Find the n-th roots of unity in field F (placeholder for future implementation).
+Return the list `[1, ω, ω^2, …]` of n-th roots of unity (power-of-two only).
 """
 function roots_of_unity(n::Integer, ::Type{F}) where F<:FieldElem
-    # TODO: Implement root finding for FFT
-    throw(ArgumentError("FFT roots of unity not yet implemented"))
+    n > 0 || throw(ArgumentError("n must be positive"))
+    ispow2(n) || throw(ArgumentError("Only power-of-two sizes are supported"))
+    log_n = trailing_zeros(n)
+    ω = primitive_root_of_unity(F, log_n)
+    roots = Vector{F}(undef, n)
+    roots[1] = one(F)
+    for i in 2:n
+        roots[i] = roots[i-1] * ω
+    end
+    return roots
+end
+
+struct EvaluationDomain{F<:FieldElem}
+    size::Int
+    log_size::Int
+    generator::F
+    generator_inv::F
+    size_inv::F
+    offset::F
+    offset_inv::F
+    offset_pow_size::F
+end
+
+@inline function _ensure_offset(::Type{F}, offset) where F<:FieldElem
+    offset === nothing && return one(F)
+    offset isa F && !iszero(offset) && return offset
+    candidate = F(offset)
+    iszero(candidate) && throw(ArgumentError("Coset offset must be non-zero"))
+    return candidate
+end
+
+function EvaluationDomain(::Type{F}, size::Int; offset=nothing) where F<:FieldElem
+    size > 0 || throw(ArgumentError("Domain size must be positive"))
+    ispow2(size) || throw(ArgumentError("Domain size must be a power of two"))
+    log_size = trailing_zeros(size)
+    ω = primitive_root_of_unity(F, log_size)
+    off = _ensure_offset(F, offset)
+    EvaluationDomain{F}(size, log_size, ω, inv(ω), inv(F(size)), off, inv(off), off^size)
+end
+
+function get_coset(domain::EvaluationDomain{F}, offset) where F<:FieldElem
+    off = _ensure_offset(F, offset)
+    new_off = domain.offset * off
+    EvaluationDomain{F}(
+        domain.size,
+        domain.log_size,
+        domain.generator,
+        domain.generator_inv,
+        domain.size_inv,
+        new_off,
+        inv(new_off),
+        new_off^domain.size,
+    )
+end
+
+coset_offset(domain::EvaluationDomain) = domain.offset
+coset_offset_inv(domain::EvaluationDomain) = domain.offset_inv
+coset_offset_pow_size(domain::EvaluationDomain) = domain.offset_pow_size
+
+function bitreverse!(values::Vector)
+    n = length(values)
+    n > 1 || return values
+    log_n = trailing_zeros(n)
+    width = UInt(sizeof(Int) * 8)
+    shift = width - UInt(log_n)
+    for i in 0:(n - 1)
+        j = Int(Base.bitreverse(UInt(i)) >>> shift)
+        if i < j
+            values[i + 1], values[j + 1] = values[j + 1], values[i + 1]
+        end
+    end
+    return values
+end
+
+function scale_powers!(values::Vector{F}, base::F) where F<:FieldElem
+    isone(base) && return values
+    pow = one(F)
+    for i in eachindex(values)
+        values[i] *= pow
+        pow *= base
+    end
+    return values
+end
+
+function ntt!(values::Vector{F}, domain::EvaluationDomain{F}; inverse::Bool=false) where F<:FieldElem
+    length(values) == domain.size || throw(ArgumentError("Vector length mismatch for NTT domain"))
+    bitreverse!(values)
+    log_n = domain.log_size
+    root = inverse ? domain.generator_inv : domain.generator
+    for s in 1:log_n
+        m = 1 << s
+        half = m >>> 1
+        w_m = root^(1 << (log_n - s))
+        k = 1
+        while k <= domain.size
+            w = one(F)
+            for j in 0:(half - 1)
+                u = values[k + j]
+                t = w * values[k + j + half]
+                values[k + j] = u + t
+                values[k + j + half] = u - t
+                w *= w_m
+            end
+            k += m
+        end
+    end
+    if inverse
+        inv_size = domain.size_inv
+        for i in 1:domain.size
+            values[i] *= inv_size
+        end
+    end
+    return values
+end
+
+function fft(coeffs::Vector{F}, domain::EvaluationDomain{F}) where F<:FieldElem
+    length(coeffs) <= domain.size || throw(ArgumentError(
+        "fft: coefficient vector length $(length(coeffs)) exceeds domain size $(domain.size); " *
+        "choose a larger EvaluationDomain or reduce polynomial degree",
+    ))
+    padded = Vector{F}(undef, domain.size)
+    fill!(padded, zero(F))
+    @inbounds for i in 1:length(coeffs)
+        padded[i] = coeffs[i]
+    end
+    scale_powers!(padded, domain.offset)
+    ntt!(padded, domain)
+    return padded
+end
+
+function ifft(evals::Vector{F}, domain::EvaluationDomain{F}) where F<:FieldElem
+    values = copy(evals)
+    ntt!(values, domain; inverse=true)
+    scale_powers!(values, domain.offset_inv)
+    return values
+end
+
+function interpolate_fft(domain::EvaluationDomain{F}, values::Vector{F}) where F<:FieldElem
+    length(values) <= domain.size || throw(ArgumentError("Too many evaluation points for domain"))
+    buffer = Vector{F}(undef, domain.size)
+    fill!(buffer, zero(F))
+    for i in 1:length(values)
+        buffer[i] = values[i]
+    end
+    coeffs = ifft(buffer, domain)
+    return Polynomial{F}(coeffs)
+end
+
+"""
+    fft_polynomial_multiply(p::Polynomial{F}, q::Polynomial{F}) where F
+
+Multiply two polynomials using FFT when supported for the coefficient field.
+Falls back to naive multiplication if FFT metadata is unavailable.
+"""
+function fft_polynomial_multiply(p::Polynomial{F}, q::Polynomial{F}) where F
+    try
+        total_len = length(p.coeffs) + length(q.coeffs) - 1
+        total_len <= 0 && return zero(p)
+        size = 1 << max(1, ceil(Int, log2(total_len)))
+        size >= total_len || (size <<= 1)
+        domain = EvaluationDomain(F, size)
+        a = fft(p.coeffs, domain)
+        b = fft(q.coeffs, domain)
+        for i in 1:size
+            a[i] *= b[i]
+        end
+        coeffs = ifft(a, domain)
+        result_coeffs = coeffs[1:total_len]
+        return Polynomial{F}(result_coeffs)
+    catch err
+        if err isa ArgumentError
+            return p * q
+        else
+            rethrow(err)
+        end
+    end
 end
