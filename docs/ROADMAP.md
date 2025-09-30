@@ -34,6 +34,16 @@ an arkworks-aligned, production-friendly Groth16 stack.
    - Extend documentation (package reference, RareSkills map, implementation vs
      arkworks) as behaviour changes.
 
+3. **Documenter-based docs rollout**
+   - Inventory target modules/pages (`GrothAlgebra`, `GrothCurves`, `GrothProofs`, landing page) and decide how existing markdown (roadmap, implementation notes) folds into the site.
+   - Create a dedicated `docs/` environment (`Project.toml`/`Manifest.toml`) with `Documenter`, `DocumenterTools`, `LiveServer`, and `dev` the in-tree packages for live loading.
+   - Seed `docs/make.jl` and `docs/src/index.md`; configure `makedocs` (site name, modules, `pages` layout, HTML settings, metadata, repo URL).
+   - Design the sidebar navigation (`pages` keyword) and map existing prose/tutorial chapters into `docs/src/*.md` skeletons.
+   - Populate pages using `@meta CurrentModule`, `@docs`, and targeted `@autodocs`; weave narrative text with the cleaned docstrings and add contents/index blocks plus cross references.
+   - Add deterministic `@example`/`@repl` blocks and doctests where useful; provide `DocTestSetup` scaffolding per page.
+   - Build locally (`julia --project=docs docs/make.jl`), preview with `LiveServer`, resolve warnings/missing refs, and iterate until clean.
+   - Wire up CI deployment via `Documenter.deploydocs` (GitHub Actions workflow, `DOCUMENTER_KEY`, publish to `gh-pages`), and document the workflow in contributing notes.
+
 ## Upcoming Work
 
 | Track | Items |
