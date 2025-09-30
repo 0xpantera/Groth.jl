@@ -2,7 +2,8 @@
 Groth16 proof system implementation (production-style scaffold).
 
 Provides Proving/Verification keys and standard Groth16 equations.
-The implementation currently uses dense polynomial paths (no FFT yet).
+The prover uses the coset FFT pipeline by default; the dense path survives as a
+consistency check.
 """
 
 using GrothAlgebra
@@ -12,14 +13,16 @@ using Random
 # R1CS and QAP are included at the package level (GrothProofs.jl)
 
 """
-Internal helper to convert a field element to an Integer scalar for scalar_mul.
+    _to_int(x)
+
+Convert a field element to an `Integer` scalar for use with `scalar_mul`.
 """
 _to_int(x) = Integer(x.value)
 
 """
     Groth16Proof
 
-A Groth16 proof consists of three group elements.
+Store the three group elements produced by Groth16.
 """
 struct Groth16Proof
     A::G1Point  # [A]₁
@@ -28,7 +31,9 @@ struct Groth16Proof
 end
 
 """
-Production-style key structures for Groth16.
+    ProvingKey
+
+Store the precomputed group elements and metadata required by the Groth16 prover.
 
 This follows the conventional separation:
 - ProvingKey contains query vectors and delta terms for prover computation
@@ -56,6 +61,12 @@ struct ProvingKey
     num_public::Int               # includes constant 1
 end
 
+"""
+    VerificationKey
+
+Store the elements required by the Groth16 verifier, including the prepared
+engine handle.
+"""
 struct VerificationKey{E<:AbstractPairingEngine}
     alpha_g1::G1Point
     beta_g2::G2Point
@@ -65,6 +76,11 @@ struct VerificationKey{E<:AbstractPairingEngine}
     engine::E
 end
 
+"""
+    Keypair
+
+Bundle the proving and verification keys emitted by `setup_full`.
+"""
 struct Keypair{E<:AbstractPairingEngine}
     pk::ProvingKey
     vk::VerificationKey{E}
@@ -77,7 +93,8 @@ export Groth16Proof
     setup_full(qap::QAP{F}; rng=Random.GLOBAL_RNG, engine=BN254_ENGINE) where F
 
 Generate production-style Groth16 keys (ProvingKey, VerificationKey).
-This implementation uses the current dense polynomial machinery (no FFT yet).
+Keys work with the coset FFT prover pipeline while retaining the dense fallback
+for parity assertions.
 """
 function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::AbstractPairingEngine=BN254_ENGINE) where F
     E = typeof(engine)
@@ -194,10 +211,11 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abs
 end
 
 """
-    prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng=Random.GLOBAL_RNG) where F
+    prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng=Random.GLOBAL_RNG, debug_no_random=false) where F
 
-Generate a Groth16 proof using the production-style proving key.
-Compute Groth16 proof using the coset FFT-based quotient path.
+Construct a Groth16 proof with the coset FFT pipeline.
+
+Set `debug_no_random=true` to omit prover randomness during testing.
 """
 function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::AbstractRNG=Random.GLOBAL_RNG, debug_no_random::Bool=false) where F
     w_vals = witness.values
@@ -247,9 +265,10 @@ end
 """
     verify_full(vk::VerificationKey, proof::Groth16Proof, public_inputs::Vector{F}) where F
 
-Verify a Groth16 proof using the production-style verification key.
-Checks the standard equation: e(A,B) == e(α,β) · e(vk_x,γ) · e(C,δ).
-Performs on-curve and subgroup checks for A, B, C.
+Verify a Groth16 proof with the production-style verification key.
+
+Checks the standard pairing equation `e(A,B) == e(α,β) · e(vk_x,γ) · e(C,δ)` and
+performs on-curve plus subgroup checks for `A`, `B`, and `C`.
 """
 function verify_full(vk::VerificationKey{E}, proof::Groth16Proof, public_inputs::Vector{F}) where {E<:AbstractPairingEngine, F}
     # On-curve checks
@@ -290,7 +309,9 @@ export ProvingKey, VerificationKey, Keypair
 export setup_full, prove_full, verify_full
 
 """
-Prepared verification key caching e(α,β) and holding γ, δ for prepared verification.
+    PreparedVerificationKey
+
+Cache `e(α,β)` and negated `γ`, `δ` elements for the prepared verifier path.
 """
 struct PreparedVerificationKey{E<:AbstractPairingEngine}
     vk::VerificationKey{E}
@@ -302,7 +323,7 @@ end
 """
     prepare_verifying_key(vk::VerificationKey)
 
-Compute cached pairing e(α,β) and negated γ, δ for prepared verification.
+Compute cached `e(α,β)` and negated `γ`, `δ` for prepared verification.
 """
 function prepare_verifying_key(vk::VerificationKey{E}) where {E<:AbstractPairingEngine}
     engine = vk.engine
@@ -317,8 +338,9 @@ end
 """
     prepare_inputs(pvk::PreparedVerificationKey, public_inputs::Vector{F}) where F
 
-Compute vk_x = IC[1] + Σ_{i=2..} input[i] * IC[i].
-public_inputs must include the leading 1 at index 1.
+Compute `vk_x = IC[1] + Σ_{i=2..} input[i] * IC[i]`.
+
+Public inputs must include the leading `1` at index `1`.
 """
 function prepare_inputs(pvk::PreparedVerificationKey{E}, public_inputs::Vector{F}) where {E<:AbstractPairingEngine, F}
     vk = pvk.vk
@@ -337,8 +359,10 @@ end
 """
     verify_with_prepared(pvk::PreparedVerificationKey, proof::Groth16Proof, prepared_inputs::G1Point)
 
-Verify using prepared verifier: compare product pairing to cached e(α,β).
-Includes on-curve and subgroup checks as in verify_full.
+Verify a Groth16 proof using prepared verifier artifacts.
+
+Compares the product pairing to the cached `e(α,β)` and reuses the on-curve and
+subgroup checks from `verify_full`.
 """
 function verify_with_prepared(pvk::PreparedVerificationKey{E}, proof::Groth16Proof, prepared_inputs::G1Point) where {E<:AbstractPairingEngine}
     # On-curve and subgroup checks

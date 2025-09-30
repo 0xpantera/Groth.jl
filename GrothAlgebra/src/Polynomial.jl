@@ -1,9 +1,7 @@
-"""
-Polynomial arithmetic over prime fields.
-
-This module provides polynomial operations for field elements, including
-evaluation, interpolation, and FFT-based operations.
-"""
+# Polynomial arithmetic over prime fields.
+#
+# Provides polynomial evaluation, interpolation, and FFT-based operations for
+# field elements.
 
 """
     Polynomial{F<:FieldElem}

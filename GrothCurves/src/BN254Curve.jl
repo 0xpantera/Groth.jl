@@ -1,11 +1,6 @@
-"""
-BN254 elliptic curve implementation.
-
-The BN254 curve has:
-- G1: y² = x³ + 3 over Fp
-- G2: y² = x³ + 3/(9+u) over Fp2
-- Pairing: e: G1 × G2 → GT
-"""
+# BN254 elliptic curve implementation.
+#
+# Defines G1/G2 groups over BN254 along with projective helpers.
 
 # Curve tag used by the generic projective point representation
 struct BN254Curve <: AbstractCurve end

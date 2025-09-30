@@ -1,11 +1,9 @@
 """
-Finite field implementations using BigInt for arbitrary precision.
+    FiniteFieldElement
 
-This module provides finite field arithmetic for various prime fields,
-using BigInt internally to avoid LLVM issues with large integer types.
+Abstract supertype for prime-field elements stored with `BigInt`
+normalisation.
 """
-
-# Abstract type for all finite fields
 abstract type FiniteFieldElement end
 
 # Helper functions that must be implemented by concrete types
@@ -16,6 +14,11 @@ field_name(::Type{<:FiniteFieldElement}) = "FiniteField"
 # BN254 Field Implementation
 # ===========================================
 
+"""
+    BN254Field
+
+Element of the BN254 base field represented with `BigInt` reduction.
+"""
 struct BN254Field <: FiniteFieldElement
     value::BigInt
     
@@ -42,6 +45,11 @@ bn254_field(x) = BN254Field(x)
 # Secp256k1 Field Implementation  
 # ===========================================
 
+"""
+    Secp256k1Field
+
+Element of the secp256k1 base field represented with `BigInt` reduction.
+"""
 struct Secp256k1Field <: FiniteFieldElement
     value::BigInt
     
@@ -164,10 +172,9 @@ export prime, is_zero, is_one, is_unity
 # ===========================================
 
 """
-BN254ScalarField (aka Fr) — scalar field of BN254 groups.
+    BN254ScalarField
 
-Prime order r = 21888242871839275222246405745257275088548364400416034343698204186575808495617
-This is distinct from the base field Fp used for curve coordinates.
+Element of the BN254 scalar field (Fr) used for curve scalars.
 """
 struct BN254ScalarField <: FiniteFieldElement
     value::BigInt

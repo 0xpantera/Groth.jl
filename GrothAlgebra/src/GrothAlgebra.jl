@@ -6,10 +6,6 @@ using BitIntegers
 # Include submodules
 include("FiniteFields.jl")  # Active finite field implementation using BigInt
 
-# Note: FieldElement.jl is kept for reference but not used
-# It contains the original parametric type implementation with UInt256
-# which caused LLVM compilation issues
-
 include("Group.jl")
 include("Polynomial.jl")
 

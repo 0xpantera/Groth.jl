@@ -1,9 +1,8 @@
 """
-ProjectivePoint{Curve,F}
+    ProjectivePoint{Curve,F}
 
-Generic Jacobian projective point storage shared across curve families. It holds
-(X, Y, Z) coordinates in homogeneous form; concrete curves provide doubling and
-addition formulas.
+Store Jacobian projective coordinates `(X, Y, Z)` shared across curve families.
+Concrete curves provide doubling and addition formulas.
 """
 struct ProjectivePoint{Curve,F} <: GroupElem{Curve}
     coords::SVector{3,F}
