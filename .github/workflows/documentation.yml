@@ -25,7 +25,9 @@ jobs:
         shell: julia --color=yes --project=docs {0}
         run: |
           using Pkg
-          Pkg.develop(PackageSpec(path=pwd()))
+          for pkg in ["GrothAlgebra", "GrothCurves", "GrothProofs"]
+              Pkg.develop(path=joinpath(pwd(), pkg))
+          end
           Pkg.instantiate()
       - name: Build and deploy
         run: julia --color=yes --project=docs docs/make.jl
