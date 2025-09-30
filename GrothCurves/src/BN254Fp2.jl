@@ -1,10 +1,7 @@
-"""
-BN254 curve field implementations.
-
-The BN254 curve (also known as alt-bn128) is defined over:
-- Base field Fp with p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
-- Extension field Fp2 = Fp[u]/(u² + 1)
-"""
+# BN254 curve field implementations.
+#
+# Defines the BN254 base and quadratic extension fields used throughout the
+# pairing engine.
 
 # using GrothAlgebra
 # using StaticArrays
@@ -57,8 +54,8 @@ Base.:-(a::Fp2Element) = Fp2Element(-a[1], -a[2])
 """
     *(a::Fp2Element, b::Fp2Element)
 
-Multiplication in Fp2 using the relation u² = -1.
-(a0 + a1*u) * (b0 + b1*u) = (a0*b0 - a1*b1) + (a0*b1 + a1*b0)*u
+Multiply two `Fp2Element`s using the relation `u² = -1`.
+The product `(a₀ + a₁u)(b₀ + b₁u)` equals `(a₀b₀ - a₁b₁) + (a₀b₁ + a₁b₀)u`.
 """
 function Base.:*(a::Fp2Element, b::Fp2Element)
     # Real part: a0*b0 - a1*b1
@@ -77,22 +74,21 @@ Base.:*(k::BN254Field, a::Fp2Element) = a * k
 """
     conjugate(a::Fp2Element)
 
-Conjugate of a + b*u is a - b*u.
+Return the conjugate `a - b*u` of `a + b*u`.
 """
 conjugate(a::Fp2Element) = Fp2Element(a[1], -a[2])
 
 """
     norm(a::Fp2Element)
 
-Norm of a + b*u is a² + b².
+Compute the norm `a² + b²` of `a + b*u`.
 """
 norm(a::Fp2Element) = a[1]^2 + a[2]^2
 
 """
     inv(a::Fp2Element)
 
-Multiplicative inverse using the formula:
-(a + b*u)⁻¹ = (a - b*u) / (a² + b²)
+Compute the multiplicative inverse `(a - b*u) / (a² + b²)`.
 """
 function Base.inv(a::Fp2Element)
     if iszero(a)
@@ -109,7 +105,7 @@ Base.:/(a::Fp2Element, b::Fp2Element) = a * inv(b)
 """
     ^(a::Fp2Element, n::Integer)
 
-Exponentiation using binary method.
+Raise an `Fp2Element` to the integer power `n` using binary exponentiation.
 """
 function Base.:^(a::Fp2Element, n::Integer)
     if n == 0
@@ -136,7 +132,7 @@ end
 """
     frobenius(a::Fp2Element)
 
-Frobenius endomorphism: (a + b*u) -> (a - b*u) since u^p = -u in Fp2.
+Apply the Frobenius endomorphism `(a + b*u) ↦ (a - b*u)` (since `u^p = -u`).
 """
 frobenius(a::Fp2Element) = conjugate(a)
 

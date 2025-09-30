@@ -1,9 +1,7 @@
-"""
-Abstract group interface and generic algorithms.
-
-This module provides curve-agnostic group operations and generic algorithms
-that work with any concrete group element implementation.
-"""
+# Abstract group interface and generic algorithms.
+#
+# Provides curve-agnostic group operations and generic algorithms that work
+# with any concrete group element implementation.
 
 """
     AbstractCurve
@@ -72,12 +70,10 @@ Return the inverse of a group element (same as negation for additive groups).
 """
     scalar_mul(P::GroupElem{C}, k::Integer) where C
 
-Generic scalar multiplication using binary double-and-add algorithm.
-Computes k * P where k is an integer and P is a group element.
+Compute `k * P` with the binary double-and-add algorithm.
 
-This is a generic implementation that works for any GroupElem{C} that
-implements addition and doubling. Concrete implementations may override
-this for better performance.
+This generic fallback works for any `GroupElem{C}` that implements addition
+and doubling; concrete curves can override it for performance.
 """
 function scalar_mul(P::GroupElem{C}, k::Integer) where C
     if k == 0
@@ -105,7 +101,7 @@ end
 """
     scalar_mul(P::GroupElem{C}, k::UInt256) where C
 
-Optimized scalar multiplication for UInt256 scalars.
+Compute `k * P` for `UInt256` scalars using a bit-scanning loop.
 """
 function scalar_mul(P::GroupElem{C}, k::UInt256) where C
     if k == UInt256(0)
@@ -133,14 +129,14 @@ end
 """
     Base.:*(k::Integer, P::GroupElem{C}) where C
 
-Scalar multiplication: k * P.
+Multiply `P` by the integer scalar `k`.
 """
 Base.:*(k::Integer, P::GroupElem{C}) where C = scalar_mul(P, k)
 
 """
     Base.:*(P::GroupElem{C}, k::Integer) where C
 
-Scalar multiplication: P * k.
+Multiply `P` by the integer scalar `k`.
 """
 Base.:*(P::GroupElem{C}, k::Integer) where C = scalar_mul(P, k)
 
@@ -149,11 +145,10 @@ Base.:*(P::GroupElem{C}, k::Integer) where C = scalar_mul(P, k)
 """
     multi_scalar_mul(points::Vector{GroupElem{C}}, scalars::Vector{<:Integer}) where C
 
-Generic multi-scalar multiplication using Straus algorithm.
-Computes ∑ᵢ scalars[i] * points[i] efficiently.
+Compute `∑ᵢ scalars[i] * points[i]` using the Straus multi-scalar algorithm.
 
-This is more efficient than computing each scalar multiplication separately
-when there are multiple point-scalar pairs.
+This shared doublings path is typically faster than independent scalar
+multiplications when handling several point–scalar pairs.
 """
 function multi_scalar_mul(points::Vector{<:GroupElem{C}}, scalars::Vector{<:Integer}) where C
     if length(points) != length(scalars)
@@ -202,12 +197,11 @@ end
 """
     wnaf_encode(k::Integer, w::Int=4)
 
-Encode an integer in w-NAF (windowed Non-Adjacent Form).
-Returns a vector of signed integers where each element is either 0 or an odd
-integer in the range [-(2^(w-1)-1), 2^(w-1)-1].
+Encode `k` in windowed non-adjacent form (w-NAF).
 
-w-NAF reduces the number of additions in scalar multiplication by allowing
-precomputed odd multiples.
+The returned digits are zeros or odd integers in
+`[-(2^(w-1)-1), 2^(w-1)-1]`, enabling efficient use of precomputed odd
+multiples.
 """
 function wnaf_encode(k::Integer, w::Int=4)
     if w < 2
@@ -248,9 +242,10 @@ end
 """
     scalar_mul_wnaf(P::GroupElem{C}, k::Integer, w::Int=4) where C
 
-Scalar multiplication using w-NAF encoding.
-This can be more efficient than binary double-and-add for large scalars,
-especially when precomputed odd multiples are available.
+Multiply `P` by `k` using w-NAF digits with window `w`.
+
+This path reuses precomputed odd multiples and often beats binary
+double-and-add for large scalars.
 """
 function scalar_mul_wnaf(P::GroupElem{C}, k::Integer, w::Int=4) where C
     if k == 0
@@ -298,8 +293,8 @@ end
 """
     FixedBaseTable{G}
 
-Table of precomputed odd multiples for a fixed base point, used to accelerate
-multiple scalar multiplications with the same base via w-NAF.
+Store precomputed odd multiples for a fixed base point, enabling fast w-NAF
+scalar multiplications against the same base.
 """
 struct FixedBaseTable{G<:GroupElem}
     window::Int
@@ -309,7 +304,7 @@ end
 """
     build_fixed_table(base::G; window::Int=5) where {G<:GroupElem}
 
-Build a fixed-base table of odd multiples for `base` with given window size.
+Build a fixed-base table of odd multiples for `base` using the chosen window.
 """
 function build_fixed_table(base::G; window::Int=5) where {G<:GroupElem}
     if window < 2
@@ -330,7 +325,7 @@ end
 """
     mul_fixed(table::FixedBaseTable{G}, k::Integer) where {G<:GroupElem}
 
-Multiply using a fixed-base table and w-NAF digits for the scalar.
+Multiply the table’s base by `k` using its precomputed odd multiples.
 """
 function mul_fixed(table::FixedBaseTable{G}, k::Integer) where {G<:GroupElem}
     # Handle trivial cases
@@ -359,7 +354,7 @@ end
 """
     batch_mul(table::FixedBaseTable{G}, scalars::Vector{<:Integer}) where {G<:GroupElem}
 
-Compute [k_i · base] for a batch of scalars using a single fixed-base table.
+Compute `kᵢ · base` for each scalar in `scalars` via a shared fixed-base table.
 """
 function batch_mul(table::FixedBaseTable{G}, scalars::Vector{<:Integer}) where {G<:GroupElem}
     return [mul_fixed(table, ki) for ki in scalars]
@@ -370,8 +365,8 @@ end
 """
     is_on_curve(P::GroupElem{C}) where C
 
-Test if a group element satisfies the curve equation.
-This is a generic fallback that should be overridden by concrete implementations.
+Return whether `P` satisfies the curve equation.
+Concrete curve types should override this fallback.
 """
 function is_on_curve(P::GroupElem{C}) where C
     # Generic fallback - concrete implementations should override
@@ -381,15 +376,14 @@ end
 """
     double(P::GroupElem{C}) where C
 
-Double a group element: 2P = P + P.
-This is a convenience function that uses the addition operation.
+Return `2P` by adding `P` to itself.
 """
 @inline double(P::GroupElem{C}) where C = P + P
 
 """
     triple(P::GroupElem{C}) where C
 
-Triple a group element: 3P = P + P + P.
+Return `3P` via repeated addition.
 """
 @inline triple(P::GroupElem{C}) where C = P + P + P
 
@@ -398,16 +392,15 @@ Triple a group element: 3P = P + P + P.
 """
     Base.isfinite(P::GroupElem{C}) where C
 
-Test if a group element is finite (not the point at infinity).
-For additive groups, this is equivalent to !iszero(P).
+Return `true` if `P` is finite (not the point at infinity).
 """
 @inline Base.isfinite(P::GroupElem{C}) where C = !iszero(P)
 
 """
     order(P::GroupElem{C}) where C
 
-Compute the order of a group element (the smallest positive integer k such that kP = 0).
-This is a generic implementation that may be slow for large orders.
+Return the (potentially slow to compute) order of `P`, the least positive `k`
+such that `kP = 0`.
 """
 function order(P::GroupElem{C}) where C
     if iszero(P)

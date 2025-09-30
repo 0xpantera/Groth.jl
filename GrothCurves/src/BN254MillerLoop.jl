@@ -1,23 +1,13 @@
-"""
-BN254 Miller loop implementation for the optimal ate pairing.
-
-This module implements the Miller loop algorithm which is the core
-computation for the BN254 pairing. The ate pairing uses a shorter
-loop than the Tate pairing for better performance.
-
-References:
-- Aranha et al., "The Realm of the Pairings", 2013
-  https://eprint.iacr.org/2013/722.pdf
-  Sections 4.3-4.4 for projective doubling/addition and D-twist line placement
-
-- LambdaClass, "How we implemented the BN254 Ate pairing in lambdaworks", 2024
-  https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/
-  Shows the exact BN254 coordinate mapping and line evaluation formulas
-
-- Arkworks implementation: ark-bn254
-  https://github.com/arkworks-rs/algebra
-  Reference for sparse 0-1-4 multiplication (mul_by_014)
-"""
+# BN254 Miller loop implementation for the optimal ate pairing.
+#
+# Implements the Miller loop core of the BN254 pairing. The ate loop is shorter
+# than the Tate loop, improving performance.
+#
+# References:
+# - Aranha et al., "The Realm of the Pairings", 2013.
+# - LambdaClass, "How we implemented the BN254 Ate pairing in lambdaworks",
+#   2024.
+# - Arkworks `ark-bn254` for sparse multiplication helpers.
 
 # using GrothAlgebra
 # using StaticArrays

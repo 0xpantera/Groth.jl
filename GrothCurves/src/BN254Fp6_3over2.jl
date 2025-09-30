@@ -1,8 +1,6 @@
-"""
-BN254 Fp6 implementation as cubic extension of Fp2.
-
-Fp6 = Fp2[v]/(v³ - ξ) where ξ = 9 + u ∈ Fp2
-"""
+# BN254 Fp6 implementation as cubic extension of Fp2.
+#
+# Realises Fp6 = Fp2[v]/(v³ - ξ) with ξ = 9 + u ∈ Fp2.
 
 # using StaticArrays
 
@@ -47,9 +45,9 @@ Base.:-(a::Fp6Element) = Fp6Element(-a[1], -a[2], -a[3])
 """
     *(a::Fp6Element, b::Fp6Element)
 
-Multiplication in Fp6 using the relation v³ = ξ = 9 + u.
-
-Expanding (a0 + a1*v + a2*v²)(b0 + b1*v + b2*v²) and collecting terms.
+Multiply two `Fp6Element`s using the relation `v³ = ξ = 9 + u`.
+The product expands as `(a₀ + a₁v + a₂v²)(b₀ + b₁v + b₂v²)` with Karatsuba
+style recombinations.
 """
 function Base.:*(a::Fp6Element, b::Fp6Element)
     # ξ = 9 + u in Fp2 (non-residue for cubic extension)
@@ -71,7 +69,7 @@ end
 """
     square(a::Fp6Element)
 
-Optimized squaring in Fp6.
+Square an `Fp6Element` using the optimized sextic formula.
 """
 function square(a::Fp6Element)
     ξ = Fp2Element(9, 1)
@@ -88,7 +86,7 @@ Base.:^(a::Fp6Element, ::Val{2}) = square(a)
 """
     inv(a::Fp6Element)
 
-Multiplicative inverse in Fp6.
+Compute the multiplicative inverse in Fp6.
 """
 function Base.inv(a::Fp6Element)
     if iszero(a)
@@ -127,7 +125,7 @@ Base.:/(a::Fp6Element, b::Fp6Element) = a * inv(b)
 """
     ^(a::Fp6Element, n::Integer)
 
-Exponentiation using binary method.
+Raise an `Fp6Element` to `n` with binary exponentiation.
 """
 function Base.:^(a::Fp6Element, n::Integer)
     if n == 0

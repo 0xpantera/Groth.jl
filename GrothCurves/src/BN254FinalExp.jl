@@ -1,23 +1,16 @@
-"""
-BN254 Final Exponentiation implementation.
-
-The final exponentiation raises the Miller loop result to the power (p^12 - 1)/r
-to map it into the cyclotomic subgroup GT. This is split into an easy part and
-a hard part for efficiency.
-
-References:
-- Beuchat et al., "High-Speed Software Implementation of the Optimal Ate Pairing over BN curves", 2010
-  https://eprint.iacr.org/2010/354.pdf
-
-- Devegili et al., "Implementing Cryptographic Pairings over Barreto-Naehrig Curves", 2007
-  https://eprint.iacr.org/2007/390.pdf
-
-- LambdaClass, "How we implemented the BN254 Ate pairing in lambdaworks", 2024
-  https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/
-
-- HackMD, "Computing the Optimal Ate Pairing over the BN254 Curve"
-  https://hackmd.io/@Wimet/ry7z1Xj-2
-"""
+# BN254 final exponentiation implementation.
+#
+# Raises the Miller loop output to `(p^12 - 1) / r` to map into the cyclotomic
+# subgroup. The routine is split into easy and hard parts for efficiency.
+#
+# References:
+# - Beuchat et al., "High-Speed Software Implementation of the Optimal Ate
+#   Pairing over BN curves", 2010. https://eprint.iacr.org/2010/354.pdf
+# - Devegili et al., "Implementing Cryptographic Pairings over Barreto-Naehrig
+#   Curves", 2007. https://eprint.iacr.org/2007/390.pdf
+# - LambdaClass, "How we implemented the BN254 Ate pairing in lambdaworks",
+#   2024. https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/
+# - HackMD, "Computing the Optimal Ate Pairing over the BN254 Curve".
 
 # using GrothAlgebra
 

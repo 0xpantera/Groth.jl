@@ -1,8 +1,6 @@
-"""
-BN254 Fp12 implementation as quadratic extension of Fp6.
-
-Fp12 = Fp6[w]/(w² - v)
-"""
+# BN254 Fp12 implementation as quadratic extension of Fp6.
+#
+# Realises Fp12 = Fp6[w]/(w² - v).
 
 # using StaticArrays
 
@@ -46,11 +44,9 @@ Base.:-(a::Fp12Element) = Fp12Element(-a[1], -a[2])
 """
     *(a::Fp12Element, b::Fp12Element)
 
-Multiplication in Fp12 using the relation w² = v.
-
-The product (a0 + a1*w)(b0 + b1*w) is computed as:
-- c0 = a0*b0 + a1*b1*v
-- c1 = a0*b1 + a1*b0
+Multiply two `Fp12Element`s using the relation `w² = v`.
+For `(a₀ + a₁w)(b₀ + b₁w)` the product satisfies
+`c₀ = a₀b₀ + a₁b₁v` and `c₁ = a₀b₁ + a₁b₀`.
 """
 function Base.:*(a::Fp12Element, b::Fp12Element)
     # v is represented as (0, 1, 0) in Fp6
@@ -65,7 +61,7 @@ end
 """
     square(a::Fp12Element)
 
-Optimized squaring in Fp12.
+Square an `Fp12Element` using the optimized quadratic-extension formula.
 """
 function square(a::Fp12Element)
     v = Fp6Element(zero(Fp2Element), one(Fp2Element), zero(Fp2Element))
@@ -81,15 +77,14 @@ Base.:^(a::Fp12Element, ::Val{2}) = square(a)
 """
     conjugate(a::Fp12Element)
 
-Conjugate in Fp12: (a0 + a1*w) → (a0 - a1*w)
+Return the conjugate `(a₀ - a₁w)` of `(a₀ + a₁w)` in Fp12.
 """
 conjugate(a::Fp12Element) = Fp12Element(a[1], -a[2])
 
 """
     inv(a::Fp12Element)
 
-Multiplicative inverse in Fp12.
-Uses the formula: (a0 + a1*w)⁻¹ = (a0 - a1*w) / (a0² - a1²*v)
+Compute the multiplicative inverse `(a₀ - a₁w) / (a₀² - a₁²v)` in Fp12.
 """
 function Base.inv(a::Fp12Element)
     if iszero(a)
@@ -112,7 +107,7 @@ Base.:/(a::Fp12Element, b::Fp12Element) = a * inv(b)
 """
     ^(a::Fp12Element, n::Integer)
 
-Exponentiation using binary method.
+Raise an `Fp12Element` to the integer power `n` with binary exponentiation.
 """
 function Base.:^(a::Fp12Element, n::Integer)
     if n == 0
@@ -141,8 +136,8 @@ end
 """
     frobenius(a::Fp12Element)
 
-Frobenius endomorphism in Fp12.
-For BN254, this has a special structure we can exploit.
+Apply the Frobenius endomorphism in Fp12.
+For BN254, this map has exploitable structure.
 """
 function frobenius(a::Fp12Element)
     # For now, implement basic version
@@ -153,7 +148,7 @@ end
 """
     frobenius(a::Fp12Element, k::Integer)
 
-k-th power of Frobenius endomorphism.
+Apply the `k`-fold Frobenius endomorphism.
 """
 function frobenius(a::Fp12Element, k::Integer)
     result = a

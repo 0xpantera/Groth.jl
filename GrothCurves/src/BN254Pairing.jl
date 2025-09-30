@@ -1,14 +1,7 @@
-"""
-BN254 pairing implementation.
-
-This module implements the complete BN254 optimal ate pairing by combining
-the Miller loop with final exponentiation.
-
-The pairing e: G1 × G2 → GT satisfies bilinearity:
-- e(aP, bQ) = e(P, Q)^(ab)
-- e(P + R, Q) = e(P, Q) · e(R, Q)
-- e(P, Q + S) = e(P, Q) · e(P, S)
-"""
+# BN254 pairing implementation.
+#
+# Combines the Miller loop with final exponentiation to realise the optimal ate
+# pairing e : G1 × G2 → GT.
 
 # using GrothAlgebra
 
@@ -49,7 +42,7 @@ optimal_ate_pairing(P::G1Point, Q::G2Point) = optimal_ate_pairing(BN254_ENGINE, 
 """
     pairing(P::G1Point, Q::G2Point)
 
-Alias for optimal_ate_pairing.
+Call `optimal_ate_pairing`.
 """
 pairing(engine::BN254Engine, P::G1Point, Q::G2Point) = optimal_ate_pairing(engine, P, Q)
 pairing(P::G1Point, Q::G2Point) = pairing(BN254_ENGINE, P, Q)
