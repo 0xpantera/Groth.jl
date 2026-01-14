@@ -165,7 +165,7 @@ function multi_scalar_mul(points::Vector{<:GroupElem{C}}, scalars::Vector{<:Inte
     end
 
     # Straus algorithm (simultaneous multiple point scalar multiplication)
-    max_bits = maximum(s -> s == 0 ? 0 : ceil(Int, log2(abs(s) + 1)), scalars)
+    max_bits = maximum(_bit_length, scalars)
 
     if max_bits == 0
         return zero(points[1])
@@ -190,6 +190,11 @@ function multi_scalar_mul(points::Vector{<:GroupElem{C}}, scalars::Vector{<:Inte
     end
 
     return result
+end
+
+@inline function _bit_length(s::Integer)
+    s == 0 && return 0
+    return ndigits(abs(s), base=2)
 end
 
 # w-NAF (windowed Non-Adjacent Form) utilities
