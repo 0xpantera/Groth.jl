@@ -309,7 +309,7 @@ function bench_groth16(results)
 
     qap = r1cs_to_qap(r1cs)
     witness = create_witness_sum_of_products(3, 5, 7, 11)
-    public_inputs = witness.values[1:r1cs.num_public]
+    public_inputs = r1cs.num_public > 1 ? witness.values[2:r1cs.num_public] : eltype(witness.values)[]
 
     tr_setup = @benchmark setup_full($qap; rng=MersenneTwister(42)) seconds=5 samples=5
     print_stats("Groth16 setup", tr_setup)

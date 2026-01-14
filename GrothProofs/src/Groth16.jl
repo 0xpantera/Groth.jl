@@ -19,6 +19,16 @@ Convert a field element to an `Integer` scalar for use with `scalar_mul`.
 """
 _to_int(x) = Integer(x.value)
 
+@inline function _rand_field(::Type{F}, rng::AbstractRNG) where F
+    F === BN254ScalarField || throw(ArgumentError("No CSPRNG-ready sampler configured for field $F"))
+    return F(rand(rng, 0:GrothCurves.BN254_ORDER_R - 1))
+end
+
+@inline function _rand_field_nonzero(::Type{F}, rng::AbstractRNG) where F
+    F === BN254ScalarField || throw(ArgumentError("No CSPRNG-ready sampler configured for field $F"))
+    return F(rand(rng, 1:GrothCurves.BN254_ORDER_R - 1))
+end
+
 """
     Groth16Proof
 
@@ -95,15 +105,18 @@ export Groth16Proof
 Generate production-style Groth16 keys (ProvingKey, VerificationKey).
 Keys work with the coset FFT prover pipeline while retaining the dense fallback
 for parity assertions.
+
+Security note: `rng` defaults to `Random.GLOBAL_RNG` (often `MersenneTwister`).
+Use a CSPRNG for real deployments.
 """
 function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::AbstractPairingEngine=BN254_ENGINE) where F
     E = typeof(engine)
     # Sample toxic waste
-    α = F(rand(rng, 1:1000000))
-    β = F(rand(rng, 1:1000000))
-    γ = F(rand(rng, 1:1000000))
-    δ = F(rand(rng, 1:1000000))
-    τ = F(rand(rng, 1:1000000))
+    α = _rand_field(F, rng)
+    β = _rand_field(F, rng)
+    γ = _rand_field_nonzero(F, rng)
+    δ = _rand_field_nonzero(F, rng)
+    τ = _rand_field(F, rng)
 
     # Generators
     g1 = g1_generator()
@@ -216,14 +229,16 @@ end
 Construct a Groth16 proof with the coset FFT pipeline.
 
 Set `debug_no_random=true` to omit prover randomness during testing.
+Security note: `rng` defaults to `Random.GLOBAL_RNG` (often `MersenneTwister`).
+Use a CSPRNG for real deployments.
 """
 function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::AbstractRNG=Random.GLOBAL_RNG, debug_no_random::Bool=false) where F
     w_vals = witness.values
     m = qap.num_vars
 
     # Randomizers
-    r = debug_no_random ? zero(F) : F(rand(rng, 1:1000000))
-    s = debug_no_random ? zero(F) : F(rand(rng, 1:1000000))
+    r = debug_no_random ? zero(F) : _rand_field(F, rng)
+    s = debug_no_random ? zero(F) : _rand_field(F, rng)
 
     # Accumulators for queries via MSM (fallbacks to scalar loops for tiny sizes)
     scalars = [_to_int(w_vals[i]) for i in 1:m]
@@ -282,20 +297,20 @@ function verify_full(vk::VerificationKey{E}, proof::Groth16Proof, public_inputs:
         return false
     end
 
-    # Compute vk_x = IC[1] + Σ_{i=2..num_public} input[i] * IC[i]
-    # public_inputs is expected to include the leading 1 at index 1
-    if length(public_inputs) < 1 || length(vk.IC) < 1
+    # Compute vk_x = IC[1] + Σ input[i] * IC[i+1]
+    # public_inputs excludes the leading 1 (arkworks-style)
+    if isempty(vk.IC)
         return false
     end
-    if length(public_inputs) > length(vk.IC)
+    expected_len = length(vk.IC) - 1
+    if length(public_inputs) != expected_len
         return false
     end
-    if length(public_inputs) > 1
-        pts_ic = vk.IC[2:length(public_inputs)]
-        scal_ic = [_to_int(public_inputs[i]) for i in 2:length(public_inputs)]
-        vk_x = vk.IC[1] + GrothAlgebra.multi_scalar_mul(pts_ic, scal_ic)
-    else
-        vk_x = vk.IC[1]
+    vk_x = vk.IC[1]
+    if expected_len > 0
+        pts_ic = vk.IC[2:end]
+        scal_ic = [_to_int(public_inputs[i]) for i in 1:expected_len]
+        vk_x += GrothAlgebra.multi_scalar_mul(pts_ic, scal_ic)
     end
 
     engine = vk.engine
@@ -338,20 +353,24 @@ end
 """
     prepare_inputs(pvk::PreparedVerificationKey, public_inputs::Vector{F}) where F
 
-Compute `vk_x = IC[1] + Σ_{i=2..} input[i] * IC[i]`.
+    Compute `vk_x = IC[1] + Σ input[i] * IC[i+1]`.
 
-Public inputs must include the leading `1` at index `1`.
+    Public inputs exclude the leading `1` (arkworks-style).
 """
 function prepare_inputs(pvk::PreparedVerificationKey{E}, public_inputs::Vector{F}) where {E<:AbstractPairingEngine, F}
     vk = pvk.vk
-    if isempty(public_inputs) || isempty(vk.IC) || length(public_inputs) > length(vk.IC)
-        throw(ArgumentError("Invalid public inputs for prepared inputs"))
+    if isempty(vk.IC)
+        throw(ArgumentError("Verification key has empty IC vector"))
+    end
+    expected_len = length(vk.IC) - 1
+    if length(public_inputs) != expected_len
+        throw(ArgumentError("Expected $(expected_len) public inputs, got $(length(public_inputs))"))
     end
     acc = vk.IC[1]
-    for i in 2:length(public_inputs)
+    for i in 1:expected_len
         xi = public_inputs[i]
         iszero(xi) && continue
-        acc += scalar_mul(vk.IC[i], _to_int(xi))
+        acc += scalar_mul(vk.IC[i + 1], _to_int(xi))
     end
     return acc
 end
