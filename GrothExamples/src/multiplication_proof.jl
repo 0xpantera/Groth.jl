@@ -57,6 +57,7 @@ function main()
     println("   Coset offset for FFTs: $(coset_offset(qap.coset_domain))")
     
     # Step 4: Generate production-style keys (CRS)
+    # NOTE: For real deployments, use a CSPRNG instead of Random.GLOBAL_RNG.
     println("\n4. Generating Groth16 keys (CRS)")
     keypair = setup_full(qap)
     println("   ✓ Keys generated (ProvingKey + VerificationKey)")
@@ -81,8 +82,8 @@ function main()
     # Step 6: Verify proof
     println("\n6. Verifying proof")
     
-    # Extract public inputs (first 6 elements of witness: 1, r, x, y, z, u)
-    public_inputs = witness.values[1:r1cs.num_public]
+    # Extract public inputs (arkworks-style, excludes the leading 1)
+    public_inputs = r1cs.num_public > 1 ? witness.values[2:r1cs.num_public] : eltype(witness.values)[]
     
     # Verify using pairing check
     println("   Checking pairing equation: e(A,B) = e(α,β) · e(vk_x,γ) · e(C,δ)")

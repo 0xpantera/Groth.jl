@@ -67,8 +67,9 @@ using Random
 r1cs = create_r1cs_example_multiplication()
 witness = create_witness_multiplication(3, 5, 7, 11)
 qap = r1cs_to_qap(r1cs)
+# NOTE: For real deployments, use a CSPRNG instead of Random.GLOBAL_RNG.
 keypair = setup_full(qap; rng = Random.MersenneTwister(42))
 proof = prove_full(keypair.pk, qap, witness; rng = Random.MersenneTwister(1337))
-public_inputs = witness.values[1:r1cs.num_public]
+public_inputs = r1cs.num_public > 1 ? witness.values[2:r1cs.num_public] : eltype(witness.values)[]
 verify_full(keypair.vk, proof, public_inputs)
 ```

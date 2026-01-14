@@ -5,6 +5,10 @@ using Random
 
 include("random_circuits.jl")
 
+function public_inputs_for(r1cs::R1CS, witness::Witness)
+    return r1cs.num_public > 1 ? witness.values[2:r1cs.num_public] : eltype(witness.values)[]
+end
+
 @testset "Groth16 full pipeline" begin
     # Build example R1CS and witness for r = x*y*z*u
     r1cs = create_r1cs_example_multiplication()
@@ -21,10 +25,8 @@ include("random_circuits.jl")
     # Prove with randomized r,s (seeded for reproducibility)
     proof = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(1337))
 
-    # Verify with correct public inputs
-    # Arkworks prepare_inputs uses gamma_abc[1..] with inputs excluding the leading 1.
-    # Our verify_full expects the leading 1 included at index 1, then the rest inputs.
-    public_inputs = witness.values[1:r1cs.num_public]
+    # Verify with correct public inputs (arkworks-style, excludes leading 1)
+    public_inputs = public_inputs_for(r1cs, witness)
     @test verify_full(keypair.vk, proof, public_inputs)
 
     # Negative test: mutate a public input -> should fail
@@ -52,7 +54,7 @@ end
     for (idx, (x, y, z, u)) in enumerate(inputs_list)
         witness = create_witness_multiplication(x, y, z, u)
         @test is_satisfied(r1cs, witness)
-        public_inputs = witness.values[1:r1cs.num_public]
+        public_inputs = public_inputs_for(r1cs, witness)
 
         # Randomized prover seeds (non-zero randomness)
         rng = MersenneTwister(10_000 + idx)
@@ -68,7 +70,7 @@ end
 
     x, y, z, u = 4, 8, 3, 2
     witness = create_witness_multiplication(x, y, z, u)
-    public_inputs = witness.values[1:r1cs.num_public]
+    public_inputs = public_inputs_for(r1cs, witness)
     proof = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(99))
 
     # Wrong public input length (drop last)
@@ -109,7 +111,7 @@ end
     for (x, y, z, u) in inputs_list
         witness = create_witness_sum_of_products(x, y, z, u)
         @test is_satisfied(r1cs, witness)
-        public_inputs = witness.values[1:r1cs.num_public]
+        public_inputs = public_inputs_for(r1cs, witness)
         proof = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(x + y + z + u))
         @test verify_full(keypair.vk, proof, public_inputs)
 
@@ -122,7 +124,7 @@ end
     # Rerandomization invariance: different seeds produce valid proofs
     x, y, z, u = 3, 4, 5, 6
     witness = create_witness_sum_of_products(x, y, z, u)
-    public_inputs = witness.values[1:r1cs.num_public]
+    public_inputs = public_inputs_for(r1cs, witness)
     proof1 = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(1))
     proof2 = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(2))
     @test verify_full(keypair.vk, proof1, public_inputs)
@@ -148,7 +150,7 @@ end
     for (x, y, z, u) in inputs_list
         witness = create_witness_affine_product(x, y, z, u)
         @test is_satisfied(r1cs, witness)
-        public_inputs = witness.values[1:r1cs.num_public]
+        public_inputs = public_inputs_for(r1cs, witness)
         proof = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(x + y + z + u + 1))
         @test verify_full(keypair.vk, proof, public_inputs)
 
@@ -180,7 +182,7 @@ end
     for (x, y, c) in inputs_list
         witness = create_witness_square_offset(x, y, c)
         @test is_satisfied(r1cs, witness)
-        public_inputs = witness.values[1:r1cs.num_public]
+        public_inputs = public_inputs_for(r1cs, witness)
         proof = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(x + y + c + 5))
         @test verify_full(keypair.vk, proof, public_inputs)
 
@@ -191,7 +193,7 @@ end
 
     # Wrong public input (offset) should fail verification
     witness = create_witness_square_offset(4, 6, 8)
-    public_inputs = witness.values[1:r1cs.num_public]
+    public_inputs = public_inputs_for(r1cs, witness)
     proof = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(4040))
     bad_inputs = copy(public_inputs)
     bad_inputs[end] += one(eltype(bad_inputs))
@@ -211,19 +213,19 @@ end
         keypair = setup_full(qap; rng=MersenneTwister(seed + 1))
         proof = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(seed + 2))
 
-        public_inputs = witness.values[1:r1cs.num_public]
+        public_inputs = public_inputs_for(r1cs, witness)
         @test verify_full(keypair.vk, proof, public_inputs)
 
         pvk = prepare_verifying_key(keypair.vk)
         pin = prepare_inputs(pvk, public_inputs)
         @test verify_with_prepared(pvk, proof, pin)
 
-        # Mutate a random public slot (beyond the leading 1) and expect failure
+        # Mutate a random public slot and expect failure
         touched = circuit.used_public
         if !isempty(touched)
             bad_inputs = copy(public_inputs)
             idx = rand(rng, touched)
-            bad_inputs[idx] += one(eltype(bad_inputs))
+            bad_inputs[idx - 1] += one(eltype(bad_inputs))
             @test !verify_full(keypair.vk, proof, bad_inputs)
         end
 
@@ -239,7 +241,7 @@ end
     keypair = setup_full(qap; rng=MersenneTwister(5150))
 
     witness = create_witness_sum_of_products(4, 6, 8, 10)
-    public_inputs = witness.values[1:r1cs.num_public]
+    public_inputs = public_inputs_for(r1cs, witness)
     proof = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(42))
 
     pvk = prepare_verifying_key(keypair.vk)
