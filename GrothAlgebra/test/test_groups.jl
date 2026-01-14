@@ -89,6 +89,31 @@ using Test
         # Test with single point
         @test multi_scalar_mul([P1], [5]) == 5 * P1
     end
+
+    @testset "Multi-scalar Multiplication BigInt scalars" begin
+        struct TestCurveBig <: AbstractCurve end
+
+        struct TestPointBig <: GroupElem{TestCurveBig}
+            x::BigInt
+            y::BigInt
+        end
+
+        Base.zero(::Type{TestPointBig}) = TestPointBig(0, 0)
+        Base.iszero(p::TestPointBig) = p.x == 0 && p.y == 0
+        Base.:+(p::TestPointBig, q::TestPointBig) = TestPointBig(p.x + q.x, p.y + q.y)
+        Base.:-(p::TestPointBig) = TestPointBig(-p.x, -p.y)
+        Base.:(==)(p::TestPointBig, q::TestPointBig) = p.x == q.x && p.y == q.y
+
+        P1 = TestPointBig(1, 2)
+        P2 = TestPointBig(3, 4)
+        P3 = TestPointBig(5, 6)
+        points = [P1, P2, P3]
+        scalars = [BigInt(1) << 60, BigInt(1) << 55, -(BigInt(1) << 54)]
+
+        result = multi_scalar_mul(points, scalars)
+        expected = scalar_mul(P1, scalars[1]) + scalar_mul(P2, scalars[2]) + scalar_mul(P3, scalars[3])
+        @test result == expected
+    end
     
     @testset "w-NAF Encoding" begin
         # Test basic w-NAF encoding
