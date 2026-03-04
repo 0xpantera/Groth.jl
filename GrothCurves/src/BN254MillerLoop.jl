@@ -35,14 +35,14 @@ const ATE_LOOP_COUNT_NAF = Int8[
 # These are the correct p-power endomorphism coefficients from arkworks
 # PSI_X = (u+9)^((p-1)/3) for x-coordinate multiplication after Frobenius
 const P_POWER_ENDOMORPHISM_COEFF_0 = Fp2Element(
-    bn254_field(parse(BigInt, "21575463638280843010398324269430826099269044274347216827212613867836435027261")),
-    bn254_field(parse(BigInt, "10307601595873709700152284273816112264069230130616436755625194854815875713954"))
+    bn254_fq(parse(BigInt, "21575463638280843010398324269430826099269044274347216827212613867836435027261")),
+    bn254_fq(parse(BigInt, "10307601595873709700152284273816112264069230130616436755625194854815875713954"))
 )
 
 # PSI_Y = (u+9)^((p-1)/2) for y-coordinate multiplication after Frobenius
 const P_POWER_ENDOMORPHISM_COEFF_1 = Fp2Element(
-    bn254_field(parse(BigInt, "2821565182194536844548159561693502659359617185244120367078079554186484126554")),
-    bn254_field(parse(BigInt, "3505843767911556378687030309984248845540243509899259641013678093033130930403"))
+    bn254_fq(parse(BigInt, "2821565182194536844548159561693502659359617185244120367078079554186484126554")),
+    bn254_fq(parse(BigInt, "3505843767911556378687030309984248845540243509899259641013678093033130930403"))
 )
 
 # Note: For π²(Q), we compose the endomorphism twice rather than using squared coefficients
@@ -187,14 +187,14 @@ a*x_P + b*y_P + c, which is then embedded into Fp12.
 function evaluate_line(coeffs::LineCoeffs, P::G1Point)
     # Get affine coordinates of P
     P_x, P_y = if iszero(P)
-        (zero(BN254Field), zero(BN254Field))
+        (zero(BN254Fq), zero(BN254Fq))
     else
         to_affine(P)
     end
 
     # Convert to Fp2 for computation
-    xP = Fp2Element(P_x, zero(BN254Field))
-    yP = Fp2Element(P_y, zero(BN254Field))
+    xP = Fp2Element(P_x, zero(BN254Fq))
+    yP = Fp2Element(P_y, zero(BN254Fq))
 
     # D-twist embedding - different from M-twist!
     # For D-twist, the line evaluation gives a sparse Fp12 element

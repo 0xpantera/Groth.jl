@@ -67,8 +67,8 @@ println("Test 2: D-twist Formula Verification")
 println("="^50)
 
 # Convert P coordinates to Fp2 for computation
-xP_fp2 = Fp2Element(P_x, zero(BN254Field))
-yP_fp2 = Fp2Element(P_y, zero(BN254Field))
+xP_fp2 = Fp2Element(P_x, zero(BN254Fq))
+yP_fp2 = Fp2Element(P_y, zero(BN254Fq))
 
 # According to D-twist, the line evaluation should be:
 # a*yP at position (0,0,0) in Fp12

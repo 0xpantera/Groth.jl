@@ -17,12 +17,12 @@ import GrothCurves: is_on_curve, real, imag, double
         
         # Check coordinates match expected values
         g1_aff = to_affine(g1)
-        @test g1_aff[1] == bn254_field(1)
-        @test g1_aff[2] == bn254_field(2)
+        @test g1_aff[1] == bn254_fq(1)
+        @test g1_aff[2] == bn254_fq(2)
         
         g2_aff = to_affine(g2)
-        x0_expected = bn254_field(parse(BigInt, "10857046999023057135944570762232829481370756359578518086990519993285655852781"))
-        x1_expected = bn254_field(parse(BigInt, "11559732032986387107991004021392285783925812861821192530917403151452391805634"))
+        x0_expected = bn254_fq(parse(BigInt, "10857046999023057135944570762232829481370756359578518086990519993285655852781"))
+        x1_expected = bn254_fq(parse(BigInt, "11559732032986387107991004021392285783925812861821192530917403151452391805634"))
         @test real(g2_aff[1]) == x0_expected
         @test imag(g2_aff[1]) == x1_expected
     end

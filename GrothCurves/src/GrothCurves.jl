@@ -1,6 +1,6 @@
 module GrothCurves
 
-using GrothAlgebra: BN254Field, bn254_field, AbstractCurve, GroupElem, prime
+using GrothAlgebra: BN254Fq, bn254_fq, AbstractCurve, GroupElem, prime
 using StaticArrays: SVector
 
 """
@@ -30,7 +30,7 @@ include("BN254Pairing.jl")  # Complete pairing
 
 # Re-export from submodules
 export AbstractPairingEngine
-export BN254Field, bn254_field, BN254_PRIME
+export BN254Fq, bn254_fq, BN254_PRIME
 export Fp2Element, conjugate, norm, frobenius, real, imag
 export Fp6Element, Fp12Element, GTElement, square
 export BN254Curve, G1Point, G2Point, BN254Engine, BN254_ENGINE

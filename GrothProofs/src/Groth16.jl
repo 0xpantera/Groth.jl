@@ -20,12 +20,12 @@ Convert a field element to an `Integer` scalar for use with `scalar_mul`.
 _to_int(x) = Integer(x.value)
 
 @inline function _rand_field(::Type{F}, rng::AbstractRNG) where F
-    F === BN254ScalarField || throw(ArgumentError("No CSPRNG-ready sampler configured for field $F"))
+    F === BN254Fr || throw(ArgumentError("No CSPRNG-ready sampler configured for field $F"))
     return F(rand(rng, 0:GrothCurves.BN254_ORDER_R - 1))
 end
 
 @inline function _rand_field_nonzero(::Type{F}, rng::AbstractRNG) where F
-    F === BN254ScalarField || throw(ArgumentError("No CSPRNG-ready sampler configured for field $F"))
+    F === BN254Fr || throw(ArgumentError("No CSPRNG-ready sampler configured for field $F"))
     return F(rand(rng, 1:GrothCurves.BN254_ORDER_R - 1))
 end
 

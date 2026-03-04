@@ -10,7 +10,7 @@ struct BN254Curve <: AbstractCurve end
 const BN254_ORDER_R = parse(BigInt, "21888242871839275222246405745257275088548364400416034343698204186575808495617")
 
 # Shared projective point storage (X:Y:Z) in Jacobian coordinates
-const G1Point = ProjectivePoint{BN254Curve, BN254Field}
+const G1Point = ProjectivePoint{BN254Curve, BN254Fq}
 const G2Point = ProjectivePoint{BN254Curve, Fp2Element}
 
 # Twist coefficient for the BN254 D-twist (y² = x³ + b')
@@ -18,20 +18,20 @@ const G2_B_TWIST = Fp2Element(3, 0) / Fp2Element(9, 1)
 
 # Convenient constructors for G1
 G1Point(x::Integer, y::Integer, z::Integer) =
-    G1Point(bn254_field(x), bn254_field(y), bn254_field(z))
-G1Point(x::Integer, y::Integer) = G1Point(bn254_field(x), bn254_field(y), one(BN254Field))
+    G1Point(bn254_fq(x), bn254_fq(y), bn254_fq(z))
+G1Point(x::Integer, y::Integer) = G1Point(bn254_fq(x), bn254_fq(y), one(BN254Fq))
 
 # Convenient constructors for G2
 function G2Point(x0::Integer, x1::Integer, y0::Integer, y1::Integer, z0::Integer, z1::Integer)
-    X = Fp2Element(bn254_field(x0), bn254_field(x1))
-    Y = Fp2Element(bn254_field(y0), bn254_field(y1))
-    Z = Fp2Element(bn254_field(z0), bn254_field(z1))
+    X = Fp2Element(bn254_fq(x0), bn254_fq(x1))
+    Y = Fp2Element(bn254_fq(y0), bn254_fq(y1))
+    Z = Fp2Element(bn254_fq(z0), bn254_fq(z1))
     G2Point(X, Y, Z)
 end
 
 function G2Point(x0::Integer, x1::Integer, y0::Integer, y1::Integer)
-    X = Fp2Element(bn254_field(x0), bn254_field(x1))
-    Y = Fp2Element(bn254_field(y0), bn254_field(y1))
+    X = Fp2Element(bn254_fq(x0), bn254_fq(x1))
+    Y = Fp2Element(bn254_fq(y0), bn254_fq(y1))
     G2Point(X, Y, one(Fp2Element))
 end
 
@@ -40,7 +40,7 @@ G2Point(X::Fp2Element, Y::Fp2Element) = G2Point(X, Y, one(Fp2Element))
 # Affine conversion specialised for each field type
 function to_affine(p::G1Point)
     if iszero(p)
-        return (zero(BN254Field), zero(BN254Field))
+        return (zero(BN254Fq), zero(BN254Fq))
     end
     z_inv = inv(z_coord(p))
     z_inv2 = z_inv^2
@@ -68,7 +68,7 @@ function is_on_curve(p::G1Point)
     Z2 = Z^2
     Z4 = Z2^2
     Z6 = Z4 * Z2
-    return Y^2 == X^3 + bn254_field(3) * Z6
+    return Y^2 == X^3 + bn254_fq(3) * Z6
 end
 
 function is_on_curve(p::G2Point)
@@ -91,11 +91,11 @@ function double(p::G1Point)
 
     X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
 
-    S = bn254_field(4) * X * Y^2
-    M = bn254_field(3) * X^2
-    X3 = M^2 - bn254_field(2) * S
-    Y3 = M * (S - X3) - bn254_field(8) * Y^4
-    Z3 = bn254_field(2) * Y * Z
+    S = bn254_fq(4) * X * Y^2
+    M = bn254_fq(3) * X^2
+    X3 = M^2 - bn254_fq(2) * S
+    Y3 = M * (S - X3) - bn254_fq(8) * Y^4
+    Z3 = bn254_fq(2) * Y * Z
 
     return G1Point(X3, Y3, Z3)
 end
@@ -126,12 +126,12 @@ function Base.:+(p::G1Point, q::G1Point)
     end
 
     H = U2 - U1
-    I = (bn254_field(2) * H)^2
+    I = (bn254_fq(2) * H)^2
     J = H * I
-    r = bn254_field(2) * (S2 - S1)
+    r = bn254_fq(2) * (S2 - S1)
     V = U1 * I
-    X3 = r^2 - J - bn254_field(2) * V
-    Y3 = r * (V - X3) - bn254_field(2) * S1 * J
+    X3 = r^2 - J - bn254_fq(2) * V
+    Y3 = r * (V - X3) - bn254_fq(2) * S1 * J
     Z3 = ((Z1 + Z2)^2 - Z1Z1 - Z2Z2) * H
 
     return G1Point(X3, Y3, Z3)
@@ -216,8 +216,8 @@ function g2_generator()
     y0 = parse(BigInt, "8495653923123431417604973247489272438418190587263600148770280649306958101930")
     y1 = parse(BigInt, "4082367875863433681332203403145435568316851327593401208105741076214120093531")
     G2Point(
-        Fp2Element(bn254_field(x0), bn254_field(x1)),
-        Fp2Element(bn254_field(y0), bn254_field(y1)),
+        Fp2Element(bn254_fq(x0), bn254_fq(x1)),
+        Fp2Element(bn254_fq(y0), bn254_fq(y1)),
         one(Fp2Element)
     )
 end
@@ -240,16 +240,16 @@ function batch_to_affine!(pts::Vector{G1Point})
     if isempty(idxs)
         return pts
     end
-    prefix = Vector{BN254Field}(undef, length(idxs))
+    prefix = Vector{BN254Fq}(undef, length(idxs))
     prefix[1] = z_coord(pts[idxs[1]])
     for k in 2:length(idxs)
         prefix[k] = prefix[k-1] * z_coord(pts[idxs[k]])
     end
     inv_total = inv(prefix[end])
-    zinv = Vector{BN254Field}(undef, length(idxs))
+    zinv = Vector{BN254Fq}(undef, length(idxs))
     for k in length(idxs):-1:1
         z_k = z_coord(pts[idxs[k]])
-        prev = k == 1 ? one(BN254Field) : prefix[k-1]
+        prev = k == 1 ? one(BN254Fq) : prefix[k-1]
         zinv_k = inv_total * prev
         zinv[k] = zinv_k
         inv_total = inv_total * z_k
@@ -259,7 +259,7 @@ function batch_to_affine!(pts::Vector{G1Point})
         z_inv = zinv[t]
         z_inv2 = z_inv^2
         z_inv3 = z_inv2 * z_inv
-        pts[i] = G1Point(x_coord(P) * z_inv2, y_coord(P) * z_inv3, one(BN254Field))
+        pts[i] = G1Point(x_coord(P) * z_inv2, y_coord(P) * z_inv3, one(BN254Fq))
     end
     return pts
 end

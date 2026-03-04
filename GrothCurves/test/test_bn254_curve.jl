@@ -4,8 +4,8 @@ using GrothAlgebra
 
 # Explicitly import all needed functions
 using GrothCurves: is_on_curve, double, to_affine, g1_generator, g2_generator, 
-                   bn254_field, x_coord, y_coord, z_coord, real, imag,
-                   G1Point, G2Point, BN254Field, Fp2Element,
+                   bn254_fq, x_coord, y_coord, z_coord, real, imag,
+                   G1Point, G2Point, BN254Fq, Fp2Element,
                    conjugate, norm, frobenius
 
 @testset "BN254 Curve Operations" begin
@@ -24,8 +24,8 @@ using GrothCurves: is_on_curve, double, to_affine, g1_generator, g2_generator,
             
             # Test affine conversion
             x_aff, y_aff = to_affine(g1)
-            @test x_aff == bn254_field(1)
-            @test y_aff == bn254_field(2)
+            @test x_aff == bn254_fq(1)
+            @test y_aff == bn254_fq(2)
         end
         
         @testset "Point addition" begin
@@ -71,8 +71,8 @@ using GrothCurves: is_on_curve, double, to_affine, g1_generator, g2_generator,
             # Test specific coordinates (known values for BN254)
             x2, y2 = to_affine(p2)
             # These are known values for 2*G1 on BN254
-            expected_x = bn254_field(parse(BigInt, "1368015179489954701390400359078579693043519447331113978918064868415326638035"))
-            expected_y = bn254_field(parse(BigInt, "9918110051302171585080402603319702774565515993150576347155970296011118125764"))
+            expected_x = bn254_fq(parse(BigInt, "1368015179489954701390400359078579693043519447331113978918064868415326638035"))
+            expected_y = bn254_fq(parse(BigInt, "9918110051302171585080402603319702774565515993150576347155970296011118125764"))
             @test x2 == expected_x
             @test y2 == expected_y
         end
@@ -230,30 +230,30 @@ using GrothCurves: is_on_curve, double, to_affine, g1_generator, g2_generator,
             
             # Addition
             c = a + b
-            @test real(c) == bn254_field(7)
-            @test imag(c) == bn254_field(10)
+            @test real(c) == bn254_fq(7)
+            @test imag(c) == bn254_fq(10)
             
             # Subtraction
             d = b - a
-            @test real(d) == bn254_field(3)
-            @test imag(d) == bn254_field(4)
+            @test real(d) == bn254_fq(3)
+            @test imag(d) == bn254_fq(4)
             
             # Multiplication (using u² = -1)
             # (2 + 3u) * (5 + 7u) = 10 + 14u + 15u + 21u²
             #                     = 10 + 29u - 21
             #                     = -11 + 29u
             e = a * b
-            @test real(e) == bn254_field(-11)
-            @test imag(e) == bn254_field(29)
+            @test real(e) == bn254_fq(-11)
+            @test imag(e) == bn254_fq(29)
             
             # Conjugate
             conj_a = conjugate(a)
-            @test real(conj_a) == bn254_field(2)
-            @test imag(conj_a) == bn254_field(-3)
+            @test real(conj_a) == bn254_fq(2)
+            @test imag(conj_a) == bn254_fq(-3)
             
             # Norm
             n = norm(a)
-            @test n == bn254_field(13)  # 2² + 3² = 4 + 9 = 13
+            @test n == bn254_fq(13)  # 2² + 3² = 4 + 9 = 13
         end
         
         @testset "Inverse and division" begin

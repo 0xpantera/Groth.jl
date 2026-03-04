@@ -7,12 +7,12 @@ annotated rather than discarded), and follow-ups.
 ## GrothAlgebra
 
 **Purpose**
-- Prime-field arithmetic (BN254, secp256k1) plus generic polynomial and group
-  utilities consumed by higher-level packages.
+- Prime-field arithmetic (BN254, secp256k1, and `GaloisField{p}`) plus generic
+  polynomial and group utilities consumed by higher-level packages.
 
 **Key modules**
-- `src/FiniteFields.jl` — BigInt-backed fields with normalization, `invmod`,
-  `powermod`, and display helpers.
+- `src/FiniteFields.jl` — BigInt-backed prime fields with normalization,
+  `invmod`, `powermod`, display helpers, and `GaloisField{p}` for prime `p`.
 - `src/Polynomial.jl` — Degree/leading-coefficient management, Horner
   evaluation, Lagrange interpolation, derivative, FFT scaffolding.
 - `src/Group.jl` — Generic group/curve interface with scalar multiplication,
@@ -125,7 +125,7 @@ Overall, the pairing stack looks coherent and well structured; the proof system 
 ## What’s Well Implemented and Documented
 
 - Finite fields and polynomials (GrothAlgebra)
-  - `GrothAlgebra/src/FiniteFields.jl`: BigInt-backed prime fields (BN254 prime, secp256k1) with normalized arithmetic, inversion via `invmod`, power via `powermod`, plus helpful display and utilities. Clean docstrings and straightforward APIs.
+  - `GrothAlgebra/src/FiniteFields.jl`: BigInt-backed prime fields (BN254 prime, secp256k1, and `GaloisField{p}`) with normalized arithmetic, inversion via `invmod`, power via `powermod`, plus helpful display and utilities. Clean docstrings and straightforward APIs.
   - `GrothAlgebra/src/Polynomial.jl`: Polynomials over a field with degree/leading coefficient handling, Horner evaluation, Lagrange interpolation, derivative, and a placeholder for FFT multiply. Well commented; operations are correct and readable.
   - `GrothAlgebra/src/Group.jl`: A generic `GroupElem` interface with scalar multiplication, w-NAF utilities, Straus MSM, and helpers. Clear documentation of expectations from concrete curve types.
 
@@ -236,4 +236,3 @@ This section distinguishes between (a) the math we need, (b) representation opti
 - `GrothProofs/src/*.jl`
 - `GrothExamples/`
 - `benchmarks/`
-

@@ -6,40 +6,101 @@ normalisation.
 """
 abstract type FiniteFieldElement end
 
+using Primes: isprime
+
 # Helper functions that must be implemented by concrete types
 prime(::Type{<:FiniteFieldElement}) = error("prime() not implemented")
 field_name(::Type{<:FiniteFieldElement}) = "FiniteField"
+
+# ===========================================
+# Generic Galois Field (Prime Only)
+# ===========================================
+
+const _galois_field_prime_cache = Dict{Int,Bool}()
+
+_checked_prime_modulus(p) = throw(ArgumentError("GaloisField modulus must be an integer > 1"))
+
+function _checked_prime_modulus(p::Integer)
+    p_int = try
+        Int(p)
+    catch
+        throw(ArgumentError("GaloisField modulus must fit in Int"))
+    end
+    if p_int <= 1 || p_int != p
+        throw(ArgumentError("GaloisField modulus must be an integer > 1"))
+    end
+    is_prime = get!(_galois_field_prime_cache, p_int) do
+        isprime(p_int)
+    end
+    is_prime || throw(ArgumentError("GaloisField modulus must be prime"))
+    return p_int
+end
+
+"""
+    GaloisField{P}
+
+Prime-field element in GF(P) stored with `BigInt` reduction.
+Currently supports only prime fields (P must be prime).
+"""
+struct GaloisField{P} <: FiniteFieldElement
+    value::BigInt
+
+    function GaloisField{P}(value::BigInt, normalized::Bool=false) where {P}
+        _checked_prime_modulus(P)
+        if normalized
+            new(value)
+        else
+            p = BigInt(P)
+            new(mod(value, p))
+        end
+    end
+end
+
+prime(::Type{GaloisField{P}}) where {P} = BigInt(P)
+field_name(::Type{GaloisField{P}}) where {P} = "GF($(P))"
+
+GaloisField{P}(x::Integer) where {P} = GaloisField{P}(BigInt(x))
+
+"""
+    galois_field(p::Integer)
+
+Return the prime field type `GaloisField{p}` after validating `p` is prime.
+"""
+function galois_field(p::Integer)
+    p_int = _checked_prime_modulus(p)
+    return GaloisField{p_int}
+end
 
 # ===========================================
 # BN254 Field Implementation
 # ===========================================
 
 """
-    BN254Field
+    BN254Fq
 
 Element of the BN254 base field represented with `BigInt` reduction.
 """
-struct BN254Field <: FiniteFieldElement
+struct BN254Fq <: FiniteFieldElement
     value::BigInt
-    
+
     # Inner constructor ensures normalization
-    function BN254Field(value::BigInt, normalized::Bool=false)
+    function BN254Fq(value::BigInt, normalized::Bool=false)
         if normalized
             new(value)
         else
-            p = prime(BN254Field)
+            p = prime(BN254Fq)
             new(mod(value, p))
         end
     end
 end
 
 # BN254 prime
-prime(::Type{BN254Field}) = parse(BigInt, "21888242871839275222246405745257275088696311157297823662689037894645226208583")
-field_name(::Type{BN254Field}) = "BN254"
+prime(::Type{BN254Fq}) = parse(BigInt, "21888242871839275222246405745257275088696311157297823662689037894645226208583")
+field_name(::Type{BN254Fq}) = "BN254"
 
 # Constructors
-BN254Field(x::Integer) = BN254Field(BigInt(x))
-bn254_field(x) = BN254Field(x)
+BN254Fq(x::Integer) = BN254Fq(BigInt(x))
+bn254_fq(x) = BN254Fq(x)
 
 # ===========================================
 # Secp256k1 Field Implementation  
@@ -52,7 +113,7 @@ Element of the secp256k1 base field represented with `BigInt` reduction.
 """
 struct Secp256k1Field <: FiniteFieldElement
     value::BigInt
-    
+
     function Secp256k1Field(value::BigInt, normalized::Bool=false)
         if normalized
             new(value)
@@ -163,7 +224,8 @@ const FieldElem = FiniteFieldElement
 
 # Export everything
 export FiniteFieldElement, FieldElem
-export BN254Field, bn254_field  
+export GaloisField, galois_field
+export BN254Fq, bn254_fq
 export Secp256k1Field, secp256k1_field
 export prime, is_zero, is_one, is_unity
 
@@ -172,27 +234,27 @@ export prime, is_zero, is_one, is_unity
 # ===========================================
 
 """
-    BN254ScalarField
+    BN254Fr
 
 Element of the BN254 scalar field (Fr) used for curve scalars.
 """
-struct BN254ScalarField <: FiniteFieldElement
+struct BN254Fr <: FiniteFieldElement
     value::BigInt
-    
-    function BN254ScalarField(value::BigInt, normalized::Bool=false)
+
+    function BN254Fr(value::BigInt, normalized::Bool=false)
         if normalized
             new(value)
         else
-            p = prime(BN254ScalarField)
+            p = prime(BN254Fr)
             new(mod(value, p))
         end
     end
 end
 
-prime(::Type{BN254ScalarField}) = parse(BigInt, "21888242871839275222246405745257275088548364400416034343698204186575808495617")
-field_name(::Type{BN254ScalarField}) = "BN254Fr"
+prime(::Type{BN254Fr}) = parse(BigInt, "21888242871839275222246405745257275088548364400416034343698204186575808495617")
+field_name(::Type{BN254Fr}) = "BN254Fr"
 
-BN254ScalarField(x::Integer) = BN254ScalarField(BigInt(x))
-bn254_scalar(x) = BN254ScalarField(x)
+BN254Fr(x::Integer) = BN254Fr(BigInt(x))
+bn254_fr(x) = BN254Fr(x)
 
-export BN254ScalarField, bn254_scalar
+export BN254Fr, bn254_fr

@@ -75,7 +75,7 @@ Create the R1CS for r = x * y * z * u as described in the example.
 Variables: [1, r, x, y, z, u, v1, v2] where v1 = x*y, v2 = z*u, r = v1*v2
 """
 function create_r1cs_example_multiplication()
-    F = BN254ScalarField
+    F = BN254Fr
     
     # 8 variables: [1, r, x, y, z, u, v1, v2]
     num_vars = 8
@@ -116,7 +116,7 @@ end
 Create a witness for r = x * y * z * u.
 """
 function create_witness_multiplication(x::Integer, y::Integer, z::Integer, u::Integer)
-    F = BN254ScalarField
+    F = BN254Fr
     
     # Compute intermediate values
     v1 = x * y
@@ -126,13 +126,13 @@ function create_witness_multiplication(x::Integer, y::Integer, z::Integer, u::In
     # Create witness vector: [1, r, x, y, z, u, v1, v2]
     witness_values = [
         one(F),
-        bn254_scalar(r),
-        bn254_scalar(x),
-        bn254_scalar(y),
-        bn254_scalar(z),
-        bn254_scalar(u),
-        bn254_scalar(v1),
-        bn254_scalar(v2)
+        bn254_fr(r),
+        bn254_fr(x),
+        bn254_fr(y),
+        bn254_fr(z),
+        bn254_fr(u),
+        bn254_fr(v1),
+        bn254_fr(v2)
     ]
     
     return Witness{F}(witness_values)
@@ -152,7 +152,7 @@ Create the R1CS for r = x*y + z*u.
 Variables: [1, r, x, y, z, u, v1, v2] where v1 = x*y, v2 = z*u, r = v1 + v2
 """
 function create_r1cs_example_sum_of_products()
-    F = BN254ScalarField
+    F = BN254Fr
 
     # 8 variables: [1, r, x, y, z, u, v1, v2]
     num_vars = 8
@@ -192,7 +192,7 @@ end
 Create a witness for r = x*y + z*u.
 """
 function create_witness_sum_of_products(x::Integer, y::Integer, z::Integer, u::Integer)
-    F = BN254ScalarField
+    F = BN254Fr
 
     v1 = x * y
     v2 = z * u
@@ -200,13 +200,13 @@ function create_witness_sum_of_products(x::Integer, y::Integer, z::Integer, u::I
 
     witness_values = [
         one(F),
-        bn254_scalar(r),
-        bn254_scalar(x),
-        bn254_scalar(y),
-        bn254_scalar(z),
-        bn254_scalar(u),
-        bn254_scalar(v1),
-        bn254_scalar(v2),
+        bn254_fr(r),
+        bn254_fr(x),
+        bn254_fr(y),
+        bn254_fr(z),
+        bn254_fr(u),
+        bn254_fr(v1),
+        bn254_fr(v2),
     ]
 
     return Witness{F}(witness_values)
@@ -219,7 +219,7 @@ Create the R1CS for r = (x + y) * (z + u).
 Variables: [1, r, x, y, z, u, s1, s2] with helpers s1 = x + y, s2 = z + u.
 """
 function create_r1cs_example_affine_product()
-    F = BN254ScalarField
+    F = BN254Fr
 
     num_vars = 8
     num_constraints = 3
@@ -255,7 +255,7 @@ end
 Witness for r = (x + y) * (z + u).
 """
 function create_witness_affine_product(x::Integer, y::Integer, z::Integer, u::Integer)
-    F = BN254ScalarField
+    F = BN254Fr
 
     s1 = x + y
     s2 = z + u
@@ -263,13 +263,13 @@ function create_witness_affine_product(x::Integer, y::Integer, z::Integer, u::In
 
     witness_values = [
         one(F),
-        bn254_scalar(r),
-        bn254_scalar(x),
-        bn254_scalar(y),
-        bn254_scalar(z),
-        bn254_scalar(u),
-        bn254_scalar(s1),
-        bn254_scalar(s2),
+        bn254_fr(r),
+        bn254_fr(x),
+        bn254_fr(y),
+        bn254_fr(z),
+        bn254_fr(u),
+        bn254_fr(s1),
+        bn254_fr(s2),
     ]
 
     return Witness{F}(witness_values)
@@ -282,7 +282,7 @@ Create the R1CS for r = x^2 + y + c with c public.
 Variables: [1, r, x, y, c, x_sq].
 """
 function create_r1cs_example_square_offset()
-    F = BN254ScalarField
+    F = BN254Fr
 
     num_vars = 6
     num_constraints = 2
@@ -313,18 +313,18 @@ end
 Witness for r = x^2 + y + c.
 """
 function create_witness_square_offset(x::Integer, y::Integer, c::Integer)
-    F = BN254ScalarField
+    F = BN254Fr
 
     x_sq = x * x
     r = x_sq + y + c
 
     witness_values = [
         one(F),
-        bn254_scalar(r),
-        bn254_scalar(x),
-        bn254_scalar(y),
-        bn254_scalar(c),
-        bn254_scalar(x_sq),
+        bn254_fr(r),
+        bn254_fr(x),
+        bn254_fr(y),
+        bn254_fr(c),
+        bn254_fr(x_sq),
     ]
 
     return Witness{F}(witness_values)

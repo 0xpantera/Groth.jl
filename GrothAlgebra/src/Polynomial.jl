@@ -449,13 +449,13 @@ end
 # -----------------------------------------------------------------------------
 
 const BN254_TWO_ADICITY = 28
-const BN254_PRIMITIVE_ROOT = BN254ScalarField(parse(BigInt, "19103219067921713944291392827692070036145651957329286315305642004821462161904"), true)
+const BN254_PRIMITIVE_ROOT = BN254Fr(parse(BigInt, "19103219067921713944291392827692070036145651957329286315305642004821462161904"), true)
 
 max_power_of_two(::Type{F}) where F = throw(ArgumentError("No two-adicity metadata for field $(F)"))
 primitive_root_constant(::Type{F}) where F = throw(ArgumentError("No primitive root configured for field $(F)"))
 
-max_power_of_two(::Type{BN254ScalarField}) = BN254_TWO_ADICITY
-primitive_root_constant(::Type{BN254ScalarField}) = BN254_PRIMITIVE_ROOT
+max_power_of_two(::Type{BN254Fr}) = BN254_TWO_ADICITY
+primitive_root_constant(::Type{BN254Fr}) = BN254_PRIMITIVE_ROOT
 
 """
     primitive_root_of_unity(F::Type{<:FieldElem}, log_n::Int)

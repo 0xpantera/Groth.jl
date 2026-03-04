@@ -18,7 +18,7 @@ println("\n" * "="^50)
 println("Test 1: Frobenius on Fp2 elements")
 println("="^50)
 
-test_elem = Fp2Element(bn254_field(123), bn254_field(456))
+test_elem = Fp2Element(bn254_fq(123), bn254_fq(456))
 println("\nOriginal: ", test_elem)
 conj1 = GrothCurves.conjugate(test_elem)
 println("After 1 Frobenius: ", conj1)
@@ -130,7 +130,7 @@ println("="^50)
 
 # The coefficients are ξ^((p-1)/3) and ξ^((p-1)/2)
 # Let's verify some properties
-ξ = Fp2Element(bn254_field(9), bn254_field(1))
+ξ = Fp2Element(bn254_fq(9), bn254_fq(1))
 p = GrothCurves.BN254_PRIME
 
 # PSI_X should be ξ^((p-1)/3)
@@ -150,7 +150,7 @@ println("ξ^(p-1) = ", xi_p_minus_1)
 println("PSI_Y^2 == ξ^(p-1)? ", psi_y_squared == xi_p_minus_1)
 
 # Check if ξ^(p-1) is in Fp (imaginary part should be 0)
-println("ξ^(p-1) is in Fp? ", xi_p_minus_1[2] == bn254_field(0))
+println("ξ^(p-1) is in Fp? ", xi_p_minus_1[2] == bn254_fq(0))
 
 # Summary
 println("\n" * "="^70)

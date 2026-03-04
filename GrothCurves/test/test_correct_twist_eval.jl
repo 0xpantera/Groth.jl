@@ -5,9 +5,9 @@ using GrothCurves
 # y_(E') = y_(E) * w  (NOT y * v * w!)
 function eval_line_via_twist_isomorphism(coeffs::GrothCurves.LineCoeffs, P::G1Point)
     # P ∈ G1(Fp) → lift to Fp2
-    P_x, P_y = iszero(P) ? (zero(BN254Field), zero(BN254Field)) : GrothCurves.to_affine(P)
-    xP = Fp2Element(P_x, zero(BN254Field))
-    yP = Fp2Element(P_y, zero(BN254Field))
+    P_x, P_y = iszero(P) ? (zero(BN254Fq), zero(BN254Fq)) : GrothCurves.to_affine(P)
+    xP = Fp2Element(P_x, zero(BN254Fq))
+    yP = Fp2Element(P_y, zero(BN254Fq))
 
     # v ∈ Fp6 is the Fp6-basis element (0,1,0)
     v_fp6 = Fp6Element(zero(Fp2Element), one(Fp2Element), zero(Fp2Element))

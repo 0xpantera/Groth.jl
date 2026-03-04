@@ -1,5 +1,5 @@
 using Random
-using GrothAlgebra: BN254ScalarField, bn254_scalar
+using GrothAlgebra: BN254Fr, bn254_fr
 
 """
     GeneratedCircuit
@@ -41,7 +41,7 @@ function generate_small_r1cs(rng::AbstractRNG; max_constraints::Int=4, max_publi
         num_vars = 1 + 1 + n_constraints + 2
         num_public = min(max_public, num_vars)
 
-        F = BN254ScalarField
+        F = BN254Fr
         L = zeros(F, n_constraints, num_vars)
         R = zeros(F, n_constraints, num_vars)
         O = zeros(F, n_constraints, num_vars)
@@ -114,9 +114,9 @@ function generate_small_r1cs(rng::AbstractRNG; max_constraints::Int=4, max_publi
                 if α == 0 && β == 0 && γ == 0
                     γ = 1
                 end
-                L[c, a_idx] = bn254_scalar(α)
-                L[c, b_idx] += bn254_scalar(β)
-                L[c, 1] += bn254_scalar(γ)
+                L[c, a_idx] = bn254_fr(α)
+                L[c, b_idx] += bn254_fr(β)
+                L[c, 1] += bn254_fr(γ)
                 R[c, 1] = one(F)
                 O[c, next_var] = one(F)
                 values[next_var] = α * values[a_idx] + β * values[b_idx] + γ
@@ -142,13 +142,13 @@ function generate_small_r1cs(rng::AbstractRNG; max_constraints::Int=4, max_publi
         end
 
         # Convert witness values into field elements
-        witness_vals = Vector{BN254ScalarField}(undef, num_vars)
+        witness_vals = Vector{BN254Fr}(undef, num_vars)
         for i in 1:num_vars
-            witness_vals[i] = bn254_scalar(values[i])
+            witness_vals[i] = bn254_fr(values[i])
         end
 
-        r1cs = R1CS{BN254ScalarField}(num_vars, n_constraints, num_public, L, R, O)
-        witness = Witness{BN254ScalarField}(witness_vals)
+        r1cs = R1CS{BN254Fr}(num_vars, n_constraints, num_public, L, R, O)
+        witness = Witness{BN254Fr}(witness_vals)
 
         if is_satisfied(r1cs, witness)
             public_indices = collect(1:num_public)
