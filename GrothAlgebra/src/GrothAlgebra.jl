@@ -11,7 +11,8 @@ include("Polynomial.jl")
 
 # Export field element types and operations
 export FiniteFieldElement, FieldElem
-export BN254Field, bn254_field
+export BN254Fq, bn254_fq
+export BN254Fr, bn254_fr
 export Secp256k1Field, secp256k1_field
 export prime, is_zero, is_one, is_unity
 

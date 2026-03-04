@@ -11,7 +11,7 @@ using GrothAlgebra
 using GrothCurves
 using GrothProofs
 
-const Fr = BN254ScalarField
+const Fr = BN254Fr
 const r = BN254_ORDER_R
 const ENGINE = BN254_ENGINE
 
@@ -205,7 +205,7 @@ function bench_batch_norm(results)
             tmp = copy(proj_pts)
             for i in eachindex(tmp)
                 x, y = to_affine(tmp[i])
-                tmp[i] = G1Point(x, y, one(BN254Field))
+                tmp[i] = G1Point(x, y, one(BN254Fq))
             end
         end
         tr_batch = @benchmark begin
@@ -216,7 +216,7 @@ function bench_batch_norm(results)
             tmp = copy($proj_pts)
             for i in eachindex(tmp)
                 x, y = to_affine(tmp[i])
-                tmp[i] = G1Point(x, y, one(BN254Field))
+                tmp[i] = G1Point(x, y, one(BN254Fq))
             end
         end seconds=1 samples=10
         print_stats("G1 batch_norm", tr_batch)

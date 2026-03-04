@@ -33,8 +33,8 @@ Depth = 2
 
 ```@docs
 FiniteFieldElement
-BN254Field
-BN254ScalarField
+BN254Fq
+BN254Fr
 Secp256k1Field
 ```
 
@@ -54,7 +54,7 @@ fft_polynomial_multiply
 ```@example
 using GrothAlgebra
 
-F = BN254ScalarField
+F = BN254Fr
 p = Polynomial([F(3), F(2), F(1)])  # 1x^2 + 2x + 3
 x = F(5)
 evaluate(p, x)

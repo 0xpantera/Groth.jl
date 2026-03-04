@@ -5,8 +5,8 @@ function vertical_line_at(P::G1Point, Xp::Fp2Element, Zp::Fp2Element)
     # Vertical line through T' = (X':Y':Z') evaluated at P
     # v(x,y) = x - X'/Z'^2, but we use Z-free form: Z'^2 * x_P - X'
     
-    Px, _ = iszero(P) ? (zero(BN254Field), zero(BN254Field)) : GrothCurves.to_affine(P)
-    xP = Fp2Element(Px, zero(BN254Field))  # lift to Fp2
+    Px, _ = iszero(P) ? (zero(BN254Fq), zero(BN254Fq)) : GrothCurves.to_affine(P)
+    xP = Fp2Element(Px, zero(BN254Fq))  # lift to Fp2
     Z2 = Zp^2
     
     # Compute v = Z'^2 * x_P - X'

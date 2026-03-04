@@ -84,7 +84,7 @@ function get_roots_of_unity(n::Int, ::Type{F}) where F
     return points, domain
 end
 
-default_coset_offset(::Type{BN254ScalarField}) = bn254_scalar(5)
+default_coset_offset(::Type{BN254Fr}) = bn254_fr(5)
 default_coset_offset(::Type{F}) where F = throw(ArgumentError("No coset offset configured for field"))
 
 """

@@ -1,5 +1,5 @@
 using GrothProofs
-using GrothAlgebra: bn254_scalar, evaluate
+using GrothAlgebra: bn254_fr, evaluate
 using Test
 using Random
 
@@ -300,7 +300,7 @@ end
         t_poly = qap.t
 
         # Choose a few points outside the domain [1..n]
-        pts = [bn254_scalar(qap.num_constraints + k) for k in (1, 2, 3)]
+        pts = [bn254_fr(qap.num_constraints + k) for k in (1, 2, 3)]
         for x in pts
             lhs = evaluate(u_poly, x) * evaluate(v_poly, x) - evaluate(w_poly, x)
             rhs = evaluate(h_poly, x) * evaluate(t_poly, x)

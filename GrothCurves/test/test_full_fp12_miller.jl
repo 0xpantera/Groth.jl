@@ -18,9 +18,9 @@ function miller_loop_full_fp12(P::G1Point, Q::G2Point)
         
         # Convert line to FULL Fp12 (no sparse tricks)
         # Get P coordinates
-        P_x, P_y = iszero(P) ? (zero(BN254Field), zero(BN254Field)) : GrothCurves.to_affine(P)
-        xP = Fp2Element(P_x, zero(BN254Field))
-        yP = Fp2Element(P_y, zero(BN254Field))
+        P_x, P_y = iszero(P) ? (zero(BN254Fq), zero(BN254Fq)) : GrothCurves.to_affine(P)
+        xP = Fp2Element(P_x, zero(BN254Fq))
+        yP = Fp2Element(P_y, zero(BN254Fq))
         
         # Build FULL Fp12 element for line evaluation
         # Using the corrected M-twist mapping: ψ: x→xv, y→yw
@@ -57,8 +57,8 @@ function miller_loop_full_fp12(P::G1Point, Q::G2Point)
     T1, line1 = GrothCurves.addition_step(T, Q_pi)
     
     P_x, P_y = GrothCurves.to_affine(P)
-    xP = Fp2Element(P_x, zero(BN254Field))
-    yP = Fp2Element(P_y, zero(BN254Field))
+    xP = Fp2Element(P_x, zero(BN254Fq))
+    yP = Fp2Element(P_y, zero(BN254Fq))
     c0 = Fp6Element(line1.c, line1.a * xP, zero(Fp2Element))
     c1 = Fp6Element(line1.b * yP, zero(Fp2Element), zero(Fp2Element))
     f = f * Fp12Element(c0, c1)
