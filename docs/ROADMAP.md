@@ -16,8 +16,9 @@ an arkworks-aligned, production-friendly Groth16 stack.
 - **GrothProofs** — R1CS/QAP/Groth16 path mirrors arkworks; coset FFT is the
   default. Dense path retained for assertions. Pending: domain alignment, optional
   proof aggregation, polishing docs.
-- **GrothExamples** — Scripts and README now expose coset vs dense parity so the
-  tutorial output matches implementation.
+- **GrothExamples** — Notebook-first tutorials now live in Pluto notebooks
+  (`r1cs_qap_pluto.jl`, `r1cs_qap_groth_pluto.jl`) for side-by-side pedagogical
+  and package-native walkthroughs.
 - **Benchmarks** — Run/plot workflow produces JSON + PNG artefacts; latest
   baseline `results_2025-09-29_121914.json` captures coset-default timings.
 
@@ -36,12 +37,12 @@ an arkworks-aligned, production-friendly Groth16 stack.
 
 3. **Documenter-based docs rollout**
    - Inventory target modules/pages (`GrothAlgebra`, `GrothCurves`, `GrothProofs`, landing page) and decide how existing markdown (roadmap, implementation notes) folds into the site.
-   - Create a dedicated `docs/` environment (`Project.toml`/`Manifest.toml`) with `Documenter`, `DocumenterTools`, `LiveServer`, and `dev` the in-tree packages for live loading.
+   - Maintain a dedicated `docs/Project.toml` environment with `Documenter`, `DocumenterTools`, `LiveServer`, and `dev` the in-tree packages for live loading (root workspace `Manifest.toml` remains canonical).
    - Seed `docs/make.jl` and `docs/src/index.md`; configure `makedocs` (site name, modules, `pages` layout, HTML settings, metadata, repo URL).
    - Design the sidebar navigation (`pages` keyword) and map existing prose/tutorial chapters into `docs/src/*.md` skeletons.
    - Populate pages using `@meta CurrentModule`, `@docs`, and targeted `@autodocs`; weave narrative text with the cleaned docstrings and add contents/index blocks plus cross references.
    - Add deterministic `@example`/`@repl` blocks and doctests where useful; provide `DocTestSetup` scaffolding per page.
-   - Build locally (`julia --project=docs docs/make.jl`), preview with `LiveServer`, resolve warnings/missing refs, and iterate until clean.
+   - Build locally (`julia --project=. docs/make.jl`), preview with `LiveServer`, resolve warnings/missing refs, and iterate until clean.
    - Wire up CI deployment via `Documenter.deploydocs` (GitHub Actions workflow, `DOCUMENTER_KEY`, publish to `gh-pages`), and document the workflow in contributing notes.
 
 ## Upcoming Work
@@ -72,7 +73,7 @@ an arkworks-aligned, production-friendly Groth16 stack.
 
 ## References
 
-- Package reference: `CODEX_ANALYSIS.md`
+- Package reference: `docs/PACKAGE_REFERENCE.md`
 - Implementation vs arkworks: `docs/Implementation_vs_Arkworks.md`
 - RareSkills mapping: `docs/RareSkills_Groth16_Map.md`
 

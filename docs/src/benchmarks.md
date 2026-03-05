@@ -6,22 +6,37 @@ the latest artefacts.
 
 ## Running the Suite
 
-1. Activate the benchmarks project:
+1. Instantiate the root workspace:
 
    ```bash
-   julia --project=benchmarks -e 'using Pkg; Pkg.instantiate()'
+   julia --project=. -e 'using Pkg; Pkg.instantiate(workspace=true)'
    ```
 
-2. Run the benchmark harness (JSON results land under `benchmarks/`):
+2. Run the benchmark harness (artifacts land under `benchmarks/artifacts/<run_id>/`):
 
    ```bash
-   julia --project=benchmarks benchmarks/run.jl
+   julia --project=. benchmarks/run.jl
    ```
 
-3. Regenerate plots from an existing JSON snapshot:
+3. Regenerate plots (latest run by default, or pass a run id / JSON file):
 
    ```bash
-   julia --project=benchmarks benchmarks/plot.jl benchmarks/results_2025-09-29_121914.json
+   julia --project=. benchmarks/plot.jl
+   julia --project=. benchmarks/plot.jl 2026-03-05_144036
+   ```
+
+4. Compare two snapshots and flag regressions (20% threshold by default):
+
+   ```bash
+   julia --project=. benchmarks/compare.jl 2026-03-05_144036 2026-03-06_091500
+   julia --project=. benchmarks/compare.jl 2025-09-29_121914 2026-03-05_144036 10
+   ```
+
+5. Generate a one-shot markdown report (run -> plot -> compare latest-1 vs latest):
+
+   ```bash
+   julia --project=. benchmarks/report.jl
+   julia --project=. benchmarks/report.jl --skip-run --threshold=10
    ```
 
 The harness writes a timestamped JSON (raw statistics) and PNG charts covering

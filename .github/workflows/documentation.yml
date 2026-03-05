@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-    tags: '*'
+    tags: "*"
   pull_request:
 
 jobs:
@@ -19,18 +19,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1'
+          version: "1"
       - uses: julia-actions/cache@v2
       - name: Install dependencies
-        shell: julia --color=yes --project=docs {0}
+        shell: julia --color=yes --project=. {0}
         run: |
           using Pkg
-          for pkg in ["GrothAlgebra", "GrothCurves", "GrothProofs"]
-              Pkg.develop(path=joinpath(pwd(), pkg))
-          end
-          Pkg.instantiate()
+          Pkg.instantiate(workspace=true)
       - name: Build and deploy
-        run: julia --color=yes --project=docs docs/make.jl
+        run: julia --color=yes --project=. docs/make.jl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
