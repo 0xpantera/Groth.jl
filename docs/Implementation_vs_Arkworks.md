@@ -50,8 +50,8 @@ prover path.
 
 - RareSkills mapping: see `docs/RareSkills_Groth16_Map.md` for how textbook
   chapters map to Groth.jl modules.
-- Package reference: `CODEX_ANALYSIS.md` summarises modules and implementation
-  notes.
+- Package reference: `docs/PACKAGE_REFERENCE.md` summarises modules and
+  implementation notes.
 
 ## Upcoming Alignment Tasks
 

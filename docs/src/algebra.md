@@ -6,6 +6,7 @@ DocTestSetup = :(using GrothAlgebra)
 ```
 
 ```@contents
+Pages = ["algebra.md"]
 Depth = 2
 ```
 

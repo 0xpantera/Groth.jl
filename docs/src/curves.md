@@ -6,6 +6,7 @@ DocTestSetup = :(using GrothCurves, Random)
 ```
 
 ```@contents
+Pages = ["curves.md"]
 Depth = 2
 ```
 

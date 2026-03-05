@@ -5,6 +5,7 @@ This page centralises repository-wide commentary that used to live in
 API details, see the dedicated chapters in this manual.
 
 ```@contents
+Pages = ["implementation-notes.md"]
 Depth = 2
 ```
 
@@ -21,8 +22,9 @@ Depth = 2
 - **GrothProofs** – R1CS/QAP conversion plus Groth16 setup/prove/verify.
   Coset FFT is the default; the dense quotient remains solely as an assertion
   until the domain alignment work completes.
-- **GrothExamples / benchmarks** – tutorial circuits highlighting dense vs coset
-  parity, alongside JSON/PNG benchmark artefacts capturing prover hot paths.
+- **GrothExamples / benchmarks** – notebook-first tutorials (including
+  AbstractAlgebra and package-native R1CS → QAP walkthroughs), alongside JSON/PNG
+  benchmark artefacts capturing prover hot paths.
 
 ## Pairing-Oriented Overview
 
