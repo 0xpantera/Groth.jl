@@ -17,10 +17,16 @@ by Groth16.
 
 ## Usage
 
-```julia
-julia --project=GrothCurves -e 'using Pkg; Pkg.test()'   # run curve/pairing tests
+```bash
+# canonical monorepo setup + test commands
+julia --project=. -e 'using Pkg; Pkg.instantiate(workspace=true)'
+julia --project=. scripts/test_all.jl
 
-julia --project -e 'using Pkg; Pkg.develop("GrothCurves")'
+# package-scoped alternative
+julia --project=GrothCurves -e 'using Pkg; Pkg.test()'
+```
+
+```julia
 using GrothCurves
 pairing(BN254_ENGINE, G1_GENERATOR, G2_GENERATOR)  # quick check
 ```

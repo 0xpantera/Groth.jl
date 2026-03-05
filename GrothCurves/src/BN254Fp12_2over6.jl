@@ -7,8 +7,9 @@
 """
     Fp12Element
 
-Element of dodecic extension Fp12 = Fp6[w]/(w² - v).
-Represented as c0 + c1*w where c0, c1 ∈ Fp6.
+Element of dodecic extension
+``\\mathbb{F}_{p^{12}} = \\mathbb{F}_{p^6}[w]/(w^2 - v)``.
+Represented as ``c_0 + c_1 w`` where ``c_0, c_1 \\in \\mathbb{F}_{p^6}``.
 """
 struct Fp12Element
     coeffs::SVector{2,Fp6Element}

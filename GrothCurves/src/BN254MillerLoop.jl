@@ -181,8 +181,8 @@ end
 Evaluate the line function at point P and embed into Fp12.
 Uses sparse 0-1-4 embedding matching arkworks' mul_by_014.
 
-The line a*x + b*y + c is evaluated at P = (x_P, y_P) to give
-a*x_P + b*y_P + c, which is then embedded into Fp12.
+The line ``a x + b y + c`` is evaluated at ``P = (x_P, y_P)`` to give
+``a x_P + b y_P + c``, which is then embedded into Fp12.
 """
 function evaluate_line(coeffs::LineCoeffs, P::G1Point)
     # Get affine coordinates of P

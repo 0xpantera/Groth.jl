@@ -13,8 +13,9 @@ const BN254_PRIME = prime(BN254Fq)
 """
     Fp2Element
 
-Element of the quadratic extension field Fp2 = Fp[u]/(u² + 1).
-Represented as c0 + c1*u where c0, c1 ∈ Fp.
+Element of the quadratic extension field
+``\\mathbb{F}_{p^2} = \\mathbb{F}_p[u]/(u^2 + 1)``.
+Represented as ``c_0 + c_1 u`` where ``c_0, c_1 \\in \\mathbb{F}_p``.
 """
 struct Fp2Element
     coeffs::SVector{2,BN254Fq}

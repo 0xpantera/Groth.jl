@@ -17,10 +17,16 @@ arithmetic, and generic group/MSM utilities.
 
 ## Usage
 
-```julia
-julia --project=GrothAlgebra -e 'using Pkg; Pkg.test()'   # run tests
+```bash
+# canonical monorepo setup + test commands
+julia --project=. -e 'using Pkg; Pkg.instantiate(workspace=true)'
+julia --project=. scripts/test_all.jl
 
-julia --project -e 'using Pkg; Pkg.develop("GrothAlgebra")'
+# package-scoped alternative
+julia --project=GrothAlgebra -e 'using Pkg; Pkg.test()'
+```
+
+```julia
 using GrothAlgebra
 F = bn254_fq(5)
 Polynomial([F(1), F(2), F(3)])  # quick REPL smoke test
