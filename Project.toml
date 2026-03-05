@@ -1,0 +1,21 @@
+[workspace]
+projects = [
+    "GrothAlgebra",
+    "GrothCurves",
+    "GrothCrypto",
+    "GrothProofs",
+    "GrothExamples",
+    "docs",
+    "benchmarks"
+]
+
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+DocumenterTools = "35a29f4d-8980-5a13-9543-d66fff28ecb8"
+GrothAlgebra = "c7a79d44-cfd6-4e24-8a20-28d2d2e8370b"
+GrothCurves = "5abac9ed-d1ba-4f09-bf87-1d0505e406bb"
+GrothProofs = "a08a9250-f3dc-4127-bcf9-3e12d47ce125"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
+StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
