@@ -27,12 +27,12 @@ graph TD
 - **RareSkills chapters:** `rank-1-constraint-system`, `quadratic-constraints`, `quadratic-arithmetic-program`, and `r1cs-to-qap` show how circuits become matrices, then polynomials, culminating in $\mathcal{A}(x)\cdot\mathcal{B}(x) - \mathcal{C}(x) = Z_H(x) H(x)$.
 - **Julia counterparts:** `GrothProofs/R1CS.jl` now ships several fixtures (multiplication, sum-of-products, affine-product, square-offset) plus a seeded circuit generator used in tests (`GrothProofs/test/random_circuits.jl`). `QAP.jl` both records the first `n` constraint points and builds an FFT-friendly power-of-two domain; for `n < domain.size` we now recover the degree `< n` polynomials via barycentric interpolation before padding coefficients for the coset FFT pipeline (`GrothProofs/src/QAP.jl:40-134`).
 
-- **Guidance on FFT vs. coset evaluation:** `docs/FFT_vs_Arkworks.md` tracks the alignment with arkworks. Our prover now uses the coset-based quotient path by default, so the remaining work is performance-focused (benchmark capture, JET sweeps, possible FFT table reuse).
+- **Guidance on FFT vs. coset evaluation:** `docs/Implementation_vs_Arkworks.md` tracks the alignment with arkworks. Our prover now uses the coset-based quotient path by default, so the remaining work is performance-focused (benchmark capture, JET sweeps, possible FFT table reuse).
 
 ## Groth16 Assembly
 - **RareSkills chapter:** `groth16` walks through trusted setup, proving, and verification equations.
 - **Julia counterparts:** `GrothProofs/Groth16.jl` wires the algebra into `setup_full`, `prove_full`, and `verify_full`. Verification now routes through the pairing-engine abstraction, batching pairings via `pairing_batch(engine, ...)` to trim Miller loop calls—one of the main departures from the chapter’s scalar presentation. The randomized Groth16 testset (`GrothProofs/test/runtests.jl`) leans on RareSkills’ witness/public-input discipline to fuzz multiple circuit topologies.
-- **Examples:** `GrothExamples/` mirrors the RareSkills worked circuits (`compute-then-constrain`, `hello-world-circom`) and is the quickest place to line up inputs and transcripts with the book’s walkthroughs.
+- **Examples:** `GrothExamples/` is now notebook-first; compare `r1cs_qap_pluto.jl` (AbstractAlgebra derivation) with `r1cs_qap_groth_pluto.jl` (Groth package-native derivation) to line up concepts and implementation details.
 
 ## Using This Map
 1. Start with the RareSkills section you are reviewing.

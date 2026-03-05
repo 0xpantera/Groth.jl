@@ -6,6 +6,7 @@ DocTestSetup = :(using GrothProofs, GrothAlgebra, GrothCurves, Random)
 ```
 
 ```@contents
+Pages = ["proofs.md"]
 Depth = 2
 ```
 

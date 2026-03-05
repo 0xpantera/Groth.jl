@@ -73,15 +73,15 @@ annotated rather than discarded), and follow-ups.
 ## GrothExamples
 
 **Purpose**
-- Educational scripts matching the tutorial narrative.
+- Educational Pluto notebooks matching the tutorial narrative.
 
 **Key modules**
-- `src/test_r1cs_qap.jl` — Prints domain/coset info plus coset vs dense parity.
-- `src/multiplication_proof.jl` — End-to-end Groth16 example.
+- `src/r1cs_qap_pluto.jl` — AbstractAlgebra-first toy R1CS → QAP walkthrough.
+- `src/r1cs_qap_groth_pluto.jl` — GrothAlgebra/GrothProofs version of the same flow.
 
 **Notes**
-- Scripts now print both coset/dense `h(x)` so learners see parity.
-- README highlights the coset quotient check.
+- Notebooks use the shared-environment Pluto pattern (`Pkg.activate(joinpath(@__DIR__, ".."))`).
+- Keeping both notebooks allows side-by-side comparison of pedagogical and package-native derivations.
 
 ## Benchmarks
 

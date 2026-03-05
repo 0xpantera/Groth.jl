@@ -4,6 +4,7 @@ This page maps each Groth.jl subsystem to the analogous arkworks component and
 highlights where we match or intentionally diverge.
 
 ```@contents
+Pages = ["implementation-vs-arkworks.md"]
 Depth = 2
 ```
 

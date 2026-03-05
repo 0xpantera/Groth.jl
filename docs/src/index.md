@@ -8,6 +8,7 @@ Welcome to the evolving documentation for Groth.jl. These pages will unify the
 algebra, curve, and Groth16 proof tooling that lives across the repository.
 
 ```@contents
+Pages = ["index.md"]
 Depth = 2
 ```
 

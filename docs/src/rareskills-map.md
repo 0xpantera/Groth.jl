@@ -5,6 +5,7 @@ implementations inside Groth.jl. Use it as a compass when moving from
 conceptual chapters to code.
 
 ```@contents
+Pages = ["rareskills-map.md"]
 Depth = 2
 ```
 
@@ -52,7 +53,8 @@ graph TD
 - **Groth.jl counterparts:**
   - `GrothProofs/Groth16.jl` wires setup/prove/verify, including the prepared verifier path and batched pairings via `pairing_batch`.
   - `GrothProofs/test/runtests.jl` mirrors the book’s witness discipline across multiple circuit families.
-  - `GrothExamples/` reproduces the worked circuits and contrasts dense vs coset parity output.
+  - `GrothExamples/` provides notebook-based walkthroughs (AbstractAlgebra-first
+    and Groth package-native R1CS → QAP flows) for side-by-side comparison.
 
 ## How to Use the Map
 
