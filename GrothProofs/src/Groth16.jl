@@ -21,12 +21,12 @@ _to_int(x) = Integer(x.value)
 
 @inline function _rand_field(::Type{F}, rng::AbstractRNG) where F
     F === BN254Fr || throw(ArgumentError("No CSPRNG-ready sampler configured for field $F"))
-    return F(rand(rng, 0:GrothCurves.BN254_ORDER_R - 1))
+    return F(rand(rng, 0:GrothCurves.BN254_ORDER_R-1))
 end
 
 @inline function _rand_field_nonzero(::Type{F}, rng::AbstractRNG) where F
     F === BN254Fr || throw(ArgumentError("No CSPRNG-ready sampler configured for field $F"))
-    return F(rand(rng, 1:GrothCurves.BN254_ORDER_R - 1))
+    return F(rand(rng, 1:GrothCurves.BN254_ORDER_R-1))
 end
 
 """
@@ -190,8 +190,8 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abs
 
     # Fixed elements
     alpha_g1 = scalar_mul(g1, _to_int(α))
-    beta_g1  = scalar_mul(g1, _to_int(β))
-    beta_g2  = scalar_mul(g2, _to_int(β))
+    beta_g1 = scalar_mul(g1, _to_int(β))
+    beta_g2 = scalar_mul(g2, _to_int(β))
     gamma_g2 = scalar_mul(g2, _to_int(γ))
     delta_g1 = scalar_mul(g1, _to_int(δ))
     delta_g2 = scalar_mul(g2, _to_int(δ))
@@ -248,9 +248,9 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
 
     # A and B
     A1_g1 = pk.alpha_g1 + A_acc_g1
-    B1_g1 = pk.beta_g1  + B_acc_g1
+    B1_g1 = pk.beta_g1 + B_acc_g1
     A = A1_g1 + scalar_mul(pk.delta_g1, _to_int(r))
-    B = pk.beta_g2  + B_acc_g2 + scalar_mul(pk.delta_g2, _to_int(s))
+    B = pk.beta_g2 + B_acc_g2 + scalar_mul(pk.delta_g2, _to_int(s))
 
     # h(x): compute via coset FFT path and map coefficients via H_query
     h_poly = compute_h_polynomial(qap, witness)
@@ -270,7 +270,7 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
 
     # Cross terms in C (arkworks style): C = s*g_a + r*g1_b - r*s*δ + L + H
     # where g_a = A (includes r*δ), and g1_b = (β + Σ v_i) + s*δ in G1
-    rs_delta = scalar_mul(pk.delta_g1, _to_int(r*s))
+    rs_delta = scalar_mul(pk.delta_g1, _to_int(r * s))
     g1_b_full = B1_g1 + scalar_mul(pk.delta_g1, _to_int(s))
     C = H + L + scalar_mul(g1_b_full, _to_int(r)) + scalar_mul(A, _to_int(s)) - rs_delta
 
@@ -285,7 +285,7 @@ Verify a Groth16 proof with the production-style verification key.
 Checks the standard pairing equation `e(A,B) == e(α,β) · e(vk_x,γ) · e(C,δ)` and
 performs on-curve plus subgroup checks for `A`, `B`, and `C`.
 """
-function verify_full(vk::VerificationKey{E}, proof::Groth16Proof, public_inputs::Vector{F}) where {E<:AbstractPairingEngine, F}
+function verify_full(vk::VerificationKey{E}, proof::Groth16Proof, public_inputs::Vector{F}) where {E<:AbstractPairingEngine,F}
     # On-curve checks
     if !(GrothCurves.is_on_curve(proof.A) && GrothCurves.is_on_curve(proof.B) && GrothCurves.is_on_curve(proof.C))
         return false
@@ -353,11 +353,11 @@ end
 """
     prepare_inputs(pvk::PreparedVerificationKey, public_inputs::Vector{F}) where F
 
-    Compute `vk_x = IC[1] + Σ input[i] * IC[i+1]`.
+Compute ``vk_x = IC[1] + \\sum_i input[i] \\cdot IC[i+1]``.
 
-    Public inputs exclude the leading `1` (arkworks-style).
+Public inputs exclude the leading `1` (arkworks-style).
 """
-function prepare_inputs(pvk::PreparedVerificationKey{E}, public_inputs::Vector{F}) where {E<:AbstractPairingEngine, F}
+function prepare_inputs(pvk::PreparedVerificationKey{E}, public_inputs::Vector{F}) where {E<:AbstractPairingEngine,F}
     vk = pvk.vk
     if isempty(vk.IC)
         throw(ArgumentError("Verification key has empty IC vector"))
@@ -370,7 +370,7 @@ function prepare_inputs(pvk::PreparedVerificationKey{E}, public_inputs::Vector{F
     for i in 1:expected_len
         xi = public_inputs[i]
         iszero(xi) && continue
-        acc += scalar_mul(vk.IC[i + 1], _to_int(xi))
+        acc += scalar_mul(vk.IC[i+1], _to_int(xi))
     end
     return acc
 end

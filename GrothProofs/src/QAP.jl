@@ -29,7 +29,7 @@ struct QAP{F}
     coset_domain::EvaluationDomain{F}
     # Reciprocal evaluations of the vanishing polynomial on the coset domain
     vanishing_coset_inv::Vector{F}
-    # Target polynomial t(x) = ∏(x - ωⁱ)
+    # Target polynomial ``t(x) = \\prod_i (x - \\omega_i)``
     t::Polynomial{F}
     # Polynomials for each variable
     u::Vector{Polynomial{F}}  # Left polynomials (from L matrix)
@@ -41,7 +41,7 @@ function interpolate_prefix_points(samples::Vector{F}, ω::F, n::Int) where F
     xs = Vector{F}(undef, n)
     xs[1] = one(F)
     for i in 2:n
-        xs[i] = xs[i - 1] * ω
+        xs[i] = xs[i-1] * ω
     end
 
     result = zero(Polynomial{F})
@@ -95,11 +95,11 @@ Convert an R1CS to QAP form using Lagrange interpolation.
 function r1cs_to_qap(r1cs::R1CS{F}) where F
     n = r1cs.num_constraints
     m = r1cs.num_vars
-    
+
     # Get evaluation domain
     points, domain = get_roots_of_unity(n, F)
     coset_domain = get_coset(domain, default_coset_offset(F))
-    
+
     # Compute target polynomial t(x) = ∏(x - ωⁱ)
     t = Polynomial{F}([one(F)])  # Start with polynomial 1
     for ω in points
@@ -107,12 +107,12 @@ function r1cs_to_qap(r1cs::R1CS{F}) where F
         factor = Polynomial{F}([-ω, one(F)])
         t = t * factor
     end
-    
+
     # Initialize polynomial arrays
     u = Vector{Polynomial{F}}(undef, m)
     v = Vector{Polynomial{F}}(undef, m)
     w = Vector{Polynomial{F}}(undef, m)
-    
+
     is_full_domain = n == domain.size
     # For each variable, interpolate its polynomial from the constraint values
     for j in 1:m
@@ -154,44 +154,49 @@ end
     evaluate_qap(qap::QAP{F}, witness::Witness{F}, x::F) where F
 
 Evaluate the QAP polynomials at point x with the given witness.
-Returns (u(x), v(x), w(x)) where each is the linear combination of polynomials.
+Returns ``(u(x), v(x), w(x))`` where each term is a witness-weighted linear
+combination of column polynomials.
 """
 function evaluate_qap(qap::QAP{F}, witness::Witness{F}, x::F) where F
     w_vals = witness.values
-    
+
     # Compute linear combinations
     u_eval = zero(F)
     v_eval = zero(F)
     w_eval = zero(F)
-    
+
     for i in 1:qap.num_vars
         u_eval += w_vals[i] * evaluate(qap.u[i], x)
         v_eval += w_vals[i] * evaluate(qap.v[i], x)
         w_eval += w_vals[i] * evaluate(qap.w[i], x)
     end
-    
+
     return (u_eval, v_eval, w_eval)
 end
 
 """
     compute_h_polynomial(qap::QAP{F}, witness::Witness{F}) where F
 
-Compute the quotient polynomial h(x) = (u(x) * v(x) - w(x)) / t(x).
+Compute the quotient polynomial ``h(x)``:
+
+```math
+h(x) = \\frac{u(x)v(x) - w(x)}{t(x)}
+```
 """
 function compute_h_polynomial(qap::QAP{F}, witness::Witness{F}; use_coset::Bool=true) where F
     w_vals = witness.values
-    
+
     # Compute linear combinations of polynomials
     u_poly = zero(Polynomial{F})
     v_poly = zero(Polynomial{F})
     w_poly = zero(Polynomial{F})
-    
+
     for i in 1:qap.num_vars
         u_poly = u_poly + w_vals[i] * qap.u[i]
         v_poly = v_poly + w_vals[i] * qap.v[i]
         w_poly = w_poly + w_vals[i] * qap.w[i]
     end
-    
+
     p_poly = fft_polynomial_multiply(u_poly, v_poly) - w_poly
     dense_result = polynomial_division(p_poly, qap.t)
 
@@ -229,36 +234,36 @@ function polynomial_division(dividend::Polynomial{F}, divisor::Polynomial{F}) wh
     if is_zero(divisor)
         error("Division by zero polynomial")
     end
-    
+
     # Working copy of dividend
     remainder = copy(dividend.coeffs)
     quotient = F[]
-    
+
     divisor_degree = degree(divisor)
     divisor_lead = leading_coefficient(divisor)
-    
+
     while length(remainder) >= length(divisor.coeffs) && !is_zero(Polynomial{F}(remainder))
         # Get the leading coefficient of current remainder
         coeff = remainder[end] / divisor_lead
         push!(quotient, coeff)
-        
+
         # Subtract divisor * coeff from remainder
         for i in 0:divisor_degree
-            remainder[end - i] -= coeff * divisor.coeffs[end - i]
+            remainder[end-i] -= coeff * divisor.coeffs[end-i]
         end
-        
+
         # Remove the leading term
         pop!(remainder)
     end
-    
+
     # Reverse quotient coefficients (we built it backwards)
     reverse!(quotient)
-    
+
     # Check that remainder is zero (exact division)
     if !all(iszero, remainder)
         error("Polynomial division has non-zero remainder")
     end
-    
+
     return Polynomial{F}(quotient)
 end
 

@@ -16,17 +16,23 @@ GrothCurves.
 
 ## Usage
 
-```julia
-julia --project=GrothProofs -e 'using Pkg; Pkg.test()'
+```bash
+# canonical monorepo setup + test commands
+julia --project=. -e 'using Pkg; Pkg.instantiate(workspace=true)'
+julia --project=. scripts/test_all.jl
 
-julia --project -e 'using Pkg; Pkg.develop("GrothProofs")'
+# package-scoped alternative
+julia --project=GrothProofs -e 'using Pkg; Pkg.test()'
+```
+
+```julia
 using GrothProofs
 r1cs = create_r1cs_example_sum_of_products()
 qap = r1cs_to_qap(r1cs)
 ```
 
 GrothProofs expects the pairing engine from GrothCurves and the algebra from
-GrothAlgebra. Run `Pkg.develop` on those packages first when hacking locally.
+GrothAlgebra; in the monorepo this wiring is handled by the root workspace.
 
 ## Further reading
 

@@ -7,8 +7,10 @@
 """
     Fp6Element
 
-Element of sextic extension Fp6 = Fp2[v]/(v³ - ξ) where ξ = 9 + u.
-Represented as c0 + c1*v + c2*v² where c0, c1, c2 ∈ Fp2.
+Element of sextic extension
+``\\mathbb{F}_{p^6} = \\mathbb{F}_{p^2}[v]/(v^3 - \\xi)`` where ``\\xi = 9 + u``.
+Represented as ``c_0 + c_1 v + c_2 v^2`` where
+``c_0, c_1, c_2 \\in \\mathbb{F}_{p^2}``.
 """
 struct Fp6Element
     coeffs::SVector{3,Fp2Element}

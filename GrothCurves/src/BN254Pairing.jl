@@ -14,13 +14,13 @@ const GTElement = Fp12Element
 """
     optimal_ate_pairing(P::G1Point, Q::G2Point)
 
-Compute the optimal ate pairing e(P, Q).
+Compute the optimal ate pairing ``e(P, Q)``.
 
 This performs:
-1. Miller loop to compute f_{6u+2,Q}(P)
+1. Miller loop to compute ``f_{6u+2,Q}(P)``
 2. Final exponentiation to map to the cyclotomic subgroup
 
-The result is an element in GT ⊂ Fp12* of order r.
+The result is an element in ``GT \\subset \\mathbb{F}_{p^{12}}^*`` of order ``r``.
 """
 function optimal_ate_pairing(engine::BN254Engine, P::G1Point, Q::G2Point)
     # Handle special cases
@@ -50,7 +50,11 @@ pairing(P::G1Point, Q::G2Point) = pairing(BN254_ENGINE, P, Q)
 """
     pairing_batch(P_vec::Vector{G1Point}, Q_vec::Vector{G2Point})
 
-Compute the product of pairings: ∏ e(Pᵢ, Qᵢ)
+Compute the product of pairings:
+
+```math
+\\prod_i e(P_i, Q_i)
+```
 
 This is more efficient than computing individual pairings and multiplying,
 as we can share the final exponentiation.
