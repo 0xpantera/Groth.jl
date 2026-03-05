@@ -46,7 +46,7 @@ Groth.jl/
  ├── GrothAlgebra/   # finite fields, polynomials, group utilities
  ├── GrothCurves/    # BN254 curve + pairing engine
  ├── GrothProofs/    # R1CS, QAP, Groth16 prover/verifier
- ├── GrothExamples/  # tutorial scripts and walkthroughs
+ ├── GrothExamples/  # Pluto notebooks and walkthroughs
  ├── GrothCrypto/    # placeholder for higher-level protocols
  ├── benchmarks/     # BenchmarkTools environment + plots
  └── docs/           # Roadmap, package reference, arkworks mapping
@@ -65,20 +65,23 @@ only; all active work lives in `Groth.jl/`.
 ## Getting started
 
 ```
-# develop packages locally
-julia --project -e 'using Pkg; Pkg.develop("GrothAlgebra"); Pkg.develop("GrothCurves"); Pkg.develop("GrothProofs")'
+# workspace setup (canonical)
+julia --project=. -e 'using Pkg; Pkg.instantiate(workspace=true)'
 
-# run tests
+# run all package tests (canonical)
+julia --project=. scripts/test_all.jl
+
+# package-scoped alternatives (when needed)
 julia --project=GrothAlgebra -e 'using Pkg; Pkg.test()'
-julia --project=GrothProofs  -e 'using Pkg; Pkg.test()'
+julia --project=GrothProofs -e 'using Pkg; Pkg.test()'
 
 # benchmarks
-julia --project=benchmarks benchmarks/run.jl
-julia --project=benchmarks benchmarks/plot.jl
+julia --project=. benchmarks/run.jl
+julia --project=. benchmarks/plot.jl
 ```
 
-Key tutorials live in `GrothExamples/`; run `demonstrate_r1cs_qap()` or
-`multiplication_proof_example()` to see the Groth16 pipeline end-to-end.
+Key tutorials live in `GrothExamples/` as Pluto notebooks (starting with
+`src/r1cs_qap_pluto.jl` and `src/r1cs_qap_groth_pluto.jl`).
 
 ## Project status
 
@@ -125,7 +128,7 @@ This is a monorepo containing several interconnected Julia packages:
 - **[GrothCurves](./GrothCurves)** - Elliptic curve implementations, focusing on BN254 (alt-bn128) with pairing support
 - **[GrothProofs](./GrothProofs)** - Zero-knowledge proof systems including R1CS, QAP conversion, and Groth16 implementation
 - **[GrothCrypto](./GrothCrypto)** - High-level cryptographic protocols built on top of the primitives
-- **[GrothExamples](./GrothExamples)** - Educational examples and demonstrations
+- **[GrothExamples](./GrothExamples)** - Educational Pluto notebooks and demonstrations
 
 ### Documentation & Tools
 
@@ -144,7 +147,7 @@ This is a monorepo containing several interconnected Julia packages:
   - R1CS and QAP conversion in Fr; end-to-end Groth16 (CRS, prover, verifier) aligned with arkworks structure and equations.
   - Verifier enforces on-curve and subgroup checks; prepared verifier path batches pairings through the engine interface.
 - Examples (GrothExamples)
-  - End-to-end demonstration of the Groth16 pipeline.
+  - Notebook-based walkthroughs (starting with toy R1CS -> QAP in Pluto).
 
 ## Roadmap Highlights
 
