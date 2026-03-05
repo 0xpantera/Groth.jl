@@ -1,12 +1,10 @@
 #!/usr/bin/env julia
 
-using Pkg
-Pkg.activate(@__DIR__)
-
 using BenchmarkTools
 using Random
 using JSON
 using Dates
+using Sockets
 using GrothAlgebra
 using GrothCurves
 using GrothProofs
@@ -49,7 +47,7 @@ function estimate_to_seconds(est)
     m === nothing && error("Unable to parse TrialEstimate string: $s")
     value = parse(Float64, m.captures[1])
     unit = m.captures[2]
-    factor = unit == "s"  ? 1.0 :
+    factor = unit == "s" ? 1.0 :
              unit == "ms" ? 1e-3 :
              unit == "us" ? 1e-6 :
              unit == "ns" ? 1e-9 :
@@ -88,6 +86,31 @@ function print_stats(label, tr::BenchmarkTools.Trial)
     println(rpad(label, 40), " min=$(tmin) med=$(tmed) mean=$(tmean) mem=$(bytes)B")
 end
 
+function try_readchomp(cmd::Cmd)
+    try
+        return strip(readchomp(cmd))
+    catch
+        return "unknown"
+    end
+end
+
+function run_metadata()
+    return Dict{String,Any}(
+        "timestamp_utc" => string(Dates.now(Dates.UTC)),
+        "julia_version" => string(VERSION),
+        "threadpools" => Dict(
+            "default" => Threads.nthreads(:default),
+            "interactive" => Threads.nthreads(:interactive),
+        ),
+        "cpu_name" => Sys.CPU_NAME,
+        "kernel" => string(Sys.KERNEL),
+        "machine" => Sys.MACHINE,
+        "hostname" => gethostname(),
+        "git_commit" => try_readchomp(`git rev-parse HEAD`),
+        "git_branch" => try_readchomp(`git rev-parse --abbrev-ref HEAD`),
+    )
+end
+
 # -----------------------------------------------------------------------------
 # Benchmark families
 # -----------------------------------------------------------------------------
@@ -103,10 +126,10 @@ function bench_fixed_base(results)
         _ = build_fixed_table(g1)
         _ = genpoints_fixed(g1, scalars)
         # Separate table build vs batch_mul
-        tr_build = @benchmark build_fixed_table($g1) seconds=1 samples=10
+        tr_build = @benchmark build_fixed_table($g1) seconds = 1 samples = 10
         tab = build_fixed_table(g1)
-        tr_naive = @benchmark genpoints_fixed($g1, $scalars) seconds=1 samples=10
-        tr_batch = @benchmark batch_mul($tab, $scalars) seconds=1 samples=10
+        tr_naive = @benchmark genpoints_fixed($g1, $scalars) seconds = 1 samples = 10
+        tr_batch = @benchmark batch_mul($tab, $scalars) seconds = 1 samples = 10
         print_stats("G1 build", tr_build)
         print_stats("G1 naive", tr_naive)
         print_stats("G1 batch", tr_batch)
@@ -123,10 +146,10 @@ function bench_fixed_base(results)
         println("N = ", N)
         _ = build_fixed_table(g2)
         _ = genpoints_fixed(g2, scalars)
-        tr_build = @benchmark build_fixed_table($g2) seconds=1 samples=10
+        tr_build = @benchmark build_fixed_table($g2) seconds = 1 samples = 10
         tab = build_fixed_table(g2)
-        tr_naive = @benchmark genpoints_fixed($g2, $scalars) seconds=1 samples=10
-        tr_batch = @benchmark batch_mul($tab, $scalars) seconds=1 samples=10
+        tr_naive = @benchmark genpoints_fixed($g2, $scalars) seconds = 1 samples = 10
+        tr_batch = @benchmark batch_mul($tab, $scalars) seconds = 1 samples = 10
         print_stats("G2 build", tr_build)
         print_stats("G2 naive", tr_naive)
         print_stats("G2 batch", tr_batch)
@@ -167,8 +190,8 @@ function bench_variable_msm(results)
         println("N = ", N)
         _ = naive_msm(bases, scalars)
         _ = GrothAlgebra.multi_scalar_mul(bases, scalars)
-        tr_naive = @benchmark naive_msm($bases, $scalars) seconds=1 samples=10
-        tr_msm = @benchmark GrothAlgebra.multi_scalar_mul($bases, $scalars) seconds=1 samples=10
+        tr_naive = @benchmark naive_msm($bases, $scalars) seconds = 1 samples = 10
+        tr_msm = @benchmark GrothAlgebra.multi_scalar_mul($bases, $scalars) seconds = 1 samples = 10
         print_stats("G1 naive", tr_naive)
         print_stats("G1 MSM", tr_msm)
         record_result!(results, :msm_g1, string(N), "naive", tr_naive)
@@ -183,8 +206,8 @@ function bench_variable_msm(results)
         println("N = ", N)
         _ = naive_msm(bases, scalars)
         _ = GrothAlgebra.multi_scalar_mul(bases, scalars)
-        tr_naive = @benchmark naive_msm($bases, $scalars) seconds=1 samples=10
-        tr_msm = @benchmark GrothAlgebra.multi_scalar_mul($bases, $scalars) seconds=1 samples=10
+        tr_naive = @benchmark naive_msm($bases, $scalars) seconds = 1 samples = 10
+        tr_msm = @benchmark GrothAlgebra.multi_scalar_mul($bases, $scalars) seconds = 1 samples = 10
         print_stats("G2 naive", tr_naive)
         print_stats("G2 MSM", tr_msm)
         record_result!(results, :msm_g2, string(N), "naive", tr_naive)
@@ -211,14 +234,14 @@ function bench_batch_norm(results)
         tr_batch = @benchmark begin
             tmp = copy($proj_pts)
             GrothCurves.batch_to_affine!(tmp)
-        end seconds=1 samples=10
+        end seconds = 1 samples = 10
         tr_each = @benchmark begin
             tmp = copy($proj_pts)
             for i in eachindex(tmp)
                 x, y = to_affine(tmp[i])
                 tmp[i] = G1Point(x, y, one(BN254Fq))
             end
-        end seconds=1 samples=10
+        end seconds = 1 samples = 10
         print_stats("G1 batch_norm", tr_batch)
         print_stats("G1 per_point", tr_each)
         record_result!(results, :norm_g1, string(N), "batch", tr_batch)
@@ -243,14 +266,14 @@ function bench_batch_norm(results)
         tr_batch = @benchmark begin
             tmp = copy($proj_pts)
             GrothCurves.batch_to_affine!(tmp)
-        end seconds=1 samples=10
+        end seconds = 1 samples = 10
         tr_each = @benchmark begin
             tmp = copy($proj_pts)
             for i in eachindex(tmp)
                 x, y = to_affine(tmp[i])
                 tmp[i] = G2Point(x, y, one(Fp2Element))
             end
-        end seconds=1 samples=10
+        end seconds = 1 samples = 10
         print_stats("G2 batch_norm", tr_batch)
         print_stats("G2 per_point", tr_each)
         record_result!(results, :norm_g2, string(N), "batch", tr_batch)
@@ -277,8 +300,8 @@ function bench_pairings(results)
                 acc *= pairing($ENGINE, $p_vec[i], $q_vec[i])
             end
             acc
-        end seconds=2 samples=8
-        tr_batch = @benchmark pairing_batch($ENGINE, $p_vec, $q_vec) seconds=2 samples=8
+        end seconds = 2 samples = 8
+        tr_batch = @benchmark pairing_batch($ENGINE, $p_vec, $q_vec) seconds = 2 samples = 8
         print_stats("Pairing sequential (N=$(N))", tr_seq)
         print_stats("Pairing batch (N=$(N))", tr_batch)
         record_result!(results, :pairing, string(N), "sequential", tr_seq)
@@ -289,9 +312,9 @@ function bench_pairings(results)
     P1 = scalar_mul(g1, BigInt(5))
     Q1 = scalar_mul(g2, BigInt(7))
     f_pre = miller_loop(ENGINE, P1, Q1)
-    tr_single = @benchmark pairing($ENGINE, $P1, $Q1) seconds=2 samples=10
-    tr_miller = @benchmark miller_loop($ENGINE, $P1, $Q1) seconds=2 samples=10
-    tr_final = @benchmark final_exponentiation($ENGINE, $f_pre) seconds=2 samples=10
+    tr_single = @benchmark pairing($ENGINE, $P1, $Q1) seconds = 2 samples = 10
+    tr_miller = @benchmark miller_loop($ENGINE, $P1, $Q1) seconds = 2 samples = 10
+    tr_final = @benchmark final_exponentiation($ENGINE, $f_pre) seconds = 2 samples = 10
     print_stats("Pairing single", tr_single)
     print_stats("Miller loop", tr_miller)
     print_stats("Final exponentiation", tr_final)
@@ -303,7 +326,7 @@ end
 function bench_groth16(results)
     println("\n== Groth16 end-to-end pipeline ==")
     r1cs = create_r1cs_example_sum_of_products()
-    tr_r1cs_to_qap = @benchmark r1cs_to_qap($r1cs) seconds=2 samples=10
+    tr_r1cs_to_qap = @benchmark r1cs_to_qap($r1cs) seconds = 2 samples = 10
     print_stats("R1CS -> QAP", tr_r1cs_to_qap)
     record_simple!(results, :groth16, "r1cs_to_qap", tr_r1cs_to_qap)
 
@@ -311,32 +334,32 @@ function bench_groth16(results)
     witness = create_witness_sum_of_products(3, 5, 7, 11)
     public_inputs = r1cs.num_public > 1 ? witness.values[2:r1cs.num_public] : eltype(witness.values)[]
 
-    tr_setup = @benchmark setup_full($qap; rng=MersenneTwister(42)) seconds=5 samples=5
+    tr_setup = @benchmark setup_full($qap; rng=MersenneTwister(42)) seconds = 5 samples = 5
     print_stats("Groth16 setup", tr_setup)
     record_simple!(results, :groth16, "setup", tr_setup)
 
     keypair = setup_full(qap; rng=MersenneTwister(42))
     proof = prove_full(keypair.pk, qap, witness; rng=MersenneTwister(1337))
 
-    tr_prove = @benchmark prove_full($keypair.pk, $qap, $witness; rng=MersenneTwister(1337)) seconds=5 samples=5
+    tr_prove = @benchmark prove_full($keypair.pk, $qap, $witness; rng=MersenneTwister(1337)) seconds = 5 samples = 5
     print_stats("Groth16 prove", tr_prove)
     record_simple!(results, :groth16, "prove", tr_prove)
 
-    tr_verify = @benchmark verify_full($keypair.vk, $proof, $public_inputs) seconds=5 samples=15
+    tr_verify = @benchmark verify_full($keypair.vk, $proof, $public_inputs) seconds = 5 samples = 15
     print_stats("Groth16 verify", tr_verify)
     record_simple!(results, :groth16, "verify_full", tr_verify)
 
-    tr_prepare_vk = @benchmark prepare_verifying_key($keypair.vk) seconds=2 samples=10
+    tr_prepare_vk = @benchmark prepare_verifying_key($keypair.vk) seconds = 2 samples = 10
     print_stats("Groth16 prepare_vk", tr_prepare_vk)
     record_simple!(results, :groth16, "prepare_vk", tr_prepare_vk)
 
     pvk = prepare_verifying_key(keypair.vk)
-    tr_prepare_inputs = @benchmark prepare_inputs($pvk, $public_inputs) seconds=2 samples=10
+    tr_prepare_inputs = @benchmark prepare_inputs($pvk, $public_inputs) seconds = 2 samples = 10
     print_stats("Groth16 prepare_inputs", tr_prepare_inputs)
     record_simple!(results, :groth16, "prepare_inputs", tr_prepare_inputs)
 
     prepared_inputs = prepare_inputs(pvk, public_inputs)
-    tr_verify_prepared = @benchmark verify_with_prepared($pvk, $proof, $prepared_inputs) seconds=5 samples=15
+    tr_verify_prepared = @benchmark verify_with_prepared($pvk, $proof, $prepared_inputs) seconds = 5 samples = 15
     print_stats("Groth16 verify prepared", tr_verify_prepared)
     record_simple!(results, :groth16, "verify_prepared", tr_verify_prepared)
 end
@@ -347,19 +370,37 @@ end
 
 function main()
     println("GrothBenchmarks — Julia $(VERSION)")
+    run_id = Dates.format(Dates.now(Dates.UTC), "yyyy-mm-dd_HHMMSS")
+    artifact_dir = joinpath(@__DIR__, "artifacts", run_id)
+    results_dir = joinpath(artifact_dir, "results")
+    plots_dir = joinpath(artifact_dir, "plots")
+    meta_dir = joinpath(artifact_dir, "meta")
+    mkpath(results_dir)
+    mkpath(plots_dir)
+    mkpath(meta_dir)
+
     results = Dict{Symbol,Any}()
+    meta = run_metadata()
+    meta["run_id"] = run_id
+    meta["artifact_dir"] = artifact_dir
+    results[:_meta] = meta
     bench_fixed_base(results)
     bench_variable_msm(results)
     bench_batch_norm(results)
     bench_pairings(results)
     bench_groth16(results)
 
-    ts = Dates.format(Dates.now(), "yyyy-mm-dd_HHMMSS")
-    out = joinpath(@__DIR__, "results_" * ts * ".json")
-    open(out, "w") do io
+    results_out = joinpath(results_dir, "benchmark_results.json")
+    open(results_out, "w") do io
         JSON.print(io, results)
     end
-    println("\nSaved results to ", out)
+    meta_out = joinpath(meta_dir, "run_meta.json")
+    open(meta_out, "w") do io
+        JSON.print(io, meta)
+    end
+    println("\nSaved results to ", results_out)
+    println("Saved metadata to ", meta_out)
+    println("Plots should be written to ", plots_dir, " via benchmarks/plot.jl")
 end
 
 main()

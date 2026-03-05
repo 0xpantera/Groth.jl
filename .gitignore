@@ -4,8 +4,9 @@
 *.jl.mem
 *.jl.*.mem
 
-# Manifest files - we track these for reproducibility
-# Manifest.toml
+# Manifest files - root Manifest.toml is canonical for workspace
+**/Manifest.toml
+!Manifest.toml
 
 # System files
 .DS_Store
@@ -23,7 +24,7 @@ Thumbs.db
 /docs/site/
 
 # Benchmark results
-/benchmarks/results/
+/benchmarks/artifacts/
 *.benchmark
 
 # Temporary files
