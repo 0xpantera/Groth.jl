@@ -60,3 +60,9 @@ julia --project=. docs/make.jl
 julia --project=. benchmarks/run.jl
 julia --project=. benchmarks/plot.jl
 ```
+
+## 6. Follow the end-to-end Groth16 tutorial
+
+After building docs, open the `Groth16 End-to-End` page for the high-level
+`setup`/`prove`/`verify` wrapper flow and explicit witness/public-input
+conventions.

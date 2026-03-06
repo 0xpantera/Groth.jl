@@ -28,7 +28,11 @@ julia --project=GrothProofs -e 'using Pkg; Pkg.test()'
 ```julia
 using GrothProofs
 r1cs = create_r1cs_example_sum_of_products()
-qap = r1cs_to_qap(r1cs)
+witness = create_witness_sum_of_products(3, 5, 7, 11)
+artifacts = setup(r1cs; prepare_vk=true)
+proof = prove(artifacts.pk, artifacts.qap, witness)
+public_inputs = public_inputs_from_witness(r1cs, witness)
+verify(artifacts.pvk, public_inputs, proof)
 ```
 
 GrothProofs expects the pairing engine from GrothCurves and the algebra from

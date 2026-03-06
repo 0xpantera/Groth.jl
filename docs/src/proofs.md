@@ -56,6 +56,13 @@ verify_full
 prepare_verifying_key
 prepare_inputs
 verify_with_prepared
+validate_witness_shape
+public_inputs_from_witness
+setup
+prove
+process_vk
+verify
+verify_prepared
 ```
 
 ### Example
