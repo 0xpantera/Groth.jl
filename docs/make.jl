@@ -11,6 +11,7 @@ DocMeta.setdocmeta!(GrothProofs, :DocTestSetup, :(using GrothProofs); recursive=
 const PAGES = [
     "Home" => "index.md",
     "Getting Started" => "getting-started.md",
+    "Groth16 End-to-End" => "groth16-e2e.md",
     "Packages" => [
         "Groth Algebra" => "algebra.md",
         "Groth Curves" => "curves.md",
@@ -25,26 +26,26 @@ const PAGES = [
 ]
 
 makedocs(
-    sitename = "Groth.jl",
-    format = Documenter.HTML(
-        prettyurls = true,
-        collapselevel = 1,
-        inventory_version = "dev",
+    sitename="Groth.jl",
+    format=Documenter.HTML(
+        prettyurls=true,
+        collapselevel=1,
+        inventory_version="dev",
     ),
-    modules = [GrothAlgebra, GrothCurves, GrothProofs],
-    pages = PAGES,
-    clean = true,
-    checkdocs = :none,
-    repo = Remotes.GitHub("0xpantera", "Groth.jl"),
-    meta = Dict(
+    modules=[GrothAlgebra, GrothCurves, GrothProofs],
+    pages=PAGES,
+    clean=true,
+    checkdocs=:none,
+    repo=Remotes.GitHub("0xpantera", "Groth.jl"),
+    meta=Dict(
         :description => "Groth.jl provides algebra, curve, and Groth16 proof tooling in Julia.",
     ),
 )
 
 deploydocs(
-    repo = "github.com/0xpantera/Groth.jl.git",
-    target = "build",
-    branch = "gh-pages",
-    devbranch = "master",
-    push_preview = true,
+    repo="github.com/0xpantera/Groth.jl.git",
+    target="build",
+    branch="gh-pages",
+    devbranch="master",
+    push_preview=true,
 )
