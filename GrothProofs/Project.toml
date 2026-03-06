@@ -1,7 +1,7 @@
 name = "GrothProofs"
 uuid = "a08a9250-f3dc-4127-bcf9-3e12d47ce125"
 authors = ["0xpantera <0xpantera@proton.me>"]
-version = "1.0.0-DEV"
+version = "0.2.0"
 
 [deps]
 GrothAlgebra = "c7a79d44-cfd6-4e24-8a20-28d2d2e8370b"
