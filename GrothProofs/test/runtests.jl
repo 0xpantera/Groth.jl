@@ -225,7 +225,7 @@ end
         if !isempty(touched)
             bad_inputs = copy(public_inputs)
             idx = rand(rng, touched)
-            bad_inputs[idx - 1] += one(eltype(bad_inputs))
+            bad_inputs[idx-1] += one(eltype(bad_inputs))
             @test !verify_full(keypair.vk, proof, bad_inputs)
         end
 
@@ -279,10 +279,10 @@ end
         w = builder === create_r1cs_example_multiplication ?
             create_witness_multiplication(3, 5, 7, 11) :
             builder === create_r1cs_example_sum_of_products ?
-                create_witness_sum_of_products(3, 5, 7, 11) :
-                builder === create_r1cs_example_affine_product ?
-                    create_witness_affine_product(2, 3, 5, 7) :
-                    create_witness_square_offset(2, 3, 5)
+            create_witness_sum_of_products(3, 5, 7, 11) :
+            builder === create_r1cs_example_affine_product ?
+            create_witness_affine_product(2, 3, 5, 7) :
+            create_witness_square_offset(2, 3, 5)
 
         # Build combined polynomials
         u_poly = zero(qap.u[1])
@@ -342,4 +342,39 @@ end
     @test !is_satisfied(r1cs, bad_witness)
 
     @test_throws ErrorException prove_full(keypair.pk, qap, bad_witness; rng=MersenneTwister(1234))
+end
+
+@testset "High-level wrapper API and conventions" begin
+    r1cs = create_r1cs_example_sum_of_products()
+    witness = create_witness_sum_of_products(3, 5, 7, 11)
+    @test validate_witness_shape(r1cs, witness) === nothing
+
+    public_inputs = public_inputs_from_witness(r1cs, witness)
+    @test length(public_inputs) == r1cs.num_public - 1
+
+    artifacts = setup(r1cs; rng=MersenneTwister(7001), prepare_vk=true)
+    proof = prove(artifacts.pk, artifacts.qap, witness; rng=MersenneTwister(7002))
+
+    @test verify(artifacts.vk, public_inputs, proof)
+    @test verify(artifacts.pvk, public_inputs, proof)
+
+    prepared_inputs = prepare_inputs(artifacts.pvk, public_inputs)
+    @test verify_prepared(artifacts.pvk, prepared_inputs, proof)
+
+    bad_inputs = copy(public_inputs)
+    bad_inputs[2] += one(eltype(bad_inputs))
+    @test !verify(artifacts.vk, bad_inputs, proof)
+    @test !verify(artifacts.pvk, bad_inputs, proof)
+end
+
+@testset "High-level wrapper convention failures" begin
+    r1cs = create_r1cs_example_multiplication()
+    witness = create_witness_multiplication(2, 3, 5, 7)
+
+    wrong_len = Witness(witness.values[1:end-1])
+    @test_throws ArgumentError validate_witness_shape(r1cs, wrong_len)
+    @test_throws ArgumentError public_inputs_from_witness(r1cs, wrong_len)
+
+    bad_first = Witness(vcat([zero(eltype(witness.values))], witness.values[2:end]))
+    @test_throws ArgumentError validate_witness_shape(r1cs, bad_first)
 end
