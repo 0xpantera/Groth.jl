@@ -1,0 +1,64 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+  push:
+    branches:
+      - master
+    paths:
+      - "benchmarks/**"
+      - "GrothAlgebra/**"
+      - "GrothCurves/**"
+      - "GrothProofs/**"
+      - "Project.toml"
+      - "Manifest.toml"
+
+concurrency:
+  group: benchmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.12"
+
+      - uses: julia-actions/cache@v2
+
+      - name: Instantiate workspace
+        shell: julia --color=yes --project=. {0}
+        run: |
+          using Pkg
+          Pkg.instantiate(workspace=true)
+
+      - name: Run benchmark suite
+        run: julia --color=yes --project=. benchmarks/run.jl
+
+      - name: Render benchmark plots
+        run: julia --color=yes --project=. benchmarks/plot.jl
+
+      - name: Resolve latest benchmark artifact directory
+        id: latest
+        shell: bash
+        run: |
+          latest_dir=$(ls -1dt benchmarks/artifacts/*/ | head -n 1)
+          latest_dir="${latest_dir%/}"
+          echo "dir=${latest_dir}" >> "$GITHUB_OUTPUT"
+          echo "Latest benchmark directory: ${latest_dir}"
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks-${{ github.run_id }}
+          path: ${{ steps.latest.outputs.dir }}
+          if-no-files-found: error
