@@ -403,3 +403,111 @@ function verify_with_prepared(pvk::PreparedVerificationKey{E}, proof::Groth16Pro
 end
 
 export PreparedVerificationKey, prepare_verifying_key, prepare_inputs, verify_with_prepared
+
+"""
+    validate_witness_shape(r1cs::R1CS{F}, witness::Witness{F}) where F
+
+Validate witness layout conventions:
+- `length(witness.values) == r1cs.num_vars`
+- `witness.values[1] == 1`
+
+Throws `ArgumentError` with explicit diagnostics if validation fails.
+"""
+function validate_witness_shape(r1cs::R1CS{F}, witness::Witness{F}) where F
+    n = length(witness.values)
+    if n != r1cs.num_vars
+        throw(ArgumentError("Expected witness length $(r1cs.num_vars), got $(n)"))
+    end
+    if !isone(witness.values[1])
+        throw(ArgumentError("Witness convention violation: values[1] must be one($F)"))
+    end
+    return nothing
+end
+
+"""
+    public_inputs_from_witness(r1cs::R1CS{F}, witness::Witness{F}) where F
+
+Extract arkworks-style public inputs from a witness, excluding the leading
+constant `1` at index 1.
+"""
+function public_inputs_from_witness(r1cs::R1CS{F}, witness::Witness{F}) where F
+    validate_witness_shape(r1cs, witness)
+    expected = r1cs.num_public - 1
+    if expected <= 0
+        return F[]
+    end
+    return copy(witness.values[2:r1cs.num_public])
+end
+
+"""
+    setup(r1cs::R1CS{F}; rng=Random.GLOBAL_RNG, engine=BN254_ENGINE, prepare_vk::Bool=false) where F
+
+High-level Groth16 setup wrapper:
+1. Converts `r1cs` to `qap`.
+2. Runs trusted setup.
+3. Optionally prepares the verifying key.
+
+Returns a named tuple with fields `pk`, `vk`, `qap`, and optionally `pvk`.
+"""
+function setup(r1cs::R1CS{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::AbstractPairingEngine=BN254_ENGINE, prepare_vk::Bool=false) where F
+    qap = r1cs_to_qap(r1cs)
+    keypair = setup_full(qap; rng=rng, engine=engine)
+    if prepare_vk
+        pvk = prepare_verifying_key(keypair.vk)
+        return (pk=keypair.pk, vk=keypair.vk, qap=qap, pvk=pvk)
+    end
+    return (pk=keypair.pk, vk=keypair.vk, qap=qap)
+end
+
+"""
+    prove(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng=Random.GLOBAL_RNG, debug_no_random=false) where F
+
+High-level proving wrapper over `prove_full`.
+"""
+function prove(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::AbstractRNG=Random.GLOBAL_RNG, debug_no_random::Bool=false) where F
+    if length(witness.values) != qap.num_vars
+        throw(ArgumentError("Witness length $(length(witness.values)) does not match QAP num_vars $(qap.num_vars)"))
+    end
+    if !isone(witness.values[1])
+        throw(ArgumentError("Witness convention violation: values[1] must be one($F)"))
+    end
+    return prove_full(pk, qap, witness; rng=rng, debug_no_random=debug_no_random)
+end
+
+"""
+    process_vk(vk::VerificationKey)
+
+Prepare a verification key for repeated verification.
+"""
+process_vk(vk::VerificationKey) = prepare_verifying_key(vk)
+
+"""
+    verify(vk::VerificationKey, public_inputs::Vector{F}, proof::Groth16Proof) where F
+
+High-level verifier wrapper for non-prepared verification keys.
+"""
+function verify(vk::VerificationKey, public_inputs::Vector{F}, proof::Groth16Proof) where F
+    return verify_full(vk, proof, public_inputs)
+end
+
+"""
+    verify(pvk::PreparedVerificationKey, public_inputs::Vector{F}, proof::Groth16Proof) where F
+
+High-level verifier wrapper for prepared verification keys.
+"""
+function verify(pvk::PreparedVerificationKey, public_inputs::Vector{F}, proof::Groth16Proof) where F
+    prepared = prepare_inputs(pvk, public_inputs)
+    return verify_with_prepared(pvk, proof, prepared)
+end
+
+"""
+    verify_prepared(pvk::PreparedVerificationKey, prepared_inputs::G1Point, proof::Groth16Proof)
+
+Verify a proof using already prepared public inputs.
+"""
+function verify_prepared(pvk::PreparedVerificationKey, prepared_inputs::G1Point, proof::Groth16Proof)
+    return verify_with_prepared(pvk, proof, prepared_inputs)
+end
+
+export validate_witness_shape, public_inputs_from_witness
+export setup, prove, process_vk, verify, verify_prepared
