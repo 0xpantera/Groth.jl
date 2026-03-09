@@ -33,8 +33,6 @@ jobs:
         with:
           version: "1.12"
 
-      - uses: julia-actions/cache@v2
-
       - name: Instantiate workspace
         shell: julia --color=yes --project=. {0}
         run: |
