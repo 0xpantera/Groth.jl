@@ -103,6 +103,17 @@ function plot_group(results::AbstractDict, out_dir::String, key::Symbol, title::
     png(joinpath(out_dir, outfile))
 end
 
+function plot_categorical_group(results::AbstractDict, out_dir::String, key::Symbol, categories::Vector{String}, labels::Vector{String}, title::String, outfile::String)
+    group = get(results, String(key), nothing)
+    group === nothing && return
+    present = [category for category in categories if haskey(group, category)]
+    isempty(present) && return
+    data = [median_ms(group[category][labels[j]]) for j in eachindex(labels), category in present]
+    groupedbar(present, permutedims(data), bar_position=:dodge,
+        legend=:topleft, title=title, xlabel="", ylabel="median time (ms)")
+    png(joinpath(out_dir, outfile))
+end
+
 function plot_single_ops(results::AbstractDict, out_dir::String, key::Symbol, order::Vector{String}, title::String, outfile::String)
     group = get(results, String(key), nothing)
     group === nothing && return
@@ -145,6 +156,12 @@ function main()
     plot_group(res, out_dir, :msm_g2, "MSM G2 (median)", ["naive", "msm"], "msm_g2.png")
     plot_group(res, out_dir, :norm_g1, "Batch norm G1 (median)", ["each", "batch"], "norm_g1.png")
     plot_group(res, out_dir, :norm_g2, "Batch norm G2 (median)", ["each", "batch"], "norm_g2.png")
+    plot_categorical_group(res, out_dir, :py_ecc_scalar, ["g1", "g2"], ["groth_jl", "py_ecc"],
+        "BN254 scalar multiplication: Groth.jl vs py_ecc", "py_ecc_scalar.png")
+    plot_group(res, out_dir, :py_ecc_naive_accum_g1, "Naive variable-base accumulation G1: Groth.jl vs py_ecc", ["groth_jl", "py_ecc"], "py_ecc_naive_accum_g1.png")
+    plot_group(res, out_dir, :py_ecc_naive_accum_g2, "Naive variable-base accumulation G2: Groth.jl vs py_ecc", ["groth_jl", "py_ecc"], "py_ecc_naive_accum_g2.png")
+    plot_categorical_group(res, out_dir, :py_ecc_pairing, ["single"], ["groth_jl", "py_ecc"],
+        "BN254 pairing: Groth.jl vs py_ecc", "py_ecc_pairing.png")
 
     # Pairing summaries
     plot_group(res, out_dir, :pairing, "Pairing sequential vs batch", ["sequential", "batch"], "pairing.png")

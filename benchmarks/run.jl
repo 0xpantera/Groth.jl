@@ -5,6 +5,7 @@ using Random
 using JSON
 using Dates
 using Sockets
+using Statistics
 using GrothAlgebra
 using GrothCurves
 using GrothProofs
@@ -14,6 +15,10 @@ include("prove_full_common.jl")
 const Fr = BN254Fr
 const r = BN254_ORDER_R
 const ENGINE = BN254_ENGINE
+const WORKSPACE_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
+const PY_ECC_ROOT = joinpath(WORKSPACE_ROOT, "py_ecc")
+const PY_ECC_SCRIPT = joinpath(@__DIR__, "py_ecc_bn254_bench.py")
+const PY_ECC_ACCUM_SIZES = (32, 128)
 
 # -----------------------------------------------------------------------------
 # Sampling helpers
@@ -36,6 +41,32 @@ end
 function genpoints_fixed(g, scalars::Vector{BigInt})
     # Naive scalar multiplication loop
     return [scalar_mul(g, s) for s in scalars]
+end
+
+det_py_ecc_scalar(tag::Integer) = mod(BigInt(tag)^3 + 19 * BigInt(tag) + 7, r - 1) + 1
+
+function py_ecc_accum_inputs(gen, base_offset::Int, scalar_offset::Int, size::Int)
+    bases = [scalar_mul(gen, det_py_ecc_scalar(base_offset + i)) for i in 1:size]
+    scalars = [det_py_ecc_scalar(scalar_offset + i) for i in 1:size]
+    return bases, scalars
+end
+
+function serialize_bn254(x::BN254Fq)
+    return string(x.value)
+end
+
+function serialize_bn254(x::Fp2Element)
+    return Any[serialize_bn254(x[1]), serialize_bn254(x[2])]
+end
+
+function serialize_affine(p::G1Point)
+    x, y = to_affine(p)
+    return Any[serialize_bn254(x), serialize_bn254(y)]
+end
+
+function serialize_affine(p::G2Point)
+    x, y = to_affine(p)
+    return Any[serialize_bn254(x), serialize_bn254(y)]
 end
 
 # -----------------------------------------------------------------------------
@@ -80,6 +111,12 @@ function record_simple!(results::Dict{Symbol,Any}, group::Symbol, label::String,
     group_dict[label] = trial_summary(tr)
 end
 
+function record_external_result!(results::Dict{Symbol,Any}, group::Symbol, nkey::String, label::String, summary::AbstractDict)
+    group_dict = get!(results, group, Dict{String,Any}())
+    entry = get!(group_dict, nkey, Dict{String,Any}())
+    entry[label] = Dict{String,Any}(pairs(summary))
+end
+
 function record_fixture_trial!(results::Dict{Symbol,Any}, group::Symbol, fixture_name::String, label::String, tr::BenchmarkTools.Trial)
     group_dict = get!(results, group, Dict{String,Any}())
     fixture_dict = get!(group_dict, fixture_name, Dict{String,Any}())
@@ -100,12 +137,48 @@ function print_stats(label, tr::BenchmarkTools.Trial)
     println(rpad(label, 40), " min=$(tmin) med=$(tmed) mean=$(tmean) mem=$(bytes)B")
 end
 
+function print_external_stats(label::AbstractString, summary::AbstractDict)
+    println(rpad(label, 40), " min=$(summary["min_pretty"]) med=$(summary["median_pretty"]) mem=$(summary["memory_bytes"])")
+end
+
 function try_readchomp(cmd::Cmd)
     try
         return strip(readchomp(cmd))
     catch
         return "unknown"
     end
+end
+
+function run_py_ecc_bench(meta::Dict{String,Any})
+    python = Sys.which("python3")
+    if python === nothing
+        note = Dict{String,Any}(
+            "status" => "skipped",
+            "reason" => "python3 not found on PATH",
+        )
+        meta["py_ecc"] = note
+        println("\nSkipping py_ecc primitive comparison: ", note["reason"])
+        return nothing
+    end
+
+    if !isdir(PY_ECC_ROOT)
+        note = Dict{String,Any}(
+            "status" => "skipped",
+            "reason" => "workspace sibling py_ecc checkout not found",
+            "expected_root" => PY_ECC_ROOT,
+        )
+        meta["py_ecc"] = note
+        println("\nSkipping py_ecc primitive comparison: ", note["reason"])
+        return nothing
+    end
+
+    output = read(Cmd([python, PY_ECC_SCRIPT]), String)
+    payload = JSON.parse(output)
+    py_meta = payload["meta"]
+    py_meta["status"] = "measured"
+    py_meta["python_executable"] = python
+    meta["py_ecc"] = py_meta
+    return payload
 end
 
 function run_metadata()
@@ -337,6 +410,81 @@ function bench_pairings(results)
     record_simple!(results, :pairing_single, "final_exponentiation", tr_final)
 end
 
+function bench_py_ecc_primitives(results, meta)
+    payload = run_py_ecc_bench(meta)
+    payload === nothing && return
+
+    py_results = payload["results"]
+    py_semantic = payload["semantic"]
+
+    println("\n== BN254 primitives: Groth.jl vs py_ecc ==")
+    println("Using local py_ecc checkout at ", meta["py_ecc"]["py_ecc_root"])
+
+    g1_base = scalar_mul(g1_generator(), det_py_ecc_scalar(101))
+    g2_base = scalar_mul(g2_generator(), det_py_ecc_scalar(102))
+    g1_scalar = det_py_ecc_scalar(201)
+    g2_scalar = det_py_ecc_scalar(202)
+
+    g1_expected = serialize_affine(scalar_mul(g1_base, g1_scalar))
+    g2_expected = serialize_affine(scalar_mul(g2_base, g2_scalar))
+    g1_expected == py_semantic["scalar_mul"]["g1"] || error("py_ecc G1 scalar multiplication result mismatch")
+    g2_expected == py_semantic["scalar_mul"]["g2"] || error("py_ecc G2 scalar multiplication result mismatch")
+
+    _ = scalar_mul(g1_base, g1_scalar)
+    _ = scalar_mul(g2_base, g2_scalar)
+    tr_g1 = @benchmark scalar_mul($g1_base, $g1_scalar) seconds = 1 samples = 10
+    tr_g2 = @benchmark scalar_mul($g2_base, $g2_scalar) seconds = 1 samples = 10
+    print_stats("Groth.jl G1 scalar", tr_g1)
+    print_external_stats("py_ecc G1 scalar", py_results["scalar_mul"]["g1"])
+    print_stats("Groth.jl G2 scalar", tr_g2)
+    print_external_stats("py_ecc G2 scalar", py_results["scalar_mul"]["g2"])
+    record_result!(results, :py_ecc_scalar, "g1", "groth_jl", tr_g1)
+    record_external_result!(results, :py_ecc_scalar, "g1", "py_ecc", py_results["scalar_mul"]["g1"])
+    record_result!(results, :py_ecc_scalar, "g2", "groth_jl", tr_g2)
+    record_external_result!(results, :py_ecc_scalar, "g2", "py_ecc", py_results["scalar_mul"]["g2"])
+
+    for N in PY_ECC_ACCUM_SIZES
+        g1_bases, g1_scalars = py_ecc_accum_inputs(g1_generator(), 1000 + N, 2000 + N, N)
+        g2_bases, g2_scalars = py_ecc_accum_inputs(g2_generator(), 3000 + N, 4000 + N, N)
+
+        g1_expected_acc = serialize_affine(naive_msm(g1_bases, g1_scalars))
+        g2_expected_acc = serialize_affine(naive_msm(g2_bases, g2_scalars))
+        g1_expected_acc == py_semantic["naive_accum_g1"][string(N)] || error("py_ecc G1 naive accumulation result mismatch for N=$(N)")
+        g2_expected_acc == py_semantic["naive_accum_g2"][string(N)] || error("py_ecc G2 naive accumulation result mismatch for N=$(N)")
+
+        _ = naive_msm(g1_bases, g1_scalars)
+        _ = naive_msm(g2_bases, g2_scalars)
+        tr_g1_acc = @benchmark naive_msm($g1_bases, $g1_scalars) seconds = 1 samples = 10
+        tr_g2_acc = @benchmark naive_msm($g2_bases, $g2_scalars) seconds = 1 samples = 10
+        print_stats("Groth.jl G1 naive accum N=$(N)", tr_g1_acc)
+        print_external_stats("py_ecc G1 naive accum N=$(N)", py_results["naive_accum_g1"][string(N)])
+        print_stats("Groth.jl G2 naive accum N=$(N)", tr_g2_acc)
+        print_external_stats("py_ecc G2 naive accum N=$(N)", py_results["naive_accum_g2"][string(N)])
+        record_result!(results, :py_ecc_naive_accum_g1, string(N), "groth_jl", tr_g1_acc)
+        record_external_result!(results, :py_ecc_naive_accum_g1, string(N), "py_ecc", py_results["naive_accum_g1"][string(N)])
+        record_result!(results, :py_ecc_naive_accum_g2, string(N), "groth_jl", tr_g2_acc)
+        record_external_result!(results, :py_ecc_naive_accum_g2, string(N), "py_ecc", py_results["naive_accum_g2"][string(N)])
+    end
+
+    pair_p = scalar_mul(g1_generator(), det_py_ecc_scalar(301))
+    pair_q = scalar_mul(g2_generator(), det_py_ecc_scalar(302))
+    pair_base = pairing(ENGINE, pair_p, pair_q)
+    pair_double_g1 = pairing(ENGINE, scalar_mul(pair_p, BigInt(2)), pair_q)
+    pair_double_g2 = pairing(ENGINE, pair_p, scalar_mul(pair_q, BigInt(2)))
+    pair_double_g1 == pair_double_g2 || error("Groth.jl pairing bilinearity check failed for py_ecc benchmark workload")
+    !isone(pair_base) || error("Groth.jl pairing benchmark workload is degenerate")
+    Bool(py_semantic["pairing_checks"]["double_bilinear"]) || error("py_ecc pairing bilinearity check failed")
+    Bool(py_semantic["pairing_checks"]["non_degenerate"]) || error("py_ecc pairing benchmark workload is degenerate")
+    meta["py_ecc"]["pairing_validation"] = "validated via per-implementation bilinearity/non-degeneracy checks; direct coefficient equality is not enforced across implementations"
+
+    _ = pairing(ENGINE, pair_p, pair_q)
+    tr_pair = @benchmark pairing($ENGINE, $pair_p, $pair_q) seconds = 2 samples = 8
+    print_stats("Groth.jl pairing", tr_pair)
+    print_external_stats("py_ecc pairing", py_results["pairing"]["single"])
+    record_result!(results, :py_ecc_pairing, "single", "groth_jl", tr_pair)
+    record_external_result!(results, :py_ecc_pairing, "single", "py_ecc", py_results["pairing"]["single"])
+end
+
 function bench_groth16(results)
     println("\n== Groth16 end-to-end pipeline ==")
     r1cs = create_r1cs_example_sum_of_products()
@@ -496,6 +644,7 @@ function main()
     bench_variable_msm(results)
     bench_batch_norm(results)
     bench_pairings(results)
+    bench_py_ecc_primitives(results, meta)
     bench_groth16(results)
     bench_prove_full(results)
 
