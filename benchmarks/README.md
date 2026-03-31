@@ -15,6 +15,12 @@ This directory contains a self-contained BenchmarkTools environment and four scr
   - `batch_mul` (precomputed) vs `scalar_mul` loop for generating N points
 - Variable-base MSM (prover hot path)
   - `multi_scalar_mul` (MSM) vs naive accumulation for N bases/scalars
+- Optional external BN254 primitive comparison against a sibling `py_ecc/`
+  checkout
+  - G1 scalar multiplication
+  - G2 scalar multiplication
+  - single pairing
+  - naive variable-base accumulation for N ∈ {32, 128}
 - Batch normalization
   - `batch_to_affine!` vs per-point `to_affine` for N points, with fresh projective inputs per sample
 - Pairing engine
@@ -48,6 +54,7 @@ Each JSON entry records:
 `plot.jl` produces the following visual comparisons (all using median timings):
 
 - Microbenchmarks: `fixed_g1.png`, `fixed_g2.png`, `msm_g1.png`, `msm_g2.png`, `norm_g1.png`, `norm_g2.png`
+- External primitive comparison: `py_ecc_scalar.png`, `py_ecc_naive_accum_g1.png`, `py_ecc_naive_accum_g2.png`, `py_ecc_pairing.png`
 - Pairing comparisons: `pairing.png` (sequential vs batch), `pairing_ops.png` (miller loop / final exponent)
 - Groth16 pipeline: `groth16.png`
 - `prove_full` phase breakdowns: `prove_full_<fixture>.png`
@@ -147,6 +154,11 @@ Run benchmarks (prints stats and saves a JSON):
 julia --project=. benchmarks/run.jl
 ```
 
+If the workspace also contains a sibling `../py_ecc/` checkout and `python3` is
+available, `run.jl` will additionally record matched BN254 primitive timings for
+Groth.jl vs `py_ecc`. This is a primitive-only comparison, not a Groth16 prover
+comparison.
+
 Render plots for the latest JSON (or pass a specific file):
 
 ```
@@ -179,6 +191,9 @@ julia --project=. benchmarks/report.jl --skip-run --threshold=10
 ## Notes
 
 - BenchmarkTools excludes JIT compilation after the first execution. We also run explicit warmups before timing to avoid first-sample JIT.
+- The optional `py_ecc` comparison runs inside a dedicated Python process that
+  times only the primitive loops after import/setup; it is skipped automatically
+  when the sibling `py_ecc/` checkout is absent.
 - Fixed-base timings are split between table build (one-time cost per base) and `batch_mul` (per vector). In setup we build once and reuse across A/B/C/H/L/IC.
 - Consider fixing `JULIA_NUM_THREADS` when comparing runs; record CPU/machine info for fair comparisons.
 - JSON now contains numeric fields in seconds for easier downstream processing while keeping the human-readable `TrialEstimate` strings.
