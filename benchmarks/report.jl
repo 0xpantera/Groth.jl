@@ -184,6 +184,7 @@ function write_report(path::String, baseline::String, candidate::String, thresho
     mkpath(report_dir)
 
     groth_rows = rows_for_prefix(rows, "groth16")
+    prove_rows = rows_for_prefix(rows, "prove_full")
     pairing_rows = rows_for_prefix(rows, "pairing")
     regressions = filter(r -> r.delta_pct >= threshold, rows)
     improvements = filter(r -> r.delta_pct <= -threshold, rows)
@@ -234,6 +235,13 @@ function write_report(path::String, baseline::String, candidate::String, thresho
     groth_table = [[r.metric, format_seconds(r.baseline), format_seconds(r.candidate), format_pct(r.delta_pct)] for r in groth_rows]
     append!(lines, render_markdown_table(["Metric", "Baseline (s)", "Candidate (s)", "Delta"], groth_table))
     push!(lines, "")
+    if !isempty(prove_rows)
+        push!(lines, "## prove_full Breakdown")
+        push!(lines, "")
+        prove_table = [[r.metric, format_seconds(r.baseline), format_seconds(r.candidate), format_pct(r.delta_pct)] for r in prove_rows]
+        append!(lines, render_markdown_table(["Metric", "Baseline (s)", "Candidate (s)", "Delta"], prove_table))
+        push!(lines, "")
+    end
     push!(lines, "## Regressions (>= +$(threshold)%)")
     push!(lines, "")
     reg_rows = isempty(regressions) ? [["None", "-", "-", "-"]] :
