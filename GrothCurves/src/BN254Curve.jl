@@ -16,6 +16,11 @@ const G2Point = ProjectivePoint{BN254Curve, Fp2Element}
 # Small G2 MSMs benefit from a narrower window than the generic default.
 _pippenger_window(::Type{G2Point}, size::Int) = size < 32 ? 2 : ((ndigits(size, base=2) - 1) * 69) ÷ 100 + 2
 
+# Single-point scalar multiplication uses the same generic API, but BN254
+# points benefit from a tuned w-NAF window instead of the binary fallback.
+_scalar_mul_window(::Type{G1Point}, bit_length::Int) = bit_length <= 64 ? 3 : 4
+_scalar_mul_window(::Type{G2Point}, ::Int) = 3
+
 # Twist coefficient for the BN254 D-twist (y² = x³ + b')
 const G2_B_TWIST = Fp2Element(3, 0) / Fp2Element(9, 1)
 
@@ -156,8 +161,6 @@ function double(p::G2Point)
     X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
 
     XX = X^2
-    ZZ = Z^2
-    ZZ2 = ZZ^2
     S = Fp2Element(4) * X * Y^2
     M = Fp2Element(3) * XX
     X3 = M^2 - Fp2Element(2) * S

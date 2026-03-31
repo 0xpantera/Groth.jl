@@ -25,6 +25,8 @@ Required operations for concrete implementations:
 """
 abstract type GroupElem{C<:AbstractCurve} end
 
+_scalar_mul_window(::Type{<:GroupElem}, ::Int) = 0
+
 # Generic group operations
 
 """
@@ -82,6 +84,11 @@ function scalar_mul(P::GroupElem{C}, k::Integer) where C
         return P
     elseif k < 0
         return scalar_mul(-P, -k)
+    end
+
+    w = _scalar_mul_window(typeof(P), _bit_length(k))
+    if w > 0
+        return scalar_mul_wnaf(P, k, w)
     end
 
     # Double-and-add algorithm
