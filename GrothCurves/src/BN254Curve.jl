@@ -13,6 +13,9 @@ const BN254_ORDER_R = parse(BigInt, "2188824287183927522224640574525727508854836
 const G1Point = ProjectivePoint{BN254Curve, BN254Fq}
 const G2Point = ProjectivePoint{BN254Curve, Fp2Element}
 
+# Small G2 MSMs benefit from a narrower window than the generic default.
+_pippenger_window(::Type{G2Point}, size::Int) = size < 32 ? 2 : ((ndigits(size, base=2) - 1) * 69) ÷ 100 + 2
+
 # Twist coefficient for the BN254 D-twist (y² = x³ + b')
 const G2_B_TWIST = Fp2Element(3, 0) / Fp2Element(9, 1)
 
