@@ -32,7 +32,14 @@ the latest artefacts.
    julia --project=. benchmarks/compare.jl 2025-09-29_121914 2026-03-05_144036 10
    ```
 
-5. Generate a one-shot markdown report (run -> plot -> compare latest-1 vs latest):
+5. Profile the `prove_full` path on the deterministic benchmark fixtures:
+
+   ```bash
+   julia --project=. benchmarks/profile_prove_full.jl
+   julia --project=. benchmarks/profile_prove_full.jl --run-id=2026-03-05_144036 --fixture=sum_of_products_small --repetitions=75
+   ```
+
+6. Generate a one-shot markdown report (run -> plot -> compare latest-1 vs latest):
 
    ```bash
    julia --project=. benchmarks/report.jl
@@ -40,7 +47,10 @@ the latest artefacts.
    ```
 
 The harness writes a timestamped JSON (raw statistics) and PNG charts covering
-MSM, pairing, normalisation, and Groth16 end-to-end timings.
+MSM, pairing, normalisation, Groth16 end-to-end timings, and `prove_full`
+fixture breakdowns. The profiling script writes text profiler dumps under the
+same artifact tree, but profiling remains a separate workflow from reproducible
+timing baselines.
 
 ## Latest Snapshot (2025‑09‑29)
 

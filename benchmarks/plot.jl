@@ -6,6 +6,21 @@ using Printf
 using Dates
 
 const ARTIFACTS_DIR = joinpath(@__DIR__, "artifacts")
+const PROVE_FULL_PHASE_ORDER = [
+    "end_to_end",
+    "witness_to_scalars",
+    "msm_a_g1",
+    "msm_b_g1",
+    "msm_b_g2",
+    "compute_h_total",
+    "h_poly_assembly",
+    "h_dense_quotient",
+    "h_coset_fft",
+    "h_parity_assert",
+    "h_msm",
+    "l_msm",
+    "final_c",
+]
 
 is_run_id(s::AbstractString) = occursin(r"^\d{4}-\d{2}-\d{2}_\d{6}$", s)
 
@@ -98,6 +113,22 @@ function plot_single_ops(results::AbstractDict, out_dir::String, key::Symbol, or
     png(joinpath(out_dir, outfile))
 end
 
+function plot_prove_full_breakdowns(results::AbstractDict, out_dir::String)
+    group = get(results, "prove_full", nothing)
+    group === nothing && return
+    for fixture_name in sort!(collect(keys(group)))
+        startswith(fixture_name, "_") && continue
+        fixture = group[fixture_name]
+        fixture isa AbstractDict || continue
+        labels = [label for label in PROVE_FULL_PHASE_ORDER if haskey(fixture, label)]
+        isempty(labels) && continue
+        values = [median_ms(fixture[label]) for label in labels]
+        pretty = [replace(label, "_" => " ") for label in labels]
+        bar(pretty, values; legend=false, title="prove_full breakdown: $(fixture_name)", ylabel="median time (ms)", xrotation=45)
+        png(joinpath(out_dir, "prove_full_$(fixture_name).png"))
+    end
+end
+
 function main()
     resolved_input, run_id_hint = resolve_input(length(ARGS) > 0 ? ARGS[1] : nothing)
     canonical_results, artifact_run_dir, copied = materialize_results(resolved_input, run_id_hint)
@@ -125,6 +156,7 @@ function main()
     plot_single_ops(res, out_dir, :groth16,
         ["r1cs_to_qap", "setup", "prove", "verify_full", "prepare_vk", "prepare_inputs", "verify_prepared"],
         "Groth16 pipeline", "groth16.png")
+    plot_prove_full_breakdowns(res, out_dir)
 
     copied && println("Copied source results into artifact run directory.")
     println("Saved plots to ", out_dir)
