@@ -8,6 +8,33 @@ using GrothCurves: is_on_curve, double, to_affine, g1_generator, g2_generator,
                    G1Point, G2Point, BN254Fq, Fp2Element,
                    conjugate, norm, frobenius
 
+function benchmark_scalar(tag::Integer)
+    order = BigInt(GrothCurves.BN254_ORDER_R)
+    return ((BigInt(tag)^3 + 19 * BigInt(tag) + 7) % (order - 1)) + 1
+end
+
+function scalar_mul_reference(P, k::Integer)
+    if k == 0
+        return zero(P)
+    elseif k < 0
+        return -scalar_mul_reference(P, -k)
+    end
+
+    result = zero(P)
+    addend = P
+    scalar = BigInt(k)
+
+    while scalar > 0
+        if isodd(scalar)
+            result = result + addend
+        end
+        addend = double(addend)
+        scalar >>= 1
+    end
+
+    return result
+end
+
 @testset "BN254 Curve Operations" begin
     
     @testset "G1 Point Operations" begin
@@ -97,6 +124,7 @@ using GrothCurves: is_on_curve, double, to_affine, g1_generator, g2_generator,
         
         @testset "Scalar multiplication" begin
             g1 = g1_generator()
+            large_scalar = (BigInt(1) << 80) + 12345
             
             # Multiplication by 0
             @test g1 * 0 == zero(G1Point)
@@ -121,6 +149,11 @@ using GrothCurves: is_on_curve, double, to_affine, g1_generator, g2_generator,
             # Distributivity
             @test g1 * 5 == g1 * 2 + g1 * 3
             @test g1 * 10 == (g1 * 5) * 2
+
+            # Match an independent binary reference path for benchmark-style scalars
+            for scalar in (benchmark_scalar(201), benchmark_scalar(202), large_scalar, -large_scalar)
+                @test scalar_mul(g1, scalar) == scalar_mul_reference(g1, scalar)
+            end
         end
         
         @testset "Subtraction" begin
@@ -202,6 +235,7 @@ using GrothCurves: is_on_curve, double, to_affine, g1_generator, g2_generator,
         
         @testset "Scalar multiplication" begin
             g2 = g2_generator()
+            large_scalar = (BigInt(1) << 72) + 54321
             
             # Multiplication by 0
             @test g2 * 0 == zero(G2Point)
@@ -220,6 +254,11 @@ using GrothCurves: is_on_curve, double, to_affine, g1_generator, g2_generator,
             
             # Distributivity
             @test g2 * 5 == g2 * 2 + g2 * 3
+
+            # Match an independent binary reference path for benchmark-style scalars
+            for scalar in (benchmark_scalar(301), benchmark_scalar(302), large_scalar, -large_scalar)
+                @test scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar)
+            end
         end
     end
     
