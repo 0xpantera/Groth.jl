@@ -13,6 +13,13 @@ using Test
         x::Int
         y::Int
     end
+
+    struct TestCurveBig <: AbstractCurve end
+
+    struct TestPointBig <: GroupElem{TestCurveBig}
+        x::BigInt
+        y::BigInt
+    end
     
     # Implement required group operations for testing
     Base.zero(::Type{TestPoint}) = TestPoint(0, 0)
@@ -20,6 +27,19 @@ using Test
     Base.:+(p::TestPoint, q::TestPoint) = TestPoint(p.x + q.x, p.y + q.y)
     Base.:-(p::TestPoint) = TestPoint(-p.x, -p.y)
     Base.:(==)(p::TestPoint, q::TestPoint) = p.x == q.x && p.y == q.y
+    Base.zero(::Type{TestPointBig}) = TestPointBig(0, 0)
+    Base.iszero(p::TestPointBig) = p.x == 0 && p.y == 0
+    Base.:+(p::TestPointBig, q::TestPointBig) = TestPointBig(p.x + q.x, p.y + q.y)
+    Base.:-(p::TestPointBig) = TestPointBig(-p.x, -p.y)
+    Base.:(==)(p::TestPointBig, q::TestPointBig) = p.x == q.x && p.y == q.y
+
+    function naive_msm(points, scalars)
+        acc = zero(points[1])
+        @inbounds for i in eachindex(points, scalars)
+            acc += scalar_mul(points[i], scalars[i])
+        end
+        return acc
+    end
     
     @testset "Group Element Basic Operations" begin
         P = TestPoint(1, 2)
@@ -88,22 +108,12 @@ using Test
         
         # Test with single point
         @test multi_scalar_mul([P1], [5]) == 5 * P1
+
+        # Zero and negative scalars should preserve the same algebraic result
+        @test multi_scalar_mul(points, [0, -2, 5]) == naive_msm(points, [0, -2, 5])
     end
 
     @testset "Multi-scalar Multiplication BigInt scalars" begin
-        struct TestCurveBig <: AbstractCurve end
-
-        struct TestPointBig <: GroupElem{TestCurveBig}
-            x::BigInt
-            y::BigInt
-        end
-
-        Base.zero(::Type{TestPointBig}) = TestPointBig(0, 0)
-        Base.iszero(p::TestPointBig) = p.x == 0 && p.y == 0
-        Base.:+(p::TestPointBig, q::TestPointBig) = TestPointBig(p.x + q.x, p.y + q.y)
-        Base.:-(p::TestPointBig) = TestPointBig(-p.x, -p.y)
-        Base.:(==)(p::TestPointBig, q::TestPointBig) = p.x == q.x && p.y == q.y
-
         P1 = TestPointBig(1, 2)
         P2 = TestPointBig(3, 4)
         P3 = TestPointBig(5, 6)
@@ -113,6 +123,18 @@ using Test
         result = multi_scalar_mul(points, scalars)
         expected = scalar_mul(P1, scalars[1]) + scalar_mul(P2, scalars[2]) + scalar_mul(P3, scalars[3])
         @test result == expected
+    end
+
+    @testset "Multi-scalar Multiplication matches naive sums across sizes" begin
+        for count in (2, 5, 8, 16, 33)
+            points = [TestPoint(mod(7 * i, 19) - 9, mod(11 * i, 23) - 11) for i in 1:count]
+            scalars = [mod(13 * i, 41) - 20 for i in 1:count]
+            @test multi_scalar_mul(points, scalars) == naive_msm(points, scalars)
+        end
+
+        big_points = [TestPointBig(BigInt(i), BigInt(2i)) for i in 1:12]
+        big_scalars = [BigInt((-1)^i) * (BigInt(1) << (50 + i)) for i in 1:12]
+        @test multi_scalar_mul(big_points, big_scalars) == naive_msm(big_points, big_scalars)
     end
     
     @testset "w-NAF Encoding" begin
