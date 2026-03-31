@@ -9,6 +9,8 @@ using GrothAlgebra
 using GrothCurves
 using GrothProofs
 
+include("prove_full_common.jl")
+
 const Fr = BN254Fr
 const r = BN254_ORDER_R
 const ENGINE = BN254_ENGINE
@@ -76,6 +78,18 @@ end
 function record_simple!(results::Dict{Symbol,Any}, group::Symbol, label::String, tr::BenchmarkTools.Trial)
     group_dict = get!(results, group, Dict{String,Any}())
     group_dict[label] = trial_summary(tr)
+end
+
+function record_fixture_trial!(results::Dict{Symbol,Any}, group::Symbol, fixture_name::String, label::String, tr::BenchmarkTools.Trial)
+    group_dict = get!(results, group, Dict{String,Any}())
+    fixture_dict = get!(group_dict, fixture_name, Dict{String,Any}())
+    fixture_dict[label] = trial_summary(tr)
+end
+
+function record_fixture_meta!(results::Dict{Symbol,Any}, group::Symbol, fixture_name::String, meta::Dict{String,Any})
+    group_dict = get!(results, group, Dict{String,Any}())
+    fixture_dict = get!(group_dict, fixture_name, Dict{String,Any}())
+    fixture_dict["_fixture"] = meta
 end
 
 function print_stats(label, tr::BenchmarkTools.Trial)
@@ -364,6 +378,100 @@ function bench_groth16(results)
     record_simple!(results, :groth16, "verify_prepared", tr_verify_prepared)
 end
 
+function bench_prove_full(results)
+    println("\n== prove_full fixture baseline and phase breakdown ==")
+    fixtures = default_prove_full_fixtures()
+
+    for fixture in fixtures
+        name = fixture.name
+        desc = fixture.description
+        qap = fixture.qap
+        witness = fixture.witness
+        pk = fixture.keypair.pk
+        prove_seed = fixture.prove_seed
+
+        println("Fixture: $(name)")
+        println("  ", desc)
+        println("  constraints=$(fixture.r1cs.num_constraints) vars=$(fixture.r1cs.num_vars) public=$(fixture.r1cs.num_public) domain=$(qap.domain.size)")
+
+        record_fixture_meta!(results, :prove_full, name, fixture_metadata(fixture))
+
+        _ = prove_full(pk, qap, witness; rng=MersenneTwister(prove_seed))
+        tr_end = @benchmark prove_full($pk, $qap, $witness; rng=MersenneTwister($prove_seed)) seconds = 3 samples = 6
+        print_stats("prove_full[$(name)] end", tr_end)
+        record_fixture_trial!(results, :prove_full, name, "end_to_end", tr_end)
+
+        _ = witness_to_scalars(witness)
+        tr_scalars = @benchmark witness_to_scalars($witness) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] scalars", tr_scalars)
+        record_fixture_trial!(results, :prove_full, name, "witness_to_scalars", tr_scalars)
+
+        scalars = witness_to_scalars(witness)
+        _ = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, scalars)
+        _ = GrothAlgebra.multi_scalar_mul(pk.B_query_g1, scalars)
+        _ = GrothAlgebra.multi_scalar_mul(pk.B_query_g2, scalars)
+        tr_msm_a = @benchmark GrothAlgebra.multi_scalar_mul($pk.A_query_g1, $scalars) seconds = 1 samples = 10
+        tr_msm_b1 = @benchmark GrothAlgebra.multi_scalar_mul($pk.B_query_g1, $scalars) seconds = 1 samples = 10
+        tr_msm_b2 = @benchmark GrothAlgebra.multi_scalar_mul($pk.B_query_g2, $scalars) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] A_msm", tr_msm_a)
+        print_stats("prove_full[$(name)] B1_msm", tr_msm_b1)
+        print_stats("prove_full[$(name)] B2_msm", tr_msm_b2)
+        record_fixture_trial!(results, :prove_full, name, "msm_a_g1", tr_msm_a)
+        record_fixture_trial!(results, :prove_full, name, "msm_b_g1", tr_msm_b1)
+        record_fixture_trial!(results, :prove_full, name, "msm_b_g2", tr_msm_b2)
+
+        _ = compute_h_polynomial(qap, witness)
+        tr_h_total = @benchmark compute_h_polynomial($qap, $witness) seconds = 2 samples = 8
+        print_stats("prove_full[$(name)] h_total", tr_h_total)
+        record_fixture_trial!(results, :prove_full, name, "compute_h_total", tr_h_total)
+
+        _ = build_combined_polynomials(qap, witness)
+        tr_h_assemble = @benchmark build_combined_polynomials($qap, $witness) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] h_assemble", tr_h_assemble)
+        record_fixture_trial!(results, :prove_full, name, "h_poly_assembly", tr_h_assemble)
+
+        u_poly, v_poly, w_poly = build_combined_polynomials(qap, witness)
+        _ = compute_h_dense_path(qap, u_poly, v_poly, w_poly)
+        tr_h_dense = @benchmark compute_h_dense_path($qap, $u_poly, $v_poly, $w_poly) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] h_dense", tr_h_dense)
+        record_fixture_trial!(results, :prove_full, name, "h_dense_quotient", tr_h_dense)
+
+        dense_result = compute_h_dense_path(qap, u_poly, v_poly, w_poly)
+        dense_len = length(dense_result.coeffs)
+        _ = compute_h_coset_path(qap, u_poly, v_poly, w_poly, dense_len)
+        tr_h_coset = @benchmark compute_h_coset_path($qap, $u_poly, $v_poly, $w_poly, $dense_len) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] h_coset", tr_h_coset)
+        record_fixture_trial!(results, :prove_full, name, "h_coset_fft", tr_h_coset)
+
+        coset_result = compute_h_coset_path(qap, u_poly, v_poly, w_poly, dense_len)
+        _ = assert_h_parity(dense_result, coset_result)
+        tr_h_parity = @benchmark assert_h_parity($dense_result, $coset_result) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] h_parity", tr_h_parity)
+        record_fixture_trial!(results, :prove_full, name, "h_parity_assert", tr_h_parity)
+
+        h_poly = assert_h_parity(dense_result, coset_result)
+        _ = h_msm(pk, h_poly)
+        tr_h_msm = @benchmark h_msm($pk, $h_poly) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] H_msm", tr_h_msm)
+        record_fixture_trial!(results, :prove_full, name, "h_msm", tr_h_msm)
+
+        _ = l_msm(pk, witness)
+        tr_l_msm = @benchmark l_msm($pk, $witness) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] L_msm", tr_l_msm)
+        record_fixture_trial!(results, :prove_full, name, "l_msm", tr_l_msm)
+
+        r_rand, s_rand = sample_prove_randomizers(fixture)
+        accum = prove_query_accumulators(pk, scalars)
+        ab_terms = assemble_ab_terms(pk, accum.A_acc_g1, accum.B_acc_g1, accum.B_acc_g2, r_rand, s_rand)
+        H = h_msm(pk, h_poly)
+        L = l_msm(pk, witness)
+        _ = assemble_c(pk, ab_terms.A, ab_terms.B1_g1, H, L, r_rand, s_rand)
+        tr_final_c = @benchmark assemble_c($pk, $(ab_terms.A), $(ab_terms.B1_g1), $H, $L, $r_rand, $s_rand) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] C_final", tr_final_c)
+        record_fixture_trial!(results, :prove_full, name, "final_c", tr_final_c)
+    end
+end
+
 # -----------------------------------------------------------------------------
 # Entry point
 # -----------------------------------------------------------------------------
@@ -389,6 +497,7 @@ function main()
     bench_batch_norm(results)
     bench_pairings(results)
     bench_groth16(results)
+    bench_prove_full(results)
 
     results_out = joinpath(results_dir, "benchmark_results.json")
     open(results_out, "w") do io
