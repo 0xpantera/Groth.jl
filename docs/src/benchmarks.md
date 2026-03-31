@@ -52,6 +52,12 @@ fixture breakdowns. The profiling script writes text profiler dumps under the
 same artifact tree, but profiling remains a separate workflow from reproducible
 timing baselines.
 
+When the workspace also includes a sibling `py_ecc/` checkout and `python3` is
+available, the benchmark run additionally records matched BN254 primitive
+comparisons against `py_ecc` for G1/G2 scalar multiplication, naive
+variable-base accumulation, and a single pairing. These are primitive-only
+comparisons; they are not end-to-end Groth16 prover comparisons.
+
 ## Latest Snapshot (2025‑09‑29)
 
 ```@example
