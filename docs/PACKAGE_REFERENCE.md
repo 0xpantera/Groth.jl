@@ -43,6 +43,8 @@ annotated rather than discarded), and follow-ups.
 - Sparse Fp12 placement and Frobenius corrections follow standard BN254 refs.
 - Projective point abstraction (`ProjectivePoint{Curve,F}`) enables additional
   curve engines in future work.
+- BN254 G1/G2 scalar multiplication now dispatches to tuned w-NAF windows by
+  default; the generic binary fallback remains available for other group types.
 
 **Follow-ups**
 - Prototype a second curve/engine (e.g., BLS12-381) to validate abstractions.

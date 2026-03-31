@@ -25,6 +25,7 @@ Depth = 2
 
 - Added `interpolate_prefix_points` so subset domains recover coefficients before padding for the coset FFT path.
 - FFT helpers now gate the dense fallback behind parity assertions.
+- BN254 `scalar_mul` now selects tuned w-NAF windows for G1/G2, while other group types keep the generic fallback.
 
 ## Follow-ups
 
