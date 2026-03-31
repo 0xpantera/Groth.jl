@@ -26,7 +26,7 @@ Depth = 2
 
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
-| Variable-base MSM | Straus with optional endomorphism on BLS curves. | `GrothAlgebra.multi_scalar_mul` implements Straus-style MSM; w-NAF helpers are shared with arkworks. Endomorphism optimisations are still TODO. |
+| Variable-base MSM | Straus with optional endomorphism on BLS curves. | `GrothAlgebra.multi_scalar_mul` now uses a Pippenger-style variable-base backend with a small-input Straus fallback; w-NAF helpers are shared with arkworks. Endomorphism optimisations are still TODO. |
 | Fixed-base tables | `FixedBaseMSM` window tables. | `FixedBaseTable` plus `build_fixed_table`, `mul_fixed`, and `batch_mul` mirror the workflow; benchmarks track table build vs reuse. |
 
 **Next steps:** profile the prover with window heuristics and consider endomorphisms once the coset path stabilises.

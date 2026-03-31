@@ -23,7 +23,7 @@ Aug 2025 refactor summary:
 
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
-| MSM backend | `VariableBaseMSM` (Straus + endomorphism on BLS curves) | `GrothAlgebra.multi_scalar_mul` with Straus-like algorithm; w-NAF helpers mirror arkworks. Endomorphism optimisations TBD |
+| MSM backend | `VariableBaseMSM` (Straus + endomorphism on BLS curves) | `GrothAlgebra.multi_scalar_mul` now uses a Pippenger-style variable-base backend with a small-input Straus fallback; w-NAF helpers remain shared. Endomorphism optimisations TBD |
 | Fixed-base tables | `FixedBaseMSM` with windowing | `FixedBaseTable` in `GrothAlgebra/src/Group.jl`; benchmarks cover table build & batch multiply |
 
 Planned work: evaluate window sizes and endomorphisms once we profile the coset

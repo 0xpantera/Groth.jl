@@ -16,7 +16,7 @@ annotated rather than discarded), and follow-ups.
 - `src/Polynomial.jl` — Degree/leading-coefficient management, Horner
   evaluation, Lagrange interpolation, derivative, FFT scaffolding.
 - `src/Group.jl` — Generic group/curve interface with scalar multiplication,
-  w-NAF utilities, and MSM helpers.
+  w-NAF utilities, a Pippenger-backed variable-base MSM, and fixed-base helpers.
 
 **Implementation notes**
 - (original) FFT helpers were stubs; dense interpolation handled `h(x)`.
@@ -127,7 +127,7 @@ Overall, the pairing stack looks coherent and well structured; the proof system 
 - Finite fields and polynomials (GrothAlgebra)
   - `GrothAlgebra/src/FiniteFields.jl`: BigInt-backed prime fields (BN254 prime, secp256k1, and `GaloisField{p}`) with normalized arithmetic, inversion via `invmod`, power via `powermod`, plus helpful display and utilities. Clean docstrings and straightforward APIs.
   - `GrothAlgebra/src/Polynomial.jl`: Polynomials over a field with degree/leading coefficient handling, Horner evaluation, Lagrange interpolation, derivative, and a placeholder for FFT multiply. Well commented; operations are correct and readable.
-  - `GrothAlgebra/src/Group.jl`: A generic `GroupElem` interface with scalar multiplication, w-NAF utilities, Straus MSM, and helpers. Clear documentation of expectations from concrete curve types.
+- `GrothAlgebra/src/Group.jl`: A generic `GroupElem` interface with scalar multiplication, w-NAF utilities, a Pippenger-backed variable-base MSM with Straus fallback, and helpers. Clear documentation of expectations from concrete curve types.
 
 - BN254 extension tower and curve arithmetic (GrothCurves)
   - `GrothCurves/src/BN254Fp2.jl`: Fp2 with u² = −1; real/imag accessors, conjugate, norm, inverse, Frobenius as conjugation. Docstrings explain representation and formulas.
@@ -184,7 +184,7 @@ This section distinguishes between (a) the math we need, (b) representation opti
 - Fp2/Fp6/Fp12 multiplication uses Karatsuba-like decompositions and leverages nonresidue relationships to cut multiplications.
 - Miller loop uses sparse line evaluation and explicit negation steps to minimise Fp12 multiplies.
 - Final exponentiation uses Frobenius maps for the easy part and a standard BN ladder for the hard part (`exp_by_u`, `frobenius_p1/p2/p3`).
-- MSM and fixed-base tables currently live in `GrothAlgebra/src/Group.jl` with Straus-style combination; Pippenger and w-NAF tables remain on the roadmap.
+- MSM and fixed-base tables currently live in `GrothAlgebra/src/Group.jl`; variable-base MSM now uses a Pippenger backend with a small-input Straus fallback, while fixed-base follow-up work remains on the roadmap.
 
 ## Where We Are vs. What’s Left for Groth16
 
@@ -225,7 +225,8 @@ This section distinguishes between (a) the math we need, (b) representation opti
 
 - [x] Coset FFT path default with dense assertion.
 - [ ] Align QAP domain population with arkworks.
-- [ ] Implement Pippenger MSM (variable/fixed base) and use in prover/setup.
+- [x] Implement variable-base Pippenger MSM and route prover query MSMs through it.
+- [ ] Extend MSM work with fixed-base Pippenger / further setup-side tuning if benchmarks justify it.
 - [ ] Prototype second pairing engine (BLS12-381).
 - [ ] Port proof aggregation.
 
