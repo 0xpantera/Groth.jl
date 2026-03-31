@@ -1,6 +1,7 @@
 module GrothCurves
 
 using GrothAlgebra: BN254Fq, bn254_fq, AbstractCurve, GroupElem, prime
+import GrothAlgebra: _pippenger_window
 using StaticArrays: SVector
 
 """

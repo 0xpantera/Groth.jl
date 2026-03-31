@@ -140,17 +140,19 @@ Multiply `P` by the integer scalar `k`.
 """
 Base.:*(P::GroupElem{C}, k::Integer) where C = scalar_mul(P, k)
 
-# Generic multi-scalar multiplication (Straus algorithm)
+# Generic multi-scalar multiplication
+
+const MSM_PIPPENGER_THRESHOLD = 8
 
 """
     multi_scalar_mul(points::Vector{GroupElem{C}}, scalars::Vector{<:Integer}) where C
 
-Compute `∑ᵢ scalars[i] * points[i]` using the Straus multi-scalar algorithm.
+Compute `∑ᵢ scalars[i] * points[i]` using a variable-base MSM backend.
 
-This shared doublings path is typically faster than independent scalar
-multiplications when handling several point–scalar pairs.
+Small inputs use a simple Straus-style bit scan, while larger inputs use a
+Pippenger-style bucket method.
 """
-function multi_scalar_mul(points::Vector{<:GroupElem{C}}, scalars::Vector{<:Integer}) where C
+function multi_scalar_mul(points::Vector{<:GroupElem{C}}, scalars::Vector{S}) where {C,S<:Integer}
     if length(points) != length(scalars)
         throw(ArgumentError("Points and scalars must have the same length"))
     end
@@ -164,9 +166,20 @@ function multi_scalar_mul(points::Vector{<:GroupElem{C}}, scalars::Vector{<:Inte
         return scalar_mul(points[1], scalars[1])
     end
 
-    # Straus algorithm (simultaneous multiple point scalar multiplication)
     max_bits = maximum(_bit_length, scalars)
 
+    if max_bits == 0
+        return zero(points[1])
+    end
+
+    if length(points) < MSM_PIPPENGER_THRESHOLD
+        return _multi_scalar_mul_straus(points, scalars, max_bits)
+    end
+
+    return _multi_scalar_mul_pippenger(points, scalars, max_bits)
+end
+
+function _multi_scalar_mul_straus(points::Vector{<:GroupElem{C}}, scalars::Vector{S}, max_bits::Int) where {C,S<:Integer}
     if max_bits == 0
         return zero(points[1])
     end
@@ -191,6 +204,83 @@ function multi_scalar_mul(points::Vector{<:GroupElem{C}}, scalars::Vector{<:Inte
 
     return result
 end
+
+function _multi_scalar_mul_pippenger(points::Vector{G}, scalars::Vector{S}, max_bits::Int) where {C,G<:GroupElem{C},S<:Integer}
+    normalized_points = Vector{G}(undef, length(points))
+    normalized_scalars = Vector{S}(undef, length(scalars))
+    nonzero_count = 0
+
+    @inbounds for i in eachindex(points, scalars)
+        scalar = scalars[i]
+        iszero(scalar) && continue
+        nonzero_count += 1
+        if scalar < 0
+            normalized_points[nonzero_count] = -points[i]
+            normalized_scalars[nonzero_count] = abs(scalar)
+        else
+            normalized_points[nonzero_count] = points[i]
+            normalized_scalars[nonzero_count] = scalar
+        end
+    end
+
+    if nonzero_count == 0
+        return zero(points[1])
+    elseif nonzero_count == 1
+        return scalar_mul(normalized_points[1], normalized_scalars[1])
+    elseif nonzero_count < MSM_PIPPENGER_THRESHOLD
+        resize!(normalized_points, nonzero_count)
+        resize!(normalized_scalars, nonzero_count)
+        return _multi_scalar_mul_straus(normalized_points, normalized_scalars, max_bits)
+    end
+
+    resize!(normalized_points, nonzero_count)
+    resize!(normalized_scalars, nonzero_count)
+
+    window = _pippenger_window(G, nonzero_count)
+    bucket_count = (1 << window) - 1
+    num_windows = cld(max_bits, window)
+    zero_point = zero(points[1])
+    buckets = fill(zero_point, bucket_count)
+    mask = (one(S) << window) - one(S)
+    result = zero_point
+
+    for window_index in (num_windows-1):-1:0
+        for _ in 1:window
+            result = result + result
+        end
+
+        fill!(buckets, zero_point)
+        shift = window_index * window
+
+        @inbounds for i in eachindex(normalized_points, normalized_scalars)
+            digit = _window_digit(normalized_scalars[i], shift, mask)
+            if digit != 0
+                buckets[digit] = buckets[digit] + normalized_points[i]
+            end
+        end
+
+        # Reconstruct ∑ bucket[i] * i from the descending running sums.
+        running_sum = zero_point
+        @inbounds for bucket_index in bucket_count:-1:1
+            running_sum = running_sum + buckets[bucket_index]
+            result = result + running_sum
+        end
+    end
+
+    return result
+end
+
+@inline _pippenger_window(::Type{<:GroupElem}, size::Int) = _default_pippenger_window(size)
+
+@inline function _default_pippenger_window(size::Int)
+    if size < 32
+        return 3
+    end
+
+    return ((ndigits(size, base=2) - 1) * 69) ÷ 100 + 2
+end
+
+@inline _window_digit(s::T, shift::Int, mask::T) where {T<:Integer} = Int((s >> shift) & mask)
 
 @inline function _bit_length(s::Integer)
     s == 0 && return 0
