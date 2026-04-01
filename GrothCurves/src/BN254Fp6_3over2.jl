@@ -2,30 +2,55 @@
 #
 # Realises Fp6 = Fp2[v]/(v³ - ξ) with ξ = 9 + u ∈ Fp2.
 
-# using StaticArrays
-
 """
     Fp6Element
 
-Element of sextic extension
-``\\mathbb{F}_{p^6} = \\mathbb{F}_{p^2}[v]/(v^3 - \\xi)`` where ``\\xi = 9 + u``.
-Represented as ``c_0 + c_1 v + c_2 v^2`` where
-``c_0, c_1, c_2 \\in \\mathbb{F}_{p^2}``.
+Element of sextic extension `Fp6 = Fp2[v] / (v^3 - xi)` with `xi = 9 + u`.
+Represented as `c0 + c1*v + c2*v^2` with `c0, c1, c2 in Fp2`.
 """
 struct Fp6Element
-    coeffs::SVector{3,Fp2Element}
+    c0::Fp2Element
+    c1::Fp2Element
+    c2::Fp2Element
 
     function Fp6Element(c0::Fp2Element, c1::Fp2Element, c2::Fp2Element)
-        new(SVector(c0, c1, c2))
+        new(c0, c1, c2)
     end
 end
 
 # Convenient constructors
 Fp6Element(c0, c1, c2) = Fp6Element(Fp2Element(c0), Fp2Element(c1), Fp2Element(c2))
+Fp6Element(c0::Fp2Element) = Fp6Element(c0, zero(Fp2Element), zero(Fp2Element))
 Fp6Element(c0) = Fp6Element(Fp2Element(c0), zero(Fp2Element), zero(Fp2Element))
 
+const FQ6_NONRESIDUE = Fp2Element(9, 1)
+
+"""
+    mul_fp2_by_nonresidue(a::Fp2Element)
+
+Multiply `a` by the sextic-twist nonresidue `ξ = 9 + u`.
+"""
+function mul_fp2_by_nonresidue(a::Fp2Element)
+    c0_x2 = a.c0 + a.c0
+    c0_x4 = c0_x2 + c0_x2
+    c0_x8 = c0_x4 + c0_x4
+    c1_x2 = a.c1 + a.c1
+    c1_x4 = c1_x2 + c1_x2
+    c1_x8 = c1_x4 + c1_x4
+    return Fp2Element(c0_x8 + a.c0 - a.c1, c1_x8 + a.c1 + a.c0)
+end
+
 # Access components
-Base.getindex(a::Fp6Element, i::Int) = a.coeffs[i]
+function Base.getindex(a::Fp6Element, i::Int)
+    if i == 1
+        return a.c0
+    elseif i == 2
+        return a.c1
+    elseif i == 3
+        return a.c2
+    end
+    throw(BoundsError(a, i))
+end
 
 # Basic operations
 Base.zero(::Type{Fp6Element}) = Fp6Element(zero(Fp2Element), zero(Fp2Element), zero(Fp2Element))
@@ -33,16 +58,17 @@ Base.one(::Type{Fp6Element}) = Fp6Element(one(Fp2Element), zero(Fp2Element), zer
 Base.zero(::Fp6Element) = zero(Fp6Element)
 Base.one(::Fp6Element) = one(Fp6Element)
 
-Base.iszero(a::Fp6Element) = all(iszero, a.coeffs)
-Base.isone(a::Fp6Element) = isone(a[1]) && iszero(a[2]) && iszero(a[3])
+Base.iszero(a::Fp6Element) = iszero(a.c0) && iszero(a.c1) && iszero(a.c2)
+Base.isone(a::Fp6Element) = isone(a.c0) && iszero(a.c1) && iszero(a.c2)
 
 # Equality
-Base.:(==)(a::Fp6Element, b::Fp6Element) = a.coeffs == b.coeffs
+Base.:(==)(a::Fp6Element, b::Fp6Element) = a.c0 == b.c0 && a.c1 == b.c1 && a.c2 == b.c2
+Base.isequal(a::Fp6Element, b::Fp6Element) = isequal(a.c0, b.c0) && isequal(a.c1, b.c1) && isequal(a.c2, b.c2)
 
 # Addition and subtraction
-Base.:+(a::Fp6Element, b::Fp6Element) = Fp6Element(a[1] + b[1], a[2] + b[2], a[3] + b[3])
-Base.:-(a::Fp6Element, b::Fp6Element) = Fp6Element(a[1] - b[1], a[2] - b[2], a[3] - b[3])
-Base.:-(a::Fp6Element) = Fp6Element(-a[1], -a[2], -a[3])
+Base.:+(a::Fp6Element, b::Fp6Element) = Fp6Element(a.c0 + b.c0, a.c1 + b.c1, a.c2 + b.c2)
+Base.:-(a::Fp6Element, b::Fp6Element) = Fp6Element(a.c0 - b.c0, a.c1 - b.c1, a.c2 - b.c2)
+Base.:-(a::Fp6Element) = Fp6Element(-a.c0, -a.c1, -a.c2)
 
 """
     *(a::Fp6Element, b::Fp6Element)
@@ -52,18 +78,13 @@ The product expands as `(a₀ + a₁v + a₂v²)(b₀ + b₁v + b₂v²)` with K
 style recombinations.
 """
 function Base.:*(a::Fp6Element, b::Fp6Element)
-    # ξ = 9 + u in Fp2 (non-residue for cubic extension)
-    ξ = Fp2Element(9, 1)
+    v0 = a.c0 * b.c0
+    v1 = a.c1 * b.c1
+    v2 = a.c2 * b.c2
 
-    # Use Karatsuba-like formula to reduce multiplications
-    v0 = a[1] * b[1]
-    v1 = a[2] * b[2]
-    v2 = a[3] * b[3]
-
-    # Compute cross terms
-    c0 = v0 + ((a[2] + a[3]) * (b[2] + b[3]) - v1 - v2) * ξ
-    c1 = (a[1] + a[2]) * (b[1] + b[2]) - v0 - v1 + v2 * ξ
-    c2 = (a[1] + a[3]) * (b[1] + b[3]) - v0 - v2 + v1
+    c0 = v0 + mul_fp2_by_nonresidue((a.c1 + a.c2) * (b.c1 + b.c2) - v1 - v2)
+    c1 = (a.c0 + a.c1) * (b.c0 + b.c1) - v0 - v1 + mul_fp2_by_nonresidue(v2)
+    c2 = (a.c0 + a.c2) * (b.c0 + b.c2) - v0 - v2 + v1
 
     return Fp6Element(c0, c1, c2)
 end
@@ -74,12 +95,12 @@ end
 Square an `Fp6Element` using the optimized sextic formula.
 """
 function square(a::Fp6Element)
-    ξ = Fp2Element(9, 1)
-
-    c0 = a[1]^2 + Fp2Element(2) * a[2] * a[3] * ξ
-    c1 = Fp2Element(2) * a[1] * a[2] + a[3]^2 * ξ
-    c2 = Fp2Element(2) * a[1] * a[3] + a[2]^2
-
+    c1c2 = a.c1 * a.c2
+    c0c1 = a.c0 * a.c1
+    c0c2 = a.c0 * a.c2
+    c0 = square(a.c0) + mul_fp2_by_nonresidue(c1c2 + c1c2)
+    c1 = (c0c1 + c0c1) + mul_fp2_by_nonresidue(square(a.c2))
+    c2 = (c0c2 + c0c2) + square(a.c1)
     return Fp6Element(c0, c1, c2)
 end
 
@@ -95,30 +116,17 @@ function Base.inv(a::Fp6Element)
         throw(DivideError())
     end
 
-    ξ = Fp2Element(9, 1)
+    a0_sq = square(a.c0)
+    a1_sq = square(a.c1)
+    a2_sq = square(a.c2)
 
-    # For a = a0 + a1*v + a2*v² in Fp6
-    # We compute the inverse using the norm map to Fp2
+    v0 = a0_sq - mul_fp2_by_nonresidue(a.c1 * a.c2)
+    v1 = mul_fp2_by_nonresidue(a2_sq) - a.c0 * a.c1
+    v2 = a1_sq - a.c0 * a.c2
 
-    # Compute intermediate values
-    a0_sq = a[1]^2
-    a1_sq = a[2]^2
-    a2_sq = a[3]^2
-
-    # v0 = a0² - a1*a2*ξ
-    v0 = a0_sq - a[2] * a[3] * ξ
-
-    # v1 = a2²*ξ - a0*a1
-    v1 = a2_sq * ξ - a[1] * a[2]
-
-    # v2 = a1² - a0*a2
-    v2 = a1_sq - a[1] * a[3]
-
-    # Norm = a0*v0 + a1*v2*ξ + a2*v1*ξ
-    norm = a[1] * v0 + a[2] * v2 * ξ + a[3] * v1 * ξ
+    norm = a.c0 * v0 + mul_fp2_by_nonresidue(a.c1 * v2 + a.c2 * v1)
     norm_inv = inv(norm)
 
-    # The inverse is (v0, v1, v2) / norm
     return Fp6Element(v0 * norm_inv, v1 * norm_inv, v2 * norm_inv)
 end
 
@@ -154,13 +162,13 @@ function Base.:^(a::Fp6Element, n::Integer)
 end
 
 # Scalar multiplication for convenience
-Base.:*(k::Integer, a::Fp6Element) = Fp6Element(k * a[1], k * a[2], k * a[3])
+Base.:*(k::Integer, a::Fp6Element) = Fp6Element(k * a.c0, k * a.c1, k * a.c2)
 Base.:*(a::Fp6Element, k::Integer) = k * a
 
 # Display
 function Base.show(io::IO, a::Fp6Element)
-    print(io, "Fp6([", a[1], ", ", a[2], ", ", a[3], "])")
+    print(io, "Fp6([", a.c0, ", ", a.c1, ", ", a.c2, "])")
 end
 
 # Export types and functions
-export Fp6Element, square
+export Fp6Element, FQ6_NONRESIDUE, mul_fp2_by_nonresidue, square
