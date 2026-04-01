@@ -21,6 +21,7 @@ const PY_ECC_SCRIPT = joinpath(@__DIR__, "py_ecc_bn254_bench.py")
 const PY_ECC_ACCUM_SIZES = (32, 128)
 const BENCHMARK_GROUP_ORDER = [
     :bn254_primitives,
+    :bn254_polynomials,
     :fixed_base,
     :variable_msm,
     :batch_norm,
@@ -32,8 +33,9 @@ const BENCHMARK_GROUP_ORDER = [
 ]
 const BENCHMARK_PROFILES = Dict(
     "full" => copy(BENCHMARK_GROUP_ORDER),
-    "quick" => [:bn254_primitives, :pairing_micro],
+    "quick" => [:bn254_primitives, :bn254_polynomials, :pairing_micro],
     "stage0" => [:bn254_primitives, :pairing_micro],
+    "stage3" => [:bn254_primitives, :bn254_polynomials, :pairing_micro],
     "primitives" => [:bn254_primitives, :pairing_micro, :py_ecc_primitives],
 )
 
@@ -765,6 +767,79 @@ function bench_bn254_primitives(results)
     record_simple!(results, :bn254_scalar_mul, "g2", tr_g2_scalar)
 end
 
+function bn254_stage3_poly_inputs()
+    coeffs32 = [bn254_fr(i) for i in 0:31]
+    domain32 = EvaluationDomain(BN254Fr, 32)
+    evals32 = fft(coeffs32, domain32)
+    values16 = [bn254_fr(100 + i) for i in 1:16]
+    poly_lhs = Polynomial(coeffs32[1:16])
+    poly_rhs = Polynomial(reverse(coeffs32[17:32]))
+    r1cs = create_r1cs_example_sum_of_products()
+    qap = r1cs_to_qap(r1cs)
+    witness = create_witness_sum_of_products(3, 5, 7, 11)
+    return (
+        coeffs32 = coeffs32,
+        domain32 = domain32,
+        evals32 = evals32,
+        values16 = values16,
+        poly_lhs = poly_lhs,
+        poly_rhs = poly_rhs,
+        r1cs = r1cs,
+        qap = qap,
+        witness = witness,
+    )
+end
+
+function bench_bn254_polynomials(results)
+    println("\n== BN254Fr polynomial and FFT helpers ==")
+    inputs = bn254_stage3_poly_inputs()
+
+    interp = interpolate_fft(inputs.domain32, inputs.values16)
+    poly_mul = fft_polynomial_multiply(inputs.poly_lhs, inputs.poly_rhs)
+    h_poly = compute_h_polynomial(inputs.qap, inputs.witness)
+
+    record_semantic!(results, :bn254_polynomials, "fft32_first4",
+        [serialize_bn254(x) for x in inputs.evals32[1:4]])
+    record_semantic!(results, :bn254_polynomials, "interpolate16_coeffs_first4",
+        [serialize_bn254(x) for x in interp.coeffs[1:min(4, length(interp.coeffs))]])
+    record_semantic!(results, :bn254_polynomials, "poly_mul_first4",
+        [serialize_bn254(x) for x in poly_mul.coeffs[1:min(4, length(poly_mul.coeffs))]])
+    record_semantic!(results, :bn254_polynomials, "h_poly_first4",
+        [serialize_bn254(x) for x in h_poly.coeffs[1:min(4, length(h_poly.coeffs))]])
+
+    _ = EvaluationDomain(BN254Fr, 32)
+    _ = fft(inputs.coeffs32, inputs.domain32)
+    _ = ifft(inputs.evals32, inputs.domain32)
+    _ = interpolate_fft(inputs.domain32, inputs.values16)
+    _ = fft_polynomial_multiply(inputs.poly_lhs, inputs.poly_rhs)
+    _ = r1cs_to_qap(inputs.r1cs)
+    _ = compute_h_polynomial(inputs.qap, inputs.witness)
+
+    tr_domain = @benchmark EvaluationDomain(BN254Fr, 32) seconds = 1 samples = 10
+    tr_fft = @benchmark fft($((inputs.coeffs32)), $((inputs.domain32))) seconds = 1 samples = 10
+    tr_ifft = @benchmark ifft($((inputs.evals32)), $((inputs.domain32))) seconds = 1 samples = 10
+    tr_interp = @benchmark interpolate_fft($((inputs.domain32)), $((inputs.values16))) seconds = 1 samples = 10
+    tr_poly_mul = @benchmark fft_polynomial_multiply($((inputs.poly_lhs)), $((inputs.poly_rhs))) seconds = 1 samples = 10
+    tr_r1cs_to_qap = @benchmark r1cs_to_qap($((inputs.r1cs))) seconds = 1 samples = 10
+    tr_h_poly = @benchmark compute_h_polynomial($((inputs.qap)), $((inputs.witness))) seconds = 1 samples = 10
+
+    print_stats("EvaluationDomain size=32", tr_domain)
+    print_stats("FFT size=32", tr_fft)
+    print_stats("IFFT size=32", tr_ifft)
+    print_stats("Interpolate 16 on 32", tr_interp)
+    print_stats("FFT polynomial multiply 16x16", tr_poly_mul)
+    print_stats("R1CS -> QAP", tr_r1cs_to_qap)
+    print_stats("compute_h_polynomial", tr_h_poly)
+
+    record_simple!(results, :bn254_polynomials, "domain_32", tr_domain)
+    record_simple!(results, :bn254_polynomials, "fft_32", tr_fft)
+    record_simple!(results, :bn254_polynomials, "ifft_32", tr_ifft)
+    record_simple!(results, :bn254_polynomials, "interpolate_16_on_32", tr_interp)
+    record_simple!(results, :bn254_polynomials, "poly_mul_16x16", tr_poly_mul)
+    record_simple!(results, :bn254_polynomials, "qap_r1cs_to_qap", tr_r1cs_to_qap)
+    record_simple!(results, :bn254_polynomials, "qap_compute_h", tr_h_poly)
+end
+
 function bench_groth16(results)
     println("\n== Groth16 end-to-end pipeline ==")
     r1cs = create_r1cs_example_sum_of_products()
@@ -935,6 +1010,7 @@ function main()
     selected = Set(cli.selected_groups)
 
     :bn254_primitives in selected && bench_bn254_primitives(results)
+    :bn254_polynomials in selected && bench_bn254_polynomials(results)
     :fixed_base in selected && bench_fixed_base(results)
     :variable_msm in selected && bench_variable_msm(results)
     :batch_norm in selected && bench_batch_norm(results)
