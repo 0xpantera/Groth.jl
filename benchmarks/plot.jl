@@ -194,6 +194,9 @@ function main()
     plot_single_ops(res, out_dir, :pairing_single,
         ["pairing", "miller_loop", "final_exponentiation"],
         "Pairing micro-operations", "pairing_ops.png")
+    plot_single_ops(res, out_dir, :pairing_substeps,
+        ["doubling_step", "addition_step", "evaluate_line", "frobenius_p1", "frobenius_p2", "frobenius_p3", "final_exponentiation_easy", "exp_by_u", "final_exponentiation_hard"],
+        "Pairing substeps", "pairing_substeps.png")
 
     # Groth16 end-to-end
     plot_single_ops(res, out_dir, :groth16,

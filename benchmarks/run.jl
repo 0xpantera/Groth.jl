@@ -28,6 +28,7 @@ const BENCHMARK_GROUP_ORDER = [
     :batch_norm,
     :pairing_throughput,
     :pairing_micro,
+    :pairing_substeps,
     :py_ecc_primitives,
     :groth16,
     :prove_full,
@@ -38,6 +39,7 @@ const BENCHMARK_PROFILES = Dict(
     "stage0" => [:bn254_primitives, :pairing_micro],
     "stage3" => [:bn254_primitives, :bn254_polynomials, :pairing_micro],
     "stage5" => [:bn254_primitives, :bn254_curve_kernels, :batch_norm, :pairing_micro],
+    "stage6" => [:bn254_primitives, :bn254_curve_kernels, :pairing_micro, :pairing_substeps],
     "primitives" => [:bn254_primitives, :pairing_micro, :py_ecc_primitives],
 )
 
@@ -90,6 +92,14 @@ end
 
 function serialize_bn254(x::Fp12Element)
     return Any[serialize_bn254(x[1]), serialize_bn254(x[2])]
+end
+
+function serialize_line_coeffs(coeffs::LineCoeffs)
+    return Dict(
+        "a" => serialize_bn254(coeffs.a),
+        "b" => serialize_bn254(coeffs.b),
+        "c" => serialize_bn254(coeffs.c),
+    )
 end
 
 function serialize_affine(p::G1Point)
@@ -512,6 +522,83 @@ function bench_pairing_micro(results)
     record_simple!(results, :pairing_single, "pairing", tr_single)
     record_simple!(results, :pairing_single, "miller_loop", tr_miller)
     record_simple!(results, :pairing_single, "final_exponentiation", tr_final)
+end
+
+function bench_pairing_substeps(results)
+    println("\n== Pairing engine substeps ==")
+    inputs = bn254_stage0_inputs()
+    P1 = inputs.pair_p
+    Q1 = inputs.pair_q
+    T_double = scalar_mul(Q1, BigInt(11))
+    T_add = scalar_mul(Q1, BigInt(13))
+    Q_add = scalar_mul(Q1, BigInt(17))
+    f_pre = miller_loop(ENGINE, P1, Q1)
+    easy_pre = final_exponentiation_easy(f_pre)
+
+    double_point, double_line = doubling_step(T_double)
+    add_point, add_line = addition_step(T_add, Q_add)
+    line_eval = evaluate_line(double_line, P1)
+    frob1 = frobenius_p1(easy_pre)
+    frob2 = frobenius_p2(easy_pre)
+    frob3 = frobenius_p3(easy_pre)
+    exp_u = exp_by_u(easy_pre)
+    hard_pre = final_exponentiation_hard(easy_pre)
+
+    record_semantic!(results, :pairing_substeps, "doubling_step", Dict(
+        "point" => serialize_affine(double_point),
+        "line" => serialize_line_coeffs(double_line),
+    ))
+    record_semantic!(results, :pairing_substeps, "addition_step", Dict(
+        "point" => serialize_affine(add_point),
+        "line" => serialize_line_coeffs(add_line),
+    ))
+    record_semantic!(results, :pairing_substeps, "evaluate_line", serialize_bn254(line_eval))
+    record_semantic!(results, :pairing_substeps, "frobenius_p1", serialize_bn254(frob1))
+    record_semantic!(results, :pairing_substeps, "frobenius_p2", serialize_bn254(frob2))
+    record_semantic!(results, :pairing_substeps, "frobenius_p3", serialize_bn254(frob3))
+    record_semantic!(results, :pairing_substeps, "final_exponentiation_easy", serialize_bn254(easy_pre))
+    record_semantic!(results, :pairing_substeps, "exp_by_u", serialize_bn254(exp_u))
+    record_semantic!(results, :pairing_substeps, "final_exponentiation_hard", serialize_bn254(hard_pre))
+
+    _ = doubling_step(T_double)
+    _ = addition_step(T_add, Q_add)
+    _ = evaluate_line(double_line, P1)
+    _ = frobenius_p1(easy_pre)
+    _ = frobenius_p2(easy_pre)
+    _ = frobenius_p3(easy_pre)
+    _ = final_exponentiation_easy(f_pre)
+    _ = exp_by_u(easy_pre)
+    _ = final_exponentiation_hard(easy_pre)
+
+    tr_double = @benchmark doubling_step($T_double) seconds = 1 samples = 10
+    tr_add = @benchmark addition_step($T_add, $Q_add) seconds = 1 samples = 10
+    tr_line = @benchmark evaluate_line($double_line, $P1) seconds = 1 samples = 10
+    tr_frob1 = @benchmark frobenius_p1($easy_pre) seconds = 1 samples = 10
+    tr_frob2 = @benchmark frobenius_p2($easy_pre) seconds = 1 samples = 10
+    tr_frob3 = @benchmark frobenius_p3($easy_pre) seconds = 1 samples = 10
+    tr_easy = @benchmark final_exponentiation_easy($f_pre) seconds = 1 samples = 10
+    tr_exp_u = @benchmark exp_by_u($easy_pre) seconds = 1 samples = 10
+    tr_hard = @benchmark final_exponentiation_hard($easy_pre) seconds = 1 samples = 10
+
+    print_stats("Pairing doubling_step", tr_double)
+    print_stats("Pairing addition_step", tr_add)
+    print_stats("Pairing evaluate_line", tr_line)
+    print_stats("Pairing frobenius_p1", tr_frob1)
+    print_stats("Pairing frobenius_p2", tr_frob2)
+    print_stats("Pairing frobenius_p3", tr_frob3)
+    print_stats("Pairing final_exp_easy", tr_easy)
+    print_stats("Pairing exp_by_u", tr_exp_u)
+    print_stats("Pairing final_exp_hard", tr_hard)
+
+    record_simple!(results, :pairing_substeps, "doubling_step", tr_double)
+    record_simple!(results, :pairing_substeps, "addition_step", tr_add)
+    record_simple!(results, :pairing_substeps, "evaluate_line", tr_line)
+    record_simple!(results, :pairing_substeps, "frobenius_p1", tr_frob1)
+    record_simple!(results, :pairing_substeps, "frobenius_p2", tr_frob2)
+    record_simple!(results, :pairing_substeps, "frobenius_p3", tr_frob3)
+    record_simple!(results, :pairing_substeps, "final_exponentiation_easy", tr_easy)
+    record_simple!(results, :pairing_substeps, "exp_by_u", tr_exp_u)
+    record_simple!(results, :pairing_substeps, "final_exponentiation_hard", tr_hard)
 end
 
 function bench_py_ecc_primitives(results, meta)
@@ -1090,6 +1177,7 @@ function main()
     :batch_norm in selected && bench_batch_norm(results)
     :pairing_throughput in selected && bench_pairing_throughput(results)
     :pairing_micro in selected && bench_pairing_micro(results)
+    :pairing_substeps in selected && bench_pairing_substeps(results)
     :py_ecc_primitives in selected && bench_py_ecc_primitives(results, meta)
     :groth16 in selected && bench_groth16(results)
     :prove_full in selected && bench_prove_full(results)
