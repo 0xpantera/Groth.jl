@@ -61,9 +61,10 @@ Completed stages:
 
 Next concrete work:
 
-- Stage 8 `prove_full` integration and regression baseline
-- then revisit limb-native inversion and final-exponentiation specialization if
-  the new prover baseline still points there as the best primitive-level work
+- finish Stage 8 follow-through on the end-to-end `prove_full` baseline
+- then target the remaining prover bottlenecks revealed by that baseline,
+  starting from the MSM-heavy buckets rather than assuming the next win is in
+  final proof assembly
 
 Stage 8 remains the end-to-end `prove_full` integration and regression
 baseline stage.
@@ -527,6 +528,25 @@ Exit Criteria:
 - proof outputs remain correct
 - total `prove_full` time drops materially
 - hotspot ranking is updated using real measurements, not assumptions
+
+Notes:
+
+- The first Stage 8 baseline artifact is
+  `benchmarks/artifacts/2026-04-01_220953`.
+- The benchmark fixtures now prove once, assert `verify_full`, and store
+  deterministic proof points under `_semantic` before timing begins.
+- Relative to the last pre-Stage-8 prover artifact
+  (`benchmarks/artifacts/2026-04-01_174156`):
+  - `sum_of_products_small` improved from `9.219 ms` to `8.248 ms`
+    (`-10.5%`)
+  - `generated_24_constraints` stayed effectively flat from `30.045 ms` to
+    `30.088 ms` (`+0.1%`)
+  - `final_c` improved materially on both fixtures, but the larger fixture saw
+    mild regressions in `msm_b_g2`, `h_msm`, and `l_msm`, which offset that
+    gain
+- The Stage 8 baseline therefore updated the hotspot ranking successfully, but
+  it did not yet satisfy the “total `prove_full` time drops materially” exit
+  criterion on the primary larger fixture.
 
 ## Stage 9: Parallelism, SIMD, And Optional Accelerators
 
