@@ -368,6 +368,31 @@ glv_component_bits(component::Tuple{Bool,BigInt}) = iszero(component[2]) ? 0 : n
                 @test scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar)
             end
         end
+
+        @testset "BN254Fr-native scalar paths match integer reference paths" begin
+            g1 = g1_generator()
+            g2 = g2_generator()
+            fr_scalars = [
+                bn254_fr(1),
+                bn254_fr(23),
+                bn254_fr(benchmark_scalar(601)),
+                bn254_fr(GrothCurves.BN254_ORDER_R - 1234567),
+            ]
+
+            for scalar in fr_scalars
+                scalar_big = convert(BigInt, scalar)
+                @test scalar_mul(g1, scalar) == scalar_mul_reference(g1, scalar_big)
+                @test scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar_big)
+            end
+
+            g1_points = [scalar_mul(g1, 3), scalar_mul(g1, 5), scalar_mul(g1, 7)]
+            g2_points = [scalar_mul(g2, 11), scalar_mul(g2, 13), scalar_mul(g2, 17)]
+            msm_scalars = [bn254_fr(19), bn254_fr(29), bn254_fr(31)]
+            msm_bigints = map(x -> convert(BigInt, x), msm_scalars)
+
+            @test multi_scalar_mul(g1_points, msm_scalars) == multi_scalar_mul(g1_points, msm_bigints)
+            @test multi_scalar_mul(g2_points, msm_scalars) == multi_scalar_mul(g2_points, msm_bigints)
+        end
     end
     
     @testset "Fp2 Field Operations" begin

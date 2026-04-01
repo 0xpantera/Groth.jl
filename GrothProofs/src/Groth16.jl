@@ -12,13 +12,6 @@ using Random
 
 # R1CS and QAP are included at the package level (GrothProofs.jl)
 
-"""
-    _to_int(x)
-
-Convert a field element to an `Integer` scalar for use with `scalar_mul`.
-"""
-_to_int(x) = convert(BigInt, x)
-
 @inline function _rand_field(::Type{F}, rng::AbstractRNG) where F
     F === BN254Fr || throw(ArgumentError("No CSPRNG-ready sampler configured for field $F"))
     return F(rand(rng, 0:GrothCurves.BN254_ORDER_R-1))
@@ -142,10 +135,10 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abs
     g2tab = GrothAlgebra.build_fixed_table(g2)
 
     # Map evaluations into group queries using fixed-base batch mul
-    A_query_g1 = GrothAlgebra.batch_mul(g1tab, [_to_int(A_eval[i]) for i in 1:m])
-    B_query_g2 = GrothAlgebra.batch_mul(g2tab, [_to_int(B_eval[i]) for i in 1:m])
-    B_query_g1 = GrothAlgebra.batch_mul(g1tab, [_to_int(B_eval[i]) for i in 1:m])
-    C_query_g1 = GrothAlgebra.batch_mul(g1tab, [_to_int(C_eval[i]) for i in 1:m])
+    A_query_g1 = GrothAlgebra.batch_mul(g1tab, A_eval)
+    B_query_g2 = GrothAlgebra.batch_mul(g2tab, B_eval)
+    B_query_g1 = GrothAlgebra.batch_mul(g1tab, B_eval)
+    C_query_g1 = GrothAlgebra.batch_mul(g1tab, C_eval)
 
     # Target polynomial at τ
     t_tau = evaluate(qap.t, τ)
@@ -160,23 +153,23 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abs
     end
 
     # H_query_g1: [τ^k · t(τ) / δ]₁
-    H_query_g1 = GrothAlgebra.batch_mul(g1tab, [_to_int(t_tau * tau_powers[k] * δ_inv) for k in 1:max_k])
+    H_query_g1 = GrothAlgebra.batch_mul(g1tab, [t_tau * tau_powers[k] * δ_inv for k in 1:max_k])
 
     # L_query for private variables only: [(β·u_i(τ) + α·v_i(τ) + w_i(τ)) / δ]₁
     num_public = qap.num_public
     L_query_g1 = G1Point[]
     if m > num_public
-        L_scalars = BigInt[]
+        L_scalars = F[]
         sizehint!(L_scalars, m - num_public)
         for i in (num_public+1):m
             acc = β * A_eval[i] + α * B_eval[i] + C_eval[i]
-            push!(L_scalars, _to_int(acc * δ_inv))
+            push!(L_scalars, acc * δ_inv)
         end
         L_query_g1 = GrothAlgebra.batch_mul(g1tab, L_scalars)
     end
 
     # IC for public inputs: [(β·u_i(τ) + α·v_i(τ) + w_i(τ)) / γ]₁, including 1
-    IC_scalars = [_to_int((β * A_eval[i] + α * B_eval[i] + C_eval[i]) * γ_inv) for i in 1:num_public]
+    IC_scalars = [(β * A_eval[i] + α * B_eval[i] + C_eval[i]) * γ_inv for i in 1:num_public]
     IC = GrothAlgebra.batch_mul(g1tab, IC_scalars)
 
     # Normalize queries to affine for efficient storage
@@ -189,12 +182,12 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abs
     GrothCurves.batch_to_affine!(B_query_g2)
 
     # Fixed elements
-    alpha_g1 = scalar_mul(g1, _to_int(α))
-    beta_g1 = scalar_mul(g1, _to_int(β))
-    beta_g2 = scalar_mul(g2, _to_int(β))
-    gamma_g2 = scalar_mul(g2, _to_int(γ))
-    delta_g1 = scalar_mul(g1, _to_int(δ))
-    delta_g2 = scalar_mul(g2, _to_int(δ))
+    alpha_g1 = scalar_mul(g1, α)
+    beta_g1 = scalar_mul(g1, β)
+    beta_g2 = scalar_mul(g2, β)
+    gamma_g2 = scalar_mul(g2, γ)
+    delta_g1 = scalar_mul(g1, δ)
+    delta_g2 = scalar_mul(g2, δ)
 
     pk = ProvingKey(
         alpha_g1,
@@ -241,7 +234,7 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
     s = debug_no_random ? zero(F) : _rand_field(F, rng)
 
     # Accumulators for queries via MSM (fallbacks to scalar loops for tiny sizes)
-    scalars = [_to_int(w_vals[i]) for i in 1:m]
+    scalars = w_vals[1:m]
     A_acc_g1 = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, scalars)
     B_acc_g2 = GrothAlgebra.multi_scalar_mul(pk.B_query_g2, scalars)
     B_acc_g1 = GrothAlgebra.multi_scalar_mul(pk.B_query_g1, scalars)
@@ -249,20 +242,20 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
     # A and B
     A1_g1 = pk.alpha_g1 + A_acc_g1
     B1_g1 = pk.beta_g1 + B_acc_g1
-    A = A1_g1 + scalar_mul(pk.delta_g1, _to_int(r))
-    B = pk.beta_g2 + B_acc_g2 + scalar_mul(pk.delta_g2, _to_int(s))
+    A = A1_g1 + scalar_mul(pk.delta_g1, r)
+    B = pk.beta_g2 + B_acc_g2 + scalar_mul(pk.delta_g2, s)
 
     # h(x): compute via coset FFT path and map coefficients via H_query
     h_poly = compute_h_polynomial(qap, witness)
     hk = length(h_poly.coeffs)
     pts_h = pk.H_query_g1[1:hk]
-    scalars_h = [_to_int(c) for c in h_poly.coeffs]
+    scalars_h = h_poly.coeffs
     H = GrothAlgebra.multi_scalar_mul(pts_h, scalars_h)
 
     # L for private variables
     # L for private variables via MSM
     if m > pk.num_public
-        priv_scalars = [_to_int(w_vals[i]) for i in (pk.num_public+1):m]
+        priv_scalars = w_vals[(pk.num_public+1):m]
         L = GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars)
     else
         L = zero(G1Point)
@@ -270,9 +263,9 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
 
     # Cross terms in C (arkworks style): C = s*g_a + r*g1_b - r*s*δ + L + H
     # where g_a = A (includes r*δ), and g1_b = (β + Σ v_i) + s*δ in G1
-    rs_delta = scalar_mul(pk.delta_g1, _to_int(r * s))
-    g1_b_full = B1_g1 + scalar_mul(pk.delta_g1, _to_int(s))
-    C = H + L + scalar_mul(g1_b_full, _to_int(r)) + scalar_mul(A, _to_int(s)) - rs_delta
+    rs_delta = scalar_mul(pk.delta_g1, r * s)
+    g1_b_full = B1_g1 + scalar_mul(pk.delta_g1, s)
+    C = H + L + scalar_mul(g1_b_full, r) + scalar_mul(A, s) - rs_delta
 
     return Groth16Proof(A, B, C)
 end
@@ -309,7 +302,7 @@ function verify_full(vk::VerificationKey{E}, proof::Groth16Proof, public_inputs:
     vk_x = vk.IC[1]
     if expected_len > 0
         pts_ic = vk.IC[2:end]
-        scal_ic = [_to_int(public_inputs[i]) for i in 1:expected_len]
+        scal_ic = public_inputs
         vk_x += GrothAlgebra.multi_scalar_mul(pts_ic, scal_ic)
     end
 
@@ -370,7 +363,7 @@ function prepare_inputs(pvk::PreparedVerificationKey{E}, public_inputs::Vector{F
     for i in 1:expected_len
         xi = public_inputs[i]
         iszero(xi) && continue
-        acc += scalar_mul(vk.IC[i+1], _to_int(xi))
+        acc += scalar_mul(vk.IC[i+1], xi)
     end
     return acc
 end
