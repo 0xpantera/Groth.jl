@@ -305,7 +305,7 @@ end
             lhs = evaluate(u_poly, x) * evaluate(v_poly, x) - evaluate(w_poly, x)
             rhs = evaluate(h_poly, x) * evaluate(t_poly, x)
             if lhs != rhs
-                println("[QAP check] builder=$(builder) x=$(Integer(x.value)) lhs=$(Integer(lhs.value)) rhs=$(Integer(rhs.value))")
+                println("[QAP check] builder=$(builder) x=$(convert(BigInt, x)) lhs=$(convert(BigInt, lhs)) rhs=$(convert(BigInt, rhs))")
             end
             @test lhs == rhs
         end

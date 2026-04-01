@@ -69,11 +69,11 @@ function py_ecc_accum_inputs(gen, base_offset::Int, scalar_offset::Int, size::In
 end
 
 function serialize_bn254(x::BN254Fq)
-    return string(x.value)
+    return string(convert(BigInt, x))
 end
 
 function serialize_bn254(x::BN254Fr)
-    return string(x.value)
+    return string(convert(BigInt, x))
 end
 
 function serialize_bn254(x::Fp2Element)
