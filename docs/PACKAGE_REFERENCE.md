@@ -11,9 +11,10 @@ annotated rather than discarded), and follow-ups.
   polynomial and group utilities consumed by higher-level packages.
 
 **Key modules**
-- `src/FiniteFields.jl` — prime-field semantics plus the current default
-  `BigInt` backend, with normalization, `invmod`, `powermod`, canonical integer
-  conversion, display helpers, and `GaloisField{p}` for prime `p`.
+- `src/FiniteFields.jl` — prime-field semantics with a fixed-width Montgomery
+  backend for `BN254Fq` / `BN254Fr`, plus the existing `BigInt`-backed generic
+  fields (`GaloisField{p}`, secp256k1), canonical integer conversion, and
+  display helpers.
 - `src/Polynomial.jl` — Degree/leading-coefficient management, Horner
   evaluation, Lagrange interpolation, derivative, FFT scaffolding.
 - `src/Group.jl` — Generic group/curve interface with scalar multiplication,
@@ -23,6 +24,10 @@ annotated rather than discarded), and follow-ups.
 - (original) FFT helpers were stubs; dense interpolation handled `h(x)`.
 - (2025-09-29) Added `interpolate_prefix_points` so subset domains recover
   coefficients before padding for coset FFTs.
+- (2026-04-01) Stage 2 of the Montgomery roadmap moved `BN254Fq` and
+  `BN254Fr` to a 4-limb Montgomery representation behind the Stage 1 backend
+  hooks. The higher layers still see canonical field semantics; compatibility
+  shims remain for callers that still inspect `.value`.
 
 **Follow-ups**
 - Evaluate FFT twiddle caching / mixed-radix support once the QAP domain aligns
@@ -108,10 +113,12 @@ annotated rather than discarded), and follow-ups.
 
 ## Backend Migration Notes
 
-- The current BN254 field layer still uses a `BigInt` default backend, but
-  Stage 1 of the Montgomery roadmap extracts the backend boundary so future
-  fixed-width field implementations can slot in without tying higher-level
-  semantics to `.value::BigInt`.
+- Stage 1 extracted the backend boundary so field semantics are no longer tied
+  directly to `.value::BigInt`.
+- Stage 2 now runs `BN254Fq` and `BN254Fr` on a 4-limb Montgomery backend.
+  Generic `GaloisField{p}` and `Secp256k1Field` still use the default `BigInt`
+  path.
+- Canonical integer conversion remains stable via `convert(BigInt, x)`.
 
 ---
 
