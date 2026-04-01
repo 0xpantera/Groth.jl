@@ -280,6 +280,15 @@ function _multi_scalar_mul_pippenger(points::Vector{G}, scalars::Vector{S}, max_
     return result
 end
 
+"""
+    multi_scalar_mul(points::Vector{G}, scalars::Vector{BN254Fr}) where {C,G<:GroupElem{C}}
+
+Compute `∑ᵢ scalars[i] * points[i]` for BN254 scalar-field elements without
+round-tripping the scalars through `BigInt`.
+
+The dispatcher decodes each scalar to canonical limbs once, then reuses the
+same Straus/Pippenger split as the generic integer MSM path.
+"""
 function multi_scalar_mul(points::Vector{G}, scalars::Vector{BN254Fr}) where {C,G<:GroupElem{C}}
     if length(points) != length(scalars)
         throw(ArgumentError("Points and scalars must have the same length"))
@@ -531,6 +540,12 @@ function wnaf_encode(k::Integer, w::Int=4)
     return k >= 0 ? naf : -naf
 end
 
+"""
+    wnaf_encode(k::BN254Fr, w::Int=4)
+
+Encode a BN254 scalar-field element in windowed non-adjacent form (w-NAF)
+without converting through `BigInt`.
+"""
 function wnaf_encode(k::BN254Fr, w::Int=4)
     if w < 2
         throw(ArgumentError("Window size must be at least 2"))
@@ -613,6 +628,14 @@ function scalar_mul_wnaf(P::GroupElem{C}, k::Integer, w::Int=4) where C
     return result
 end
 
+"""
+    scalar_mul_wnaf(P::GroupElem{C}, k::BN254Fr, w::Int=4) where C
+
+Multiply `P` by a BN254 scalar-field element using the limb-native w-NAF path.
+
+This mirrors the integer API while keeping the scalar in canonical limb form
+throughout recoding and evaluation.
+"""
 function scalar_mul_wnaf(P::GroupElem{C}, k::BN254Fr, w::Int=4) where C
     if iszero(k)
         return zero(P)
@@ -648,6 +671,14 @@ function scalar_mul_wnaf(P::GroupElem{C}, k::BN254Fr, w::Int=4) where C
     return result
 end
 
+"""
+    scalar_mul(P::GroupElem{C}, k::BN254Fr) where C
+
+Multiply `P` by a BN254 scalar-field element using the tuned BN254 scalar path.
+
+The dispatcher prefers w-NAF when a curve-specific window is available and
+otherwise falls back to a limb-native double-and-add scan.
+"""
 function scalar_mul(P::GroupElem{C}, k::BN254Fr) where C
     if iszero(k)
         return zero(P)
