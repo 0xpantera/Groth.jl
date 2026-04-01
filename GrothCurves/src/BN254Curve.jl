@@ -13,6 +13,26 @@ const BN254_ORDER_R = parse(BigInt, "2188824287183927522224640574525727508854836
 const G1Point = ProjectivePoint{BN254Curve, BN254Fq}
 const G2Point = ProjectivePoint{BN254Curve, Fp2Element}
 
+const BN254_GLV_BETA = bn254_fq(parse(BigInt, "21888242871839275220042445260109153167277707414472061641714758635765020556616"))
+const BN254_GLV_BETA_FP2 = Fp2Element(BN254_GLV_BETA, zero(BN254Fq))
+const BN254_G1_GLV_LAMBDA = parse(BigInt, "21888242871839275217838484774961031246154997185409878258781734729429964517155")
+const BN254_G2_GLV_LAMBDA = parse(BigInt, "4407920970296243842393367215006156084916469457145843978461")
+const BN254_G1_GLV_DECOMP_MATRIX = (
+    -parse(BigInt, "147946756881789319000765030803803410728"),
+    parse(BigInt, "9931322734385697763"),
+    -parse(BigInt, "9931322734385697763"),
+    -parse(BigInt, "147946756881789319010696353538189108491"),
+)
+const BN254_G2_GLV_DECOMP_MATRIX = (
+    -parse(BigInt, "147946756881789319010696353538189108491"),
+    -parse(BigInt, "9931322734385697763"),
+    parse(BigInt, "9931322734385697763"),
+    -parse(BigInt, "147946756881789319000765030803803410728"),
+)
+# Keep small and medium scalars on the existing w-NAF path; the Stage 7A
+# scalar sweep shows GLV only starts to pull ahead on larger bitlengths.
+const BN254_G1_GLV_THRESHOLD_BITS = 192
+
 # Stage 7 tuning on the Montgomery backend found that BN254 MSMs prefer
 # smaller windows than the generic schedule at the benchmark sizes we exercise
 # in the prover and benchmark suite. G2 prover query MSMs are especially
@@ -74,6 +94,118 @@ G2Point(X::Fp2Element, Y::Fp2Element) = G2Point(X, Y, G2_AFFINE_Z)
 
 @inline _square(x) = x * x
 @inline _square(x::Fp2Element) = square(x)
+@inline _glv_bit_length(k::BigInt) = iszero(k) ? 0 : ndigits(k, base=2)
+
+@inline function _glv_decomposition_bits(k1::BigInt, k2::BigInt)
+    return max(_glv_bit_length(k1), _glv_bit_length(k2))
+end
+
+function _glv_scalar_decomposition(k::Integer, coeffs::NTuple{4,BigInt})
+    scalar = mod(BigInt(k), BN254_ORDER_R)
+    iszero(scalar) && return ((true, BigInt(0)), (true, BigInt(0)))
+
+    n11, n12, n21, n22 = coeffs
+
+    beta_1, rem_1 = divrem(scalar * n22, BN254_ORDER_R)
+    if rem_1 + rem_1 > BN254_ORDER_R
+        beta_1 += 1
+    end
+
+    beta_2, rem_2 = divrem(scalar * (-n12), BN254_ORDER_R)
+    if rem_2 + rem_2 > BN254_ORDER_R
+        beta_2 += 1
+    end
+
+    b1 = beta_1 * n11 + beta_2 * n21
+    b2 = beta_1 * n12 + beta_2 * n22
+    k1 = scalar - b1
+    k2 = -b2
+
+    return ((k1 >= 0, abs(k1)), (k2 >= 0, abs(k2)))
+end
+
+glv_scalar_decomposition(::Type{G1Point}, k::Integer) = _glv_scalar_decomposition(k, BN254_G1_GLV_DECOMP_MATRIX)
+glv_scalar_decomposition(::Type{G2Point}, k::Integer) = _glv_scalar_decomposition(k, BN254_G2_GLV_DECOMP_MATRIX)
+
+glv_lambda(::Type{G1Point}) = BN254_G1_GLV_LAMBDA
+glv_lambda(::Type{G2Point}) = BN254_G2_GLV_LAMBDA
+
+@inline function glv_endomorphism(p::G1Point)
+    iszero(p) && return p
+    return G1Point(x_coord(p) * BN254_GLV_BETA, y_coord(p), z_coord(p))
+end
+
+@inline function glv_endomorphism(p::G2Point)
+    iszero(p) && return p
+    return G2Point(x_coord(p) * BN254_GLV_BETA_FP2, y_coord(p), z_coord(p))
+end
+
+function _glv_joint_scalar_mul(p::P, coeffs, endo_p::P) where {P<:ProjectivePoint{BN254Curve}}
+    ((sgn_k1, k1), (sgn_k2, k2)) = coeffs
+    iszero(k1) && iszero(k2) && return zero(p)
+
+    b1 = sgn_k1 ? p : -p
+    b2 = sgn_k2 ? endo_p : -endo_p
+    b1b2 = b1 + b2
+
+    max_bits = _glv_decomposition_bits(k1, k2)
+    acc = zero(p)
+    skip_leading_zeros = true
+
+    for bit in (max_bits-1):-1:0
+        bit1 = ((k1 >> bit) & 1) == 1
+        bit2 = ((k2 >> bit) & 1) == 1
+
+        if skip_leading_zeros
+            if !(bit1 || bit2)
+                continue
+            end
+            skip_leading_zeros = false
+        else
+            acc = acc + acc
+        end
+
+        if bit1 && bit2
+            acc = acc + b1b2
+        elseif bit1
+            acc = acc + b1
+        elseif bit2
+            acc = acc + b2
+        end
+    end
+
+    return acc
+end
+
+function glv_scalar_mul(p::P, k::Integer) where {P<:ProjectivePoint{BN254Curve}}
+    if k == 0
+        return zero(p)
+    elseif k < 0
+        return -glv_scalar_mul(p, -k)
+    elseif k == 1
+        return p
+    end
+
+    coeffs = glv_scalar_decomposition(P, k)
+    return _glv_joint_scalar_mul(p, coeffs, glv_endomorphism(p))
+end
+
+function GrothAlgebra.scalar_mul(p::G1Point, k::Integer)
+    if k == 0
+        return zero(p)
+    elseif k == 1
+        return p
+    elseif k == -1
+        return -p
+    end
+
+    bits = GrothAlgebra._bit_length(k)
+    if bits < BN254_G1_GLV_THRESHOLD_BITS
+        return GrothAlgebra.scalar_mul_wnaf(p, k, _scalar_mul_window(G1Point, bits))
+    end
+
+    return glv_scalar_mul(p, k)
+end
 
 @inline function _to_affine_coords(p::ProjectivePoint{BN254Curve,F}) where {F}
     if iszero(p)
