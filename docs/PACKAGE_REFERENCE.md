@@ -55,6 +55,12 @@ annotated rather than discarded), and follow-ups.
   curve engines in future work.
 - BN254 G1/G2 scalar multiplication now dispatches to tuned w-NAF windows by
   default; the generic binary fallback remains available for other group types.
+- (2026-04-01) Stage 4 of the Montgomery roadmap replaced `SVector`-backed
+  `Fp2`/`Fp6`/`Fp12` storage with concrete field members and specialized
+  nonresidue helpers for `xi = 9 + u` and `v = (0, 1, 0)`. The first Stage 4
+  artifact (`2026-04-01_145350`) cut `Fp6 mul` from `2.324 us` to `0.533 us`,
+  `Fp12 mul` from `19.527 us` to `1.721 us`, and full pairing from `10.409 ms`
+  to `3.843 ms` relative to the Stage 3 profile baseline.
 
 **Follow-ups**
 - Prototype a second curve/engine (e.g., BLS12-381) to validate abstractions.

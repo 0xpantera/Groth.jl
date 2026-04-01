@@ -44,6 +44,8 @@ using GrothAlgebra
             @test v3[1] == ξ
             @test iszero(v3[2])
             @test iszero(v3[3])
+            @test mul_fp2_by_nonresidue(Fp2Element(5, 7)) == Fp2Element(38, 68)
+            @test mul_fp2_by_nonresidue(Fp2Element(5, 7)) == Fp2Element(5, 7) * ξ
             
             # Identity
             a = Fp6Element(2, 3, 4)
@@ -125,6 +127,7 @@ using GrothAlgebra
             v = Fp6Element(0, 1, 0)
             @test w2[1] == v
             @test iszero(w2[2])
+            @test mul_fp6_by_nonresidue(Fp6Element(1, 2, 3)) == Fp6Element(1, 2, 3) * v
             
             # Identity
             a0 = Fp6Element(1, 2, 3)
