@@ -16,7 +16,8 @@ annotated rather than discarded), and follow-ups.
   fields (`GaloisField{p}`, secp256k1), canonical integer conversion, and
   display helpers.
 - `src/Polynomial.jl` — Degree/leading-coefficient management, Horner
-  evaluation, Lagrange interpolation, derivative, FFT scaffolding.
+  evaluation, Lagrange interpolation, derivative, cached evaluation domains,
+  and FFT / inverse FFT helpers.
 - `src/Group.jl` — Generic group/curve interface with scalar multiplication,
   w-NAF utilities, a Pippenger-backed variable-base MSM, and fixed-base helpers.
 
@@ -28,6 +29,9 @@ annotated rather than discarded), and follow-ups.
   `BN254Fr` to a 4-limb Montgomery representation behind the Stage 1 backend
   hooks. The higher layers still see canonical field semantics; compatibility
   shims remain for callers that still inspect `.value`.
+- (2026-04-01) Stage 3 cached per-domain twiddle/bitreverse metadata and added
+  internal in-place `fft!` / `ifft!` helpers so BN254 `Fr` polynomial and QAP
+  coset paths reuse the new Montgomery backend without extra setup/copy work.
 
 **Follow-ups**
 - Evaluate FFT twiddle caching / mixed-radix support once the QAP domain aligns
