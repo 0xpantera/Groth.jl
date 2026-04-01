@@ -192,7 +192,7 @@ function final_exponentiation_easy(f::Fp12Element)
     f1 = f_conj * f_inv
 
     # Step 2: f1^(p^2 + 1) = f1^(p^2) * f1
-    f1_p2 = frobenius_map(f1, 2)
+    f1_p2 = frobenius_p2(f1)
     result = f1_p2 * f1
 
     return result
@@ -205,16 +205,15 @@ end
 """
     exp_by_u(a::Fp12Element)
 
-Compute a^u where u = 4965661367192848881 is the BN parameter.
-Uses square-and-multiply.
+Compute `a^u` where `u = 4965661367192848881` is the BN parameter.
 """
 function exp_by_u(a::Fp12Element)
-    u = BigInt(4965661367192848881)
     result = one(Fp12Element)
     base = a
+    u = UInt64(4965661367192848881)
 
-    while u > 0
-        if u & 1 == 1
+    while u != 0
+        if (u & UInt64(1)) == UInt64(1)
             result = result * base
         end
         base = base * base
@@ -234,41 +233,59 @@ The hard part computes m^((p^4 - p^2 + 1)/r) using a specific decomposition
 involving u-powers and Frobenius maps.
 """
 function final_exponentiation_hard(m::Fp12Element)
-    # Compute u-powers
-    mx = exp_by_u(m)        # m^u
-    mx2 = exp_by_u(mx)       # m^(u^2)
-    mx3 = exp_by_u(mx2)      # m^(u^3)
+    # Compute u-powers using cyclotomic exponentiation.
+    mx = exp_by_u(m)
+    mx2 = exp_by_u(mx)
+    mx3 = exp_by_u(mx2)
 
-    # Compute Frobenius images
-    mp = frobenius_map(m, 1)      # m^p
-    mp2 = frobenius_map(m, 2)     # m^(p^2)
-    mp3 = frobenius_map(m, 3)     # m^(p^3)
+    # Compute Frobenius images.
+    mp = frobenius_p1(m)
+    mp2 = frobenius_p2(m)
+    mp3 = frobenius_p3(m)
 
-    mxp = frobenius_map(mx, 1)    # (m^u)^p
-    mx2p = frobenius_map(mx2, 1)  # (m^(u^2))^p
-    mx3p = frobenius_map(mx3, 1)  # (m^(u^3))^p
-    mx2p2 = frobenius_map(mx2, 2) # (m^(u^2))^(p^2)
+    mxp = frobenius_p1(mx)
+    mx2p = frobenius_p1(mx2)
+    mx3p = frobenius_p1(mx3)
+    mx2p2 = frobenius_p2(mx2)
 
-    # Build the y_i values according to the standard BN254 formula
-    # These come from the lattice decomposition of (p^4 - p^2 + 1)/r
+    y0 = mp * mp2 * mp3
+    y1 = cyclotomic_inverse(m)
+    y2 = mx2p2
+    y3 = cyclotomic_inverse(mxp)
+    y4 = cyclotomic_inverse(mx * mx2p)
+    y5 = cyclotomic_inverse(mx2)
+    y6 = cyclotomic_inverse(mx3 * mx3p)
 
-    y0 = mp * mp2 * mp3                          # m^(p + p^2 + p^3)
-    y1 = conjugate(m)                            # m^(-1) (using cyclotomic property)
-    y2 = mx2p2                                   # m^(u^2 * p^2)
-    y3 = conjugate(mxp)                          # m^(-u * p)
-    y4 = conjugate(mx * mx2p)                    # m^(-(u + u^2*p))
-    y5 = conjugate(mx2)                          # m^(-u^2)
-    y6 = conjugate(mx3 * mx3p)                   # m^(-(u^3 + u^3*p))
+    y1_2 = y1 * y1
+    y2_2 = y2 * y2
+    y2_6 = (y2_2 * y2_2) * y2_2
+    y3_3 = (y3 * y3) * y3
+    y3_6 = y3_3 * y3_3
+    y3_12 = y3_6 * y3_6
+    y4_2 = y4 * y4
+    y4_4 = y4_2 * y4_2
+    y4_8 = y4_4 * y4_4
+    y4_16 = y4_8 * y4_8
+    y4_18 = y4_16 * y4_2
+    y5_2 = y5 * y5
+    y5_4 = y5_2 * y5_2
+    y5_8 = y5_4 * y5_4
+    y5_16 = y5_8 * y5_8
+    y5_30 = y5_16 * y5_8 * y5_4 * y5_2
+    y6_2 = y6 * y6
+    y6_4 = y6_2 * y6_2
+    y6_8 = y6_4 * y6_4
+    y6_16 = y6_8 * y6_8
+    y6_32 = y6_16 * y6_16
+    y6_36 = y6_32 * y6_4
 
-    # Final combination with specific exponents
-    # This is the standard BN254 hard part formula
     result = y0
-    result = result * (y1^2)
-    result = result * (y2^6)
-    result = result * (y3^12)
-    result = result * (y4^18)
-    result = result * (y5^30)
-    result = result * (y6^36)
+    result = result * y1_2
+    result = result * y2_6
+    result = result * y3_12
+    result = result * y4_18
+    result = result * y5_30
+    result = result * y6_36
 
     return result
 end

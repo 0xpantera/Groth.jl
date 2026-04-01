@@ -165,6 +165,17 @@ using GrothAlgebra
         @test e2 == e2_direct
     end
 
+    @testset "Cyclotomic Helpers" begin
+        P_ref = scalar_mul(P, BigInt(11))
+        Q_ref = scalar_mul(Q, BigInt(13))
+        m = final_exponentiation_easy(miller_loop(P_ref, Q_ref))
+
+        @test GrothCurves.cyclotomic_inverse(m) == conjugate(m)
+        @test GrothCurves.cyclotomic_square(m) == square(m)
+        @test GrothCurves.cyclotomic_exp(m, 11) == m^11
+        @test exp_by_u(m) == m^GrothCurves.BN254_U
+    end
+
     @testset "Pairing Consistency" begin
         # Test that repeated computations give the same result
 

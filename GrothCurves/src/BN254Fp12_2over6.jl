@@ -70,6 +70,24 @@ function Base.:*(a::Fp12Element, b::Fp12Element)
 end
 
 """
+    mul_by_034(a::Fp12Element, c0::Fp2Element, c3::Fp2Element, c4::Fp2Element)
+
+Multiply an `Fp12Element` by the sparse element with non-zero coefficients in
+positions `0`, `3`, and `4`, which is the D-twist line embedding used by the
+BN254 Miller loop.
+"""
+function mul_by_034(a::Fp12Element, c0::Fp2Element, c3::Fp2Element, c4::Fp2Element)
+    aa = Fp6Element(a.c0.c0 * c0, a.c0.c1 * c0, a.c0.c2 * c0)
+    bb = mul_by_01(a.c1, c3, c4)
+
+    e = mul_by_01(a.c0 + a.c1, c0 + c3, c4)
+    c1 = e - (aa + bb)
+    c0_out = aa + mul_fp6_by_nonresidue(bb)
+
+    return Fp12Element(c0_out, c1)
+end
+
+"""
     square(a::Fp12Element)
 
 Square an `Fp12Element` using the optimized quadratic-extension formula.
@@ -80,6 +98,77 @@ function square(a::Fp12Element)
     c0 = c0_sq + mul_fp6_by_nonresidue(c1_sq)
     c1 = (a.c0 * a.c1) * 2
     return Fp12Element(c0, c1)
+end
+
+"""
+    cyclotomic_inverse(a::Fp12Element)
+
+Return the inverse of a cyclotomic-subgroup element via conjugation.
+"""
+cyclotomic_inverse(a::Fp12Element) = conjugate(a)
+
+"""
+    cyclotomic_square(a::Fp12Element)
+
+Square an `Fp12Element` assuming it lies in the cyclotomic subgroup.
+This follows the Granger-Scott formula used by arkworks.
+"""
+function cyclotomic_square(a::Fp12Element)
+    r0 = a.c0.c0
+    r4 = a.c0.c1
+    r3 = a.c0.c2
+    r2 = a.c1.c0
+    r1 = a.c1.c1
+    r5 = a.c1.c2
+
+    tmp = r0 * r1
+    t0 = (r0 + r1) * (mul_fp2_by_nonresidue(r1) + r0) - tmp - mul_fp2_by_nonresidue(tmp)
+    t1 = tmp + tmp
+
+    tmp = r2 * r3
+    t2 = (r2 + r3) * (mul_fp2_by_nonresidue(r3) + r2) - tmp - mul_fp2_by_nonresidue(tmp)
+    t3 = tmp + tmp
+
+    tmp = r4 * r5
+    t4 = (r4 + r5) * (mul_fp2_by_nonresidue(r5) + r4) - tmp - mul_fp2_by_nonresidue(tmp)
+    t5 = tmp + tmp
+
+    z0 = (t0 - r0) * 2 + t0
+    z1 = (t1 + r1) * 2 + t1
+    z2_tmp = mul_fp2_by_nonresidue(t5)
+    z2 = (r2 + z2_tmp) * 2 + z2_tmp
+    z3 = (t4 - r3) * 2 + t4
+    z4 = (t2 - r4) * 2 + t2
+    z5 = (r5 + t3) * 2 + t3
+
+    return Fp12Element(Fp6Element(z0, z4, z3), Fp6Element(z2, z1, z5))
+end
+
+"""
+    cyclotomic_exp(a::Fp12Element, n::Integer)
+
+Raise a cyclotomic-subgroup element to `n` using cyclotomic squaring.
+"""
+function cyclotomic_exp(a::Fp12Element, n::Integer)
+    if n == 0
+        return one(Fp12Element)
+    elseif n < 0
+        return cyclotomic_inverse(cyclotomic_exp(a, -n))
+    end
+
+    result = one(Fp12Element)
+    base = a
+    exp = BigInt(n)
+
+    while exp > 0
+        if isodd(exp)
+            result = result * base
+        end
+        base = cyclotomic_square(base)
+        exp >>= 1
+    end
+
+    return result
 end
 
 Base.:^(a::Fp12Element, ::Val{2}) = square(a)
@@ -175,4 +264,5 @@ end
 const GTElement = Fp12Element
 
 # Export types and functions
-export Fp12Element, FQ12_NONRESIDUE, GTElement, mul_fp6_by_nonresidue, square, conjugate, frobenius
+export Fp12Element, FQ12_NONRESIDUE, GTElement, mul_fp6_by_nonresidue, mul_by_034,
+    square, conjugate, cyclotomic_inverse, cyclotomic_square, cyclotomic_exp, frobenius

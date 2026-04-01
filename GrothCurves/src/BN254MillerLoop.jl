@@ -175,40 +175,38 @@ function addition_step(T::G2Point, Q::G2Point)
     return (result_point, coeffs)
 end
 
+function evaluate_line_coeffs(coeffs::LineCoeffs, P_x::BN254Fq, P_y::BN254Fq)
+    c0 = coeffs.a * P_y
+    c3 = coeffs.b * P_x
+    c4 = coeffs.c
+    return c0, c3, c4
+end
+
+function mul_by_line(f::Fp12Element, coeffs::LineCoeffs, P_x::BN254Fq, P_y::BN254Fq)
+    c0, c3, c4 = evaluate_line_coeffs(coeffs, P_x, P_y)
+    return mul_by_034(f, c0, c3, c4)
+end
+
 """
     evaluate_line(coeffs::LineCoeffs, P::G1Point) -> Fp12Element
 
-Evaluate the line function at point P and embed into Fp12.
-Uses sparse 0-1-4 embedding matching arkworks' mul_by_014.
-
-The line ``a x + b y + c`` is evaluated at ``P = (x_P, y_P)`` to give
-``a x_P + b y_P + c``, which is then embedded into Fp12.
+Evaluate the line function at point P and embed it into the sparse Fp12 layout
+used by the D-twist BN254 Miller loop.
 """
+function evaluate_line(coeffs::LineCoeffs, P_x::BN254Fq, P_y::BN254Fq)
+    c0, c3, c4 = evaluate_line_coeffs(coeffs, P_x, P_y)
+    c0_fp6 = Fp6Element(c0, zero(Fp2Element), zero(Fp2Element))
+    c1_fp6 = Fp6Element(c3, c4, zero(Fp2Element))
+    return Fp12Element(c0_fp6, c1_fp6)
+end
+
 function evaluate_line(coeffs::LineCoeffs, P::G1Point)
-    # Get affine coordinates of P
     P_x, P_y = if iszero(P)
         (zero(BN254Fq), zero(BN254Fq))
     else
         to_affine(P)
     end
-
-    # Convert to Fp2 for computation
-    xP = Fp2Element(P_x, zero(BN254Fq))
-    yP = Fp2Element(P_y, zero(BN254Fq))
-
-    # D-twist embedding - different from M-twist!
-    # For D-twist, the line evaluation gives a sparse Fp12 element
-    # with non-zero entries at positions (0, 3, 4) using mul_by_034 format
-    # Line ℓ(P) = a*yP + b*xP*w + c*w²
-    # This maps to Fp12 coordinates as:
-    #   c0 = (a*yP, 0, 0)
-    #   c1 = (b*xP, c, 0)
-
-    # Build sparse Fp12 element with correct D-twist mapping
-    c0_fp6 = Fp6Element(coeffs.a * yP, zero(Fp2Element), zero(Fp2Element))
-    c1_fp6 = Fp6Element(coeffs.b * xP, coeffs.c, zero(Fp2Element))
-
-    return Fp12Element(c0_fp6, c1_fp6)
+    return evaluate_line(coeffs, P_x, P_y)
 end
 
 """
@@ -287,30 +285,35 @@ function miller_loop(::BN254Engine, P::G1Point, Q::G2Point)
     # Initialize
     T = Q
     f = one(Fp12Element)
+    P_x, P_y = if iszero(P)
+        (zero(BN254Fq), zero(BN254Fq))
+    else
+        to_affine(P)
+    end
 
     # Process NAF representation from MSB to LSB
     # The loop matches arkworks: iterate from len-1 down to 1, indexing bits at i-1
     for i in (length(ATE_LOOP_COUNT_NAF)):-1:2
         # Square f (except on the first iteration)
         if i != length(ATE_LOOP_COUNT_NAF)
-            f = f^2
+            f = square(f)
         end
 
         # Always perform doubling step
         T_new, line_coeffs = doubling_step(T)
         T = T_new
-        f = f * evaluate_line(line_coeffs, P)
+        f = mul_by_line(f, line_coeffs, P_x, P_y)
 
         # Addition/subtraction step based on NAF digit at index i-1
         bit = ATE_LOOP_COUNT_NAF[i-1]
         if bit == 1
             T_new, line_coeffs = addition_step(T, Q)
             T = T_new
-            f = f * evaluate_line(line_coeffs, P)
+            f = mul_by_line(f, line_coeffs, P_x, P_y)
         elseif bit == -1
             T_new, line_coeffs = addition_step(T, -Q)
             T = T_new
-            f = f * evaluate_line(line_coeffs, P)
+            f = mul_by_line(f, line_coeffs, P_x, P_y)
         end
         # If bit == 0, we do nothing extra
     end
@@ -325,12 +328,12 @@ function miller_loop(::BN254Engine, P::G1Point, Q::G2Point)
 
     # Correction step 1: Line through T and π(Q)
     T1, line1 = addition_step(T, Q_pi)
-    f = f * evaluate_line(line1, P)
+    f = mul_by_line(f, line1, P_x, P_y)
 
     # Correction step 2: Line through T1 and -π²(Q)
     neg_Q_pi2 = -Q_pi2  # Use proper group negation
     T2, line2 = addition_step(T1, neg_Q_pi2)
-    f = f * evaluate_line(line2, P)
+    f = mul_by_line(f, line2, P_x, P_y)
 
     return f
 end
