@@ -45,10 +45,36 @@ preserving all algebraic and cryptographic invariants.
 - preserve public semantics until an intentional API change is documented
 - do not mix backend replacement with unrelated prover optimizations
 
+## Current Status
+
+Completed stages:
+
+- Stage 0: baseline and oracle harness
+- Stage 1: backend interface extraction
+- Stage 2: BN254 prime-field Montgomery core
+- Stage 3: polynomial and FFT integration on `Fr`
+- Stage 4: extension tower migration
+- Stage 5: G1 and G2 curve arithmetic migration
+- Stage 6: pairing engine migration
+- Stage 7: MSM and scalar-mul specialization
+
+Next concrete work:
+
+- narrow the remaining primitive gap to arkworks before re-baselining
+  `prove_full`
+- start with BN254 GLV-style scalar multiplication
+- then revisit limb-native inversion and final-exponentiation specialization
+
+Stage 8 remains the end-to-end `prove_full` integration and regression
+baseline stage.
+
 ## Stage 0: Baseline And Oracle Harness
 
 Goal:
 Create the measurement and correctness harness that all later stages depend on.
+
+Status:
+Completed on 2026-04-01.
 
 Scope:
 
@@ -70,10 +96,24 @@ Exit Criteria:
 - oracle comparisons exist for field, extension-field, curve, and pairing ops
 - later stages can prove correctness without relying on output inspection alone
 
+Notes:
+
+- Stage 0 added deterministic primitive benchmark groups for `BN254Fq`,
+  `BN254Fr`, `Fp2`, `Fp6`, `Fp12`, direct G1/G2 scalar multiplication, Miller
+  loop, and final exponentiation.
+- Stage 0 also added deterministic oracle tests for field, tower, scalar-mul,
+  Miller-loop, and pairing outputs so later backend stages could preserve exact
+  semantics while changing representation.
+- The first quick Stage 0 artifact is
+  `benchmarks/artifacts/2026-04-01_122211`.
+
 ## Stage 1: Backend Interface Extraction
 
 Goal:
 Separate BN254 arithmetic semantics from the current `BigInt` storage model.
+
+Status:
+Completed on 2026-04-01.
 
 Scope:
 
@@ -93,6 +133,15 @@ Exit Criteria:
 - the `BigInt` path still passes the full test suite
 - the next stage can add a Montgomery backend without immediately touching
   curves or pairings
+
+Notes:
+
+- Stage 1 introduced an explicit internal backend hook layer in
+  `GrothAlgebra/src/FiniteFields.jl`, including canonical conversion and
+  normalized construction boundaries.
+- Production callers that previously read `.value` directly were moved onto the
+  abstraction boundary so the Montgomery backend could land without rewriting
+  every higher layer at once.
 
 ## Stage 2: BN254 Prime Field Montgomery Core
 
@@ -290,6 +339,9 @@ Notes:
 Goal:
 Move Miller loop and final exponentiation onto the new tower and curve backend.
 
+Status:
+Completed on 2026-04-01.
+
 Scope:
 
 - migrate line-function arithmetic
@@ -309,10 +361,28 @@ Exit Criteria:
 - bilinearity and non-degeneracy tests pass
 - primitive pairing benchmarks improve materially over the current path
 
+Notes:
+
+- Stage 6 added direct `pairing_substeps` benchmarks for `doubling_step`,
+  `addition_step`, `evaluate_line`, Frobenius helpers, `exp_by_u`,
+  `final_exponentiation_easy`, and `final_exponentiation_hard`.
+- The first Stage 6 substep artifact is
+  `benchmarks/artifacts/2026-04-01_162018`.
+- The final focused Stage 6 artifact is
+  `benchmarks/artifacts/2026-04-01_163914`, with the direct Stage 5 comparison
+  artifact at `benchmarks/artifacts/2026-04-01_164003`.
+- Relative to the Stage 5 baseline `2026-04-01_154740`, Stage 6 improved:
+  - `pairing`: `3.892 ms -> 3.107 ms`
+  - `miller_loop`: `2.416 ms -> 1.782 ms`
+  - `final_exponentiation`: `1.407 ms -> 1.227 ms`
+
 ## Stage 7: MSM And Scalar-Mul Specialization
 
 Goal:
 Exploit the new backend with better curve-level multiplication strategies.
+
+Status:
+Completed on 2026-04-01.
 
 Scope:
 
@@ -332,6 +402,54 @@ Exit Criteria:
 - MSM is no longer bottlenecked by the old arithmetic representation
 - `prove_full` prover buckets tied to MSM improve materially
 - optimizations remain mathematically transparent
+
+Notes:
+
+- Stage 7 added a dedicated `stage7` benchmark profile and a
+  `scalar_msm_tuning` benchmark group for explicit scalar-window and
+  forced-window MSM comparisons.
+- The first Stage 7 full baseline artifact is
+  `benchmarks/artifacts/2026-04-01_171130`.
+- A synthetic-only G2 small-size retune initially regressed the real
+  `prove_full` `B_query_g2` bucket. Direct benchmarking of the actual
+  `generated_24_constraints` `pk.B_query_g2` workload showed the best forced
+  G2 window at that prover-relevant size was `w = 2`, not the synthetic
+  `N = 32` winner `w = 4`.
+- The final Stage 7 artifact is `benchmarks/artifacts/2026-04-01_173419`, with
+  focused `prove_full` confirmation at `benchmarks/artifacts/2026-04-01_174156`.
+- Relative to the Stage 7 baseline `2026-04-01_171130`, Stage 7 improved the
+  main `generated_24_constraints` fixture to:
+  - `end_to_end`: `30.025 ms -> 29.593 ms`
+  - `msm_a_g1`: `3.605 ms -> 2.940 ms`
+  - `msm_b_g1`: `2.227 ms -> 2.148 ms`
+  - `msm_b_g2`: `4.385 ms -> 4.436 ms`
+  - `h_msm`: `7.271 ms -> 7.147 ms`
+  - `l_msm`: `3.955 ms -> 3.831 ms`
+
+## Remaining Gap To Arkworks
+
+The current BN254 primitive gap to arkworks is no longer dominated by the old
+`BigInt` representation alone. The biggest remaining causes are now:
+
+- missing GLV-style scalar multiplication for BN254 `G1` and `G2`
+- field inversion still escaping to `BigInt invmod`
+- final exponentiation still using generic multiplication/squaring in places
+  where cyclotomic-specialized paths should be used more aggressively
+- extension-field hot paths still being more value-oriented and less in-place
+  than the arkworks equivalents
+- MSM still being more generic than arkworks’ specialized variable-base stack
+
+Current priority order for narrowing that gap:
+
+1. BN254 GLV scalar multiplication
+2. limb-native inversion
+3. final-exponentiation specialization
+4. more in-place extension-field helpers
+5. deeper MSM specialization
+
+This gap-narrowing track is intentionally placed before Stage 8 so the next
+`prove_full` baseline benefits from the higher-value primitive improvements
+first.
 
 ## Stage 8: `prove_full` Integration And Regression Baseline
 
