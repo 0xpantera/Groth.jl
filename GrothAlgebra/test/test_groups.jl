@@ -136,6 +136,26 @@ using Test
         big_scalars = [BigInt((-1)^i) * (BigInt(1) << (50 + i)) for i in 1:12]
         @test multi_scalar_mul(big_points, big_scalars) == naive_msm(big_points, big_scalars)
     end
+
+    @testset "Forced Pippenger windows preserve MSM semantics" begin
+        points = [TestPoint(mod(5 * i, 17) - 8, mod(9 * i, 29) - 14) for i in 1:12]
+        scalars = [mod(11 * i, 53) - 26 for i in 1:12]
+        expected = naive_msm(points, scalars)
+        max_bits = maximum(GrothAlgebra._bit_length, scalars)
+
+        for w in 2:6
+            @test GrothAlgebra._multi_scalar_mul_pippenger(points, scalars, max_bits, w) == expected
+        end
+
+        big_points = [TestPointBig(BigInt(i), BigInt(3i)) for i in 1:10]
+        big_scalars = [BigInt((-1)^i) * (BigInt(1) << (40 + i)) for i in 1:10]
+        big_expected = naive_msm(big_points, big_scalars)
+        big_bits = maximum(GrothAlgebra._bit_length, big_scalars)
+
+        for w in 2:6
+            @test GrothAlgebra._multi_scalar_mul_pippenger(big_points, big_scalars, big_bits, w) == big_expected
+        end
+    end
     
     @testset "w-NAF Encoding" begin
         # Test basic w-NAF encoding

@@ -213,6 +213,10 @@ function _multi_scalar_mul_straus(points::Vector{<:GroupElem{C}}, scalars::Vecto
 end
 
 function _multi_scalar_mul_pippenger(points::Vector{G}, scalars::Vector{S}, max_bits::Int) where {C,G<:GroupElem{C},S<:Integer}
+    return _multi_scalar_mul_pippenger(points, scalars, max_bits, _pippenger_window(G, length(points)))
+end
+
+function _multi_scalar_mul_pippenger(points::Vector{G}, scalars::Vector{S}, max_bits::Int, window::Int) where {C,G<:GroupElem{C},S<:Integer}
     normalized_points = Vector{G}(undef, length(points))
     normalized_scalars = Vector{S}(undef, length(scalars))
     nonzero_count = 0
@@ -243,7 +247,6 @@ function _multi_scalar_mul_pippenger(points::Vector{G}, scalars::Vector{S}, max_
     resize!(normalized_points, nonzero_count)
     resize!(normalized_scalars, nonzero_count)
 
-    window = _pippenger_window(G, nonzero_count)
     bucket_count = (1 << window) - 1
     num_windows = cld(max_bits, window)
     zero_point = zero(points[1])
