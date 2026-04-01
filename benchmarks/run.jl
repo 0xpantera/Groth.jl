@@ -26,6 +26,7 @@ const BENCHMARK_GROUP_ORDER = [
     :fixed_base,
     :variable_msm,
     :scalar_msm_tuning,
+    :scalar_plumbing,
     :glv_scalar_tuning,
     :batch_norm,
     :pairing_throughput,
@@ -45,6 +46,7 @@ const BENCHMARK_PROFILES = Dict(
     "stage7" => [:bn254_primitives, :variable_msm, :scalar_msm_tuning, :prove_full],
     "stage7a" => [:bn254_primitives, :glv_scalar_tuning],
     "stage8" => [:prove_full],
+    "stage8a" => [:scalar_plumbing, :prove_full],
     "primitives" => [:bn254_primitives, :pairing_micro, :py_ecc_primitives],
 )
 
@@ -519,6 +521,113 @@ function bench_scalar_msm_tuning(results)
             record_result!(results, :msm_tuning_g2, string(N), label, tr)
         end
     end
+end
+
+function bench_scalar_plumbing(results)
+    println("\n== Stage 8A scalar plumbing: BigInt vs BN254Fr prover scalars ==")
+    fixture = only(filter(f -> f.name == "generated_24_constraints", default_prove_full_fixtures()))
+    pk = fixture.keypair.pk
+    witness = fixture.witness
+    qap = fixture.qap
+    r_rand, s_rand = sample_prove_randomizers(fixture)
+
+    witness_scalars_fr = witness_to_scalars(witness)
+    witness_scalars_bigint = witness_to_scalars_bigint(witness)
+    h_poly = compute_h_polynomial(qap, witness)
+    h_scalars_fr = h_poly.coeffs
+    h_scalars_bigint = map(field_to_bigint, h_poly.coeffs)
+    priv_scalars_fr = witness.values[(pk.num_public + 1):end]
+    priv_scalars_bigint = map(field_to_bigint, priv_scalars_fr)
+
+    g1_scalar_fr = r_rand
+    g1_scalar_bigint = field_to_bigint(r_rand)
+    g2_scalar_fr = s_rand
+    g2_scalar_bigint = field_to_bigint(s_rand)
+
+    msm_a_fr = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, witness_scalars_fr)
+    msm_a_bigint = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, witness_scalars_bigint)
+    msm_b2_fr = GrothAlgebra.multi_scalar_mul(pk.B_query_g2, witness_scalars_fr)
+    msm_b2_bigint = GrothAlgebra.multi_scalar_mul(pk.B_query_g2, witness_scalars_bigint)
+    h_msm_fr = GrothAlgebra.multi_scalar_mul(pk.H_query_g1[1:length(h_poly.coeffs)], h_scalars_fr)
+    h_msm_bigint = GrothAlgebra.multi_scalar_mul(pk.H_query_g1[1:length(h_poly.coeffs)], h_scalars_bigint)
+    l_msm_fr = GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars_fr)
+    l_msm_bigint = GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars_bigint)
+    g1_scalar_res_fr = scalar_mul(pk.delta_g1, g1_scalar_fr)
+    g1_scalar_res_bigint = scalar_mul(pk.delta_g1, g1_scalar_bigint)
+    g2_scalar_res_fr = scalar_mul(pk.delta_g2, g2_scalar_fr)
+    g2_scalar_res_bigint = scalar_mul(pk.delta_g2, g2_scalar_bigint)
+
+    msm_a_fr == msm_a_bigint || error("BN254Fr scalar plumbing changed A-query MSM result")
+    msm_b2_fr == msm_b2_bigint || error("BN254Fr scalar plumbing changed B2-query MSM result")
+    h_msm_fr == h_msm_bigint || error("BN254Fr scalar plumbing changed H MSM result")
+    l_msm_fr == l_msm_bigint || error("BN254Fr scalar plumbing changed L MSM result")
+    g1_scalar_res_fr == g1_scalar_res_bigint || error("BN254Fr scalar plumbing changed G1 scalar_mul result")
+    g2_scalar_res_fr == g2_scalar_res_bigint || error("BN254Fr scalar plumbing changed G2 scalar_mul result")
+
+    record_semantic!(results, :scalar_plumbing, "g1_scalar_delta", serialize_affine(g1_scalar_res_fr))
+    record_semantic!(results, :scalar_plumbing, "g2_scalar_delta", serialize_affine(g2_scalar_res_fr))
+    record_semantic!(results, :scalar_plumbing, "a_query_msm", serialize_affine(msm_a_fr))
+    record_semantic!(results, :scalar_plumbing, "b2_query_msm", serialize_affine(msm_b2_fr))
+    record_semantic!(results, :scalar_plumbing, "h_msm", serialize_affine(h_msm_fr))
+    record_semantic!(results, :scalar_plumbing, "l_msm", serialize_affine(l_msm_fr))
+
+    println("Fixture: ", fixture.name)
+    println("  constraints=$(fixture.r1cs.num_constraints) vars=$(fixture.r1cs.num_vars) public=$(fixture.r1cs.num_public) domain=$(qap.domain.size)")
+
+    _ = scalar_mul(pk.delta_g1, g1_scalar_bigint)
+    _ = scalar_mul(pk.delta_g1, g1_scalar_fr)
+    tr_g1_bigint = @benchmark scalar_mul($pk.delta_g1, $g1_scalar_bigint) seconds = 1 samples = 10
+    tr_g1_fr = @benchmark scalar_mul($pk.delta_g1, $g1_scalar_fr) seconds = 1 samples = 10
+    print_stats("scalar_plumbing G1 bigint", tr_g1_bigint)
+    print_stats("scalar_plumbing G1 bn254fr", tr_g1_fr)
+    record_simple!(results, :scalar_plumbing_g1_scalar, "bigint", tr_g1_bigint)
+    record_simple!(results, :scalar_plumbing_g1_scalar, "bn254fr", tr_g1_fr)
+
+    _ = scalar_mul(pk.delta_g2, g2_scalar_bigint)
+    _ = scalar_mul(pk.delta_g2, g2_scalar_fr)
+    tr_g2_bigint = @benchmark scalar_mul($pk.delta_g2, $g2_scalar_bigint) seconds = 1 samples = 10
+    tr_g2_fr = @benchmark scalar_mul($pk.delta_g2, $g2_scalar_fr) seconds = 1 samples = 10
+    print_stats("scalar_plumbing G2 bigint", tr_g2_bigint)
+    print_stats("scalar_plumbing G2 bn254fr", tr_g2_fr)
+    record_simple!(results, :scalar_plumbing_g2_scalar, "bigint", tr_g2_bigint)
+    record_simple!(results, :scalar_plumbing_g2_scalar, "bn254fr", tr_g2_fr)
+
+    _ = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, witness_scalars_bigint)
+    _ = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, witness_scalars_fr)
+    tr_msm_a_bigint = @benchmark GrothAlgebra.multi_scalar_mul($pk.A_query_g1, $witness_scalars_bigint) seconds = 1 samples = 10
+    tr_msm_a_fr = @benchmark GrothAlgebra.multi_scalar_mul($pk.A_query_g1, $witness_scalars_fr) seconds = 1 samples = 10
+    print_stats("scalar_plumbing A bigint", tr_msm_a_bigint)
+    print_stats("scalar_plumbing A bn254fr", tr_msm_a_fr)
+    record_simple!(results, :scalar_plumbing_a_query_msm, "bigint", tr_msm_a_bigint)
+    record_simple!(results, :scalar_plumbing_a_query_msm, "bn254fr", tr_msm_a_fr)
+
+    _ = GrothAlgebra.multi_scalar_mul(pk.B_query_g2, witness_scalars_bigint)
+    _ = GrothAlgebra.multi_scalar_mul(pk.B_query_g2, witness_scalars_fr)
+    tr_msm_b2_bigint = @benchmark GrothAlgebra.multi_scalar_mul($pk.B_query_g2, $witness_scalars_bigint) seconds = 1 samples = 10
+    tr_msm_b2_fr = @benchmark GrothAlgebra.multi_scalar_mul($pk.B_query_g2, $witness_scalars_fr) seconds = 1 samples = 10
+    print_stats("scalar_plumbing B2 bigint", tr_msm_b2_bigint)
+    print_stats("scalar_plumbing B2 bn254fr", tr_msm_b2_fr)
+    record_simple!(results, :scalar_plumbing_b2_query_msm, "bigint", tr_msm_b2_bigint)
+    record_simple!(results, :scalar_plumbing_b2_query_msm, "bn254fr", tr_msm_b2_fr)
+
+    h_pts = pk.H_query_g1[1:length(h_poly.coeffs)]
+    _ = GrothAlgebra.multi_scalar_mul(h_pts, h_scalars_bigint)
+    _ = GrothAlgebra.multi_scalar_mul(h_pts, h_scalars_fr)
+    tr_h_bigint = @benchmark GrothAlgebra.multi_scalar_mul($h_pts, $h_scalars_bigint) seconds = 1 samples = 10
+    tr_h_fr = @benchmark GrothAlgebra.multi_scalar_mul($h_pts, $h_scalars_fr) seconds = 1 samples = 10
+    print_stats("scalar_plumbing H bigint", tr_h_bigint)
+    print_stats("scalar_plumbing H bn254fr", tr_h_fr)
+    record_simple!(results, :scalar_plumbing_h_msm, "bigint", tr_h_bigint)
+    record_simple!(results, :scalar_plumbing_h_msm, "bn254fr", tr_h_fr)
+
+    _ = GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars_bigint)
+    _ = GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars_fr)
+    tr_l_bigint = @benchmark GrothAlgebra.multi_scalar_mul($pk.L_query_g1, $priv_scalars_bigint) seconds = 1 samples = 10
+    tr_l_fr = @benchmark GrothAlgebra.multi_scalar_mul($pk.L_query_g1, $priv_scalars_fr) seconds = 1 samples = 10
+    print_stats("scalar_plumbing L bigint", tr_l_bigint)
+    print_stats("scalar_plumbing L bn254fr", tr_l_fr)
+    record_simple!(results, :scalar_plumbing_l_msm, "bigint", tr_l_bigint)
+    record_simple!(results, :scalar_plumbing_l_msm, "bn254fr", tr_l_fr)
 end
 
 function bn254_stage7a_glv_inputs()
@@ -1369,6 +1478,7 @@ function main()
     :fixed_base in selected && bench_fixed_base(results)
     :variable_msm in selected && bench_variable_msm(results)
     :scalar_msm_tuning in selected && bench_scalar_msm_tuning(results)
+    :scalar_plumbing in selected && bench_scalar_plumbing(results)
     :glv_scalar_tuning in selected && bench_glv_scalar_tuning(results)
     :batch_norm in selected && bench_batch_norm(results)
     :pairing_throughput in selected && bench_pairing_throughput(results)
