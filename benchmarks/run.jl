@@ -21,6 +21,7 @@ const PY_ECC_SCRIPT = joinpath(@__DIR__, "py_ecc_bn254_bench.py")
 const PY_ECC_ACCUM_SIZES = (32, 128)
 const BENCHMARK_GROUP_ORDER = [
     :bn254_primitives,
+    :bn254_curve_kernels,
     :bn254_polynomials,
     :fixed_base,
     :variable_msm,
@@ -36,6 +37,7 @@ const BENCHMARK_PROFILES = Dict(
     "quick" => [:bn254_primitives, :bn254_polynomials, :pairing_micro],
     "stage0" => [:bn254_primitives, :pairing_micro],
     "stage3" => [:bn254_primitives, :bn254_polynomials, :pairing_micro],
+    "stage5" => [:bn254_primitives, :bn254_curve_kernels, :batch_norm, :pairing_micro],
     "primitives" => [:bn254_primitives, :pairing_micro, :py_ecc_primitives],
 )
 
@@ -626,6 +628,29 @@ function bn254_stage0_inputs()
     )
 end
 
+
+function bn254_stage5_curve_inputs()
+    g1 = g1_generator()
+    g2 = g2_generator()
+
+    g1_add_p = scalar_mul(g1, BigInt(1111111))
+    g1_add_q = scalar_mul(g1, BigInt(2222222))
+    g1_affine_src = GrothCurves.double(scalar_mul(g1, BigInt(3333333)))
+
+    g2_add_p = scalar_mul(g2, BigInt(4444444))
+    g2_add_q = scalar_mul(g2, BigInt(5555555))
+    g2_affine_src = GrothCurves.double(scalar_mul(g2, BigInt(6666666)))
+
+    return (
+        g1_add_p = g1_add_p,
+        g1_add_q = g1_add_q,
+        g1_affine_src = g1_affine_src,
+        g2_add_p = g2_add_p,
+        g2_add_q = g2_add_q,
+        g2_affine_src = g2_affine_src,
+    )
+end
+
 function bench_bn254_primitives(results)
     println("\n== BN254 primitive fields, tower, and scalar multiplication ==")
     inputs = bn254_stage0_inputs()
@@ -765,6 +790,54 @@ function bench_bn254_primitives(results)
     print_stats("G2 scalar", tr_g2_scalar)
     record_simple!(results, :bn254_scalar_mul, "g1", tr_g1_scalar)
     record_simple!(results, :bn254_scalar_mul, "g2", tr_g2_scalar)
+end
+
+function bench_bn254_curve_kernels(results)
+    println("\n== BN254 curve kernels ==")
+    inputs = bn254_stage5_curve_inputs()
+
+    g1_double = GrothCurves.double(inputs.g1_add_p)
+    g1_add = inputs.g1_add_p + inputs.g1_add_q
+    g1_affine = GrothCurves.to_affine(inputs.g1_affine_src)
+
+    g2_double = GrothCurves.double(inputs.g2_add_p)
+    g2_add = inputs.g2_add_p + inputs.g2_add_q
+    g2_affine = GrothCurves.to_affine(inputs.g2_affine_src)
+
+    record_semantic!(results, :bn254_curve_kernels, "g1_double", serialize_affine(g1_double))
+    record_semantic!(results, :bn254_curve_kernels, "g1_add", serialize_affine(g1_add))
+    record_semantic!(results, :bn254_curve_kernels, "g1_to_affine", Any[serialize_bn254(g1_affine[1]), serialize_bn254(g1_affine[2])])
+    record_semantic!(results, :bn254_curve_kernels, "g2_double", serialize_affine(g2_double))
+    record_semantic!(results, :bn254_curve_kernels, "g2_add", serialize_affine(g2_add))
+    record_semantic!(results, :bn254_curve_kernels, "g2_to_affine", Any[serialize_bn254(g2_affine[1]), serialize_bn254(g2_affine[2])])
+
+    _ = GrothCurves.double(inputs.g1_add_p)
+    _ = inputs.g1_add_p + inputs.g1_add_q
+    _ = GrothCurves.to_affine(inputs.g1_affine_src)
+    _ = GrothCurves.double(inputs.g2_add_p)
+    _ = inputs.g2_add_p + inputs.g2_add_q
+    _ = GrothCurves.to_affine(inputs.g2_affine_src)
+
+    tr_g1_double = @benchmark GrothCurves.double($((inputs.g1_add_p))) seconds = 1 samples = 10
+    tr_g1_add = @benchmark $((inputs.g1_add_p)) + $((inputs.g1_add_q)) seconds = 1 samples = 10
+    tr_g1_affine = @benchmark GrothCurves.to_affine($((inputs.g1_affine_src))) seconds = 1 samples = 10
+    tr_g2_double = @benchmark GrothCurves.double($((inputs.g2_add_p))) seconds = 1 samples = 10
+    tr_g2_add = @benchmark $((inputs.g2_add_p)) + $((inputs.g2_add_q)) seconds = 1 samples = 10
+    tr_g2_affine = @benchmark GrothCurves.to_affine($((inputs.g2_affine_src))) seconds = 1 samples = 10
+
+    print_stats("G1 double", tr_g1_double)
+    print_stats("G1 add", tr_g1_add)
+    print_stats("G1 to_affine", tr_g1_affine)
+    print_stats("G2 double", tr_g2_double)
+    print_stats("G2 add", tr_g2_add)
+    print_stats("G2 to_affine", tr_g2_affine)
+
+    record_simple!(results, :bn254_curve_kernels, "g1_double", tr_g1_double)
+    record_simple!(results, :bn254_curve_kernels, "g1_add", tr_g1_add)
+    record_simple!(results, :bn254_curve_kernels, "g1_to_affine", tr_g1_affine)
+    record_simple!(results, :bn254_curve_kernels, "g2_double", tr_g2_double)
+    record_simple!(results, :bn254_curve_kernels, "g2_add", tr_g2_add)
+    record_simple!(results, :bn254_curve_kernels, "g2_to_affine", tr_g2_affine)
 end
 
 function bn254_stage3_poly_inputs()
@@ -1010,6 +1083,7 @@ function main()
     selected = Set(cli.selected_groups)
 
     :bn254_primitives in selected && bench_bn254_primitives(results)
+    :bn254_curve_kernels in selected && bench_bn254_curve_kernels(results)
     :bn254_polynomials in selected && bench_bn254_polynomials(results)
     :fixed_base in selected && bench_fixed_base(results)
     :variable_msm in selected && bench_variable_msm(results)
