@@ -17,7 +17,9 @@ Depth = 2
 
 ## Key Modules
 
-- `src/FiniteFields.jl` – BigInt-backed fields with normalisation, `invmod`, and `powermod` helpers.
+- `src/FiniteFields.jl` – prime-field backends, including fixed-width
+  Montgomery `BN254Fq` / `BN254Fr`, plus canonical integer conversion and
+  generic field helpers.
 - `src/Polynomial.jl` – Degree/leading-coefficient utilities, Horner evaluation, interpolation, derivative, and FFT scaffolding.
 - `src/Group.jl` – Generic group element interface with scalar multiplication, w-NAF helpers, and MSM support.
 
@@ -29,7 +31,9 @@ Depth = 2
 
 ## Follow-ups
 
-- Evaluate FFT twiddle caching and mixed-radix support once QAP domain alignment lands.
+- Replace the remaining `BigInt` inversion escape hatch in the BN254 Montgomery
+  backend.
+- Keep prover-shaped MSM specialization tied to measured benchmark artifacts.
 
 ## Finite Fields
 

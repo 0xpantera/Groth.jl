@@ -24,11 +24,17 @@ Depth = 2
 ## Implementation Notes
 
 - Coset FFT path is the default; dense vs coset parity is asserted to guard regressions.
-- Subset domains recover coefficients via barycentric interpolation before the FFT padding step until the domain alignment work completes.
+- Subset domains currently recover coefficients via barycentric interpolation
+  before the FFT padding step.
+- The latest prover optimization work is now focused on the remaining
+  specialization buckets surfaced by the Stage 8A `prove_full` baseline rather
+  than on broad backend replacement.
 
 ## Follow-ups
 
-- Align QAP domain population with arkworks, removing the interpolation shim.
+- Replace the remaining `BigInt`-based inversion and other low-level backend
+  escape hatches that still show up in the prover and pairing profiles.
+- Keep prover-shaped MSM work tied to the deterministic `prove_full` fixtures.
 - Investigate arkworks-style proof aggregation if bandwidth becomes a constraint.
 
 ## R1CS and QAP

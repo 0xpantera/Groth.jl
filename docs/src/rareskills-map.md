@@ -25,10 +25,13 @@ graph TD
 
 - **RareSkills chapters:** `finite-fields`, `multiplicative-subgroups`, `polynomial`, `inner-product-algebra`.
 - **Groth.jl counterparts:**
-  - `GrothAlgebra/FiniteFields.jl` defines `FiniteFieldElement` (BN254, secp256k1) using BigInt normalisation.
+  - `GrothAlgebra/FiniteFields.jl` defines `FiniteFieldElement` plus the
+    current fixed-width Montgomery BN254 field backend.
   - `GrothAlgebra/Polynomial.jl` implements Horner evaluation, interpolation, derivatives, and FFT scaffolding.
   - `GrothAlgebra/Group.jl` provides curve-agnostic group operations, w-NAF helpers, and MSM support.
-- **What changes in code:** we lean on `SVector` storage, windowed MSM, and FFT-friendly evaluation domains to feed the prover efficiently.
+- **What changes in code:** we lean on fixed-width limbs, concrete extension-field
+  storage, windowed MSM, and FFT-friendly evaluation domains to feed the prover
+  efficiently.
 
 ## Curves, Towers, and Pairings
 
@@ -45,7 +48,9 @@ graph TD
 - **Groth.jl counterparts:**
   - `GrothProofs/R1CS.jl` ships multiplication, sum-of-products, affine-product, and square-offset circuits plus randomised fixtures.
   - `GrothProofs/QAP.jl` records constraint points, constructs power-of-two domains, and currently recovers coefficients via barycentric interpolation before padding for the coset FFT.
-- **What changes in code:** the prover defaults to the coset quotient path, leaving the dense path as a parity assertion until domain alignment completes.
+- **What changes in code:** the prover defaults to the coset quotient path, and
+  the dense path survives only as a parity assertion. The current performance
+  work is now focused more on prover hot paths than on broad domain rewrites.
 
 ## Groth16 Pipeline
 
