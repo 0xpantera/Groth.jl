@@ -208,7 +208,7 @@ function compute_h_coset_path(qap::QAP{F}, u_poly, v_poly, w_poly, dense_len::In
         numerator = u_eval[i] * v_eval[i] - w_eval[i]
         h_eval[i] = numerator * vanishing_inv[i]
     end
-    coeffs = ifft(h_eval, coset)
+    coeffs = GrothAlgebra.ifft!(h_eval, coset)
     dense_len < length(coeffs) && (coeffs = coeffs[1:dense_len])
     return Polynomial{F}(coeffs)
 end
@@ -261,4 +261,3 @@ function assemble_c(pk::ProvingKey, A, B1_g1, H, L, r, s)
     g1_b_full = B1_g1 + scalar_mul(pk.delta_g1, field_to_int(s))
     return H + L + scalar_mul(g1_b_full, field_to_int(r)) + scalar_mul(A, field_to_int(s)) - rs_delta
 end
-

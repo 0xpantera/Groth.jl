@@ -148,6 +148,10 @@ Goal:
 Move `BN254Fr`-based polynomial and domain code onto the new scalar-field
 backend.
 
+Status:
+Completed on 2026-04-01 for the `EvaluationDomain`, FFT/IFFT helpers, and QAP
+coset recovery path.
+
 Scope:
 
 - adapt polynomial arithmetic
@@ -167,6 +171,26 @@ Exit Criteria:
 - polynomial tests and QAP tests pass unchanged
 - FFT/domain benchmarks remain correct and reproducible
 - no silent degree, domain-size, or truncation regressions
+
+Notes:
+
+- `EvaluationDomain` now caches stage roots and bit-reversal permutations so
+  repeated NTT calls stop rebuilding the same metadata.
+- `Polynomial.jl` now exposes internal in-place `fft!` / `ifft!` helpers and
+  uses them to avoid extra copies in interpolation and FFT multiplication.
+- `QAP.compute_h_polynomial` and the benchmarking helper path now reuse the
+  in-place inverse FFT on the coset quotient buffer instead of copying again.
+- Stage 3 introduced a dedicated `bn254_polynomials` benchmark family and plot
+  so polynomial/FFT work can be measured directly without relying on
+  `prove_full`.
+- The first Stage 3 artifact is `benchmarks/artifacts/2026-04-01_142526`,
+  with medians:
+  - `EvaluationDomain(32)`: `7.261 μs`
+  - `fft(32)`: `26.116 μs`
+  - `ifft(32)`: `33.129 μs`
+  - `interpolate_fft(16 -> 32)`: `28.576 μs`
+  - `fft_polynomial_multiply(16x16)`: `87.894 μs`
+  - `compute_h_polynomial`: `82.718 μs`
 
 ## Stage 4: Extension Tower Migration
 

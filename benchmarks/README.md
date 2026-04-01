@@ -18,6 +18,9 @@ This directory contains a self-contained BenchmarkTools environment and four scr
 - Direct BN254 primitive baseline
   - `BN254Fq` add / sub / mul / square / inv
   - `BN254Fr` add / sub / mul / square / inv
+  - `BN254Fr` polynomial/domain helpers: `EvaluationDomain`, `fft`, `ifft`,
+    `interpolate_fft`, `fft_polynomial_multiply`, `r1cs_to_qap`, and
+    `compute_h_polynomial`
   - `Fp2Element`, `Fp6Element`, and `Fp12Element` add / mul / square / inv
   - direct G1 and G2 scalar multiplication independent of external comparisons
 - Optional external BN254 primitive comparison against a sibling `py_ecc/`
@@ -58,7 +61,7 @@ Each JSON entry records:
 
 `plot.jl` produces the following visual comparisons (all using median timings):
 
-- Primitive baselines: `bn254_fq_ops.png`, `bn254_fr_ops.png`, `bn254_fp2_ops.png`, `bn254_fp6_ops.png`, `bn254_fp12_ops.png`, `bn254_scalar_mul.png`
+- Primitive baselines: `bn254_fq_ops.png`, `bn254_fr_ops.png`, `bn254_polynomials.png`, `bn254_fp2_ops.png`, `bn254_fp6_ops.png`, `bn254_fp12_ops.png`, `bn254_scalar_mul.png`
 - Microbenchmarks: `fixed_g1.png`, `fixed_g2.png`, `msm_g1.png`, `msm_g2.png`, `norm_g1.png`, `norm_g2.png`
 - External primitive comparison: `py_ecc_scalar.png`, `py_ecc_naive_accum_g1.png`, `py_ecc_naive_accum_g2.png`, `py_ecc_pairing.png`
 - Pairing comparisons: `pairing.png` (sequential vs batch), `pairing_ops.png` (miller loop / final exponent)
@@ -172,11 +175,18 @@ Use a fast developer profile when iterating on primitive/backend work:
 julia --project=. benchmarks/run.jl --profile=quick
 ```
 
+For Stage 3 polynomial/domain work, there is also a focused profile that keeps
+the primitive baseline plus the dedicated `BN254Fr` polynomial family:
+
+```
+julia --project=. benchmarks/run.jl --profile=stage3
+```
+
 Run a custom subset of groups when you need a tighter loop without changing the
 default full regression suite:
 
 ```
-julia --project=. benchmarks/run.jl --groups=bn254_primitives,pairing_micro
+julia --project=. benchmarks/run.jl --groups=bn254_primitives,bn254_polynomials,pairing_micro
 ```
 
 If the workspace also contains a sibling `../py_ecc/` checkout and `python3` is
@@ -217,9 +227,10 @@ julia --project=. benchmarks/report.jl --skip-run --threshold=10
 
 - BenchmarkTools excludes JIT compilation after the first execution. We also run explicit warmups before timing to avoid first-sample JIT.
 - `run.jl` defaults to the full benchmark suite. Use `--profile=quick` for a
-  tight feedback loop during primitive/backend optimization, or `--groups=...`
-  for exact family selection. The chosen profile/groups are recorded in
-  `_meta`.
+  tight feedback loop during primitive/backend optimization, use
+  `--profile=stage3` when specifically iterating on `BN254Fr`
+  polynomial/domain code, or use `--groups=...` for exact family selection.
+  The chosen profile/groups are recorded in `_meta`.
 - The optional `py_ecc` comparison runs inside a dedicated Python process that
   times only the primitive loops after import/setup; it is skipped automatically
   when the sibling `py_ecc/` checkout is absent.

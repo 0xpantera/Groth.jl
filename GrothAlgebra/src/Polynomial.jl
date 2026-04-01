@@ -497,6 +497,9 @@ struct EvaluationDomain{F<:FieldElem}
     offset::F
     offset_inv::F
     offset_pow_size::F
+    stage_roots::Vector{F}
+    stage_roots_inv::Vector{F}
+    bitreverse_perm::Vector{Int}
 end
 
 @inline function _ensure_offset(::Type{F}, offset) where F<:FieldElem
@@ -507,13 +510,42 @@ end
     return candidate
 end
 
+function stage_roots(generator::F, generator_inv::F, log_size::Int) where F<:FieldElem
+    roots = Vector{F}(undef, log_size)
+    roots_inv = Vector{F}(undef, log_size)
+    current = generator
+    current_inv = generator_inv
+    for s in log_size:-1:1
+        roots[s] = current
+        roots_inv[s] = current_inv
+        current *= current
+        current_inv *= current_inv
+    end
+    return roots, roots_inv
+end
+
+function bitreverse_permutation(size::Int)
+    perm = Vector{Int}(undef, size)
+    size > 1 || return fill!(perm, 1)
+    log_n = trailing_zeros(size)
+    width = UInt(sizeof(Int) * 8)
+    shift = width - UInt(log_n)
+    for i in 0:(size - 1)
+        perm[i + 1] = Int(Base.bitreverse(UInt(i)) >>> shift) + 1
+    end
+    return perm
+end
+
 function EvaluationDomain(::Type{F}, size::Int; offset=nothing) where F<:FieldElem
     size > 0 || throw(ArgumentError("Domain size must be positive"))
     ispow2(size) || throw(ArgumentError("Domain size must be a power of two"))
     log_size = trailing_zeros(size)
     ω = primitive_root_of_unity(F, log_size)
+    ω_inv = inv(ω)
     off = _ensure_offset(F, offset)
-    EvaluationDomain{F}(size, log_size, ω, inv(ω), inv(F(size)), off, inv(off), off^size)
+    stage_roots_fwd, stage_roots_inv = stage_roots(ω, ω_inv, log_size)
+    EvaluationDomain{F}(size, log_size, ω, ω_inv, inv(F(size)), off, inv(off), off^size,
+        stage_roots_fwd, stage_roots_inv, bitreverse_permutation(size))
 end
 
 function get_coset(domain::EvaluationDomain{F}, offset) where F<:FieldElem
@@ -528,6 +560,9 @@ function get_coset(domain::EvaluationDomain{F}, offset) where F<:FieldElem
         new_off,
         inv(new_off),
         new_off^domain.size,
+        domain.stage_roots,
+        domain.stage_roots_inv,
+        domain.bitreverse_perm,
     )
 end
 
@@ -535,16 +570,12 @@ coset_offset(domain::EvaluationDomain) = domain.offset
 coset_offset_inv(domain::EvaluationDomain) = domain.offset_inv
 coset_offset_pow_size(domain::EvaluationDomain) = domain.offset_pow_size
 
-function bitreverse!(values::Vector)
-    n = length(values)
-    n > 1 || return values
-    log_n = trailing_zeros(n)
-    width = UInt(sizeof(Int) * 8)
-    shift = width - UInt(log_n)
-    for i in 0:(n - 1)
-        j = Int(Base.bitreverse(UInt(i)) >>> shift)
+function bitreverse!(values::Vector, domain::EvaluationDomain)
+    length(values) == domain.size || throw(ArgumentError("Vector length mismatch for bitreverse permutation"))
+    for i in eachindex(values)
+        @inbounds j = domain.bitreverse_perm[i]
         if i < j
-            values[i + 1], values[j + 1] = values[j + 1], values[i + 1]
+            @inbounds values[i], values[j] = values[j], values[i]
         end
     end
     return values
@@ -562,66 +593,77 @@ end
 
 function ntt!(values::Vector{F}, domain::EvaluationDomain{F}; inverse::Bool=false) where F<:FieldElem
     length(values) == domain.size || throw(ArgumentError("Vector length mismatch for NTT domain"))
-    bitreverse!(values)
+    bitreverse!(values, domain)
     log_n = domain.log_size
-    root = inverse ? domain.generator_inv : domain.generator
+    stage_roots = inverse ? domain.stage_roots_inv : domain.stage_roots
     for s in 1:log_n
         m = 1 << s
         half = m >>> 1
-        w_m = root^(1 << (log_n - s))
-        k = 1
-        while k <= domain.size
+        @inbounds w_m = stage_roots[s]
+        for k in 1:m:domain.size
             w = one(F)
-            for j in 0:(half - 1)
-                u = values[k + j]
-                t = w * values[k + j + half]
-                values[k + j] = u + t
-                values[k + j + half] = u - t
+            @inbounds for j in 0:(half - 1)
+                lo = k + j
+                hi = lo + half
+                u = values[lo]
+                t = w * values[hi]
+                values[lo] = u + t
+                values[hi] = u - t
                 w *= w_m
             end
-            k += m
         end
     end
     if inverse
         inv_size = domain.size_inv
-        for i in 1:domain.size
+        @inbounds for i in 1:domain.size
             values[i] *= inv_size
         end
     end
     return values
 end
 
-function fft(coeffs::Vector{F}, domain::EvaluationDomain{F}) where F<:FieldElem
-    length(coeffs) <= domain.size || throw(ArgumentError(
-        "fft: coefficient vector length $(length(coeffs)) exceeds domain size $(domain.size); " *
-        "choose a larger EvaluationDomain or reduce polynomial degree",
-    ))
-    padded = Vector{F}(undef, domain.size)
-    fill!(padded, zero(F))
-    @inbounds for i in 1:length(coeffs)
-        padded[i] = coeffs[i]
-    end
-    scale_powers!(padded, domain.offset)
-    ntt!(padded, domain)
-    return padded
+function fft!(values::Vector{F}, domain::EvaluationDomain{F}) where F<:FieldElem
+    length(values) == domain.size || throw(ArgumentError("Vector length mismatch for FFT domain"))
+    scale_powers!(values, domain.offset)
+    ntt!(values, domain)
+    return values
 end
 
-function ifft(evals::Vector{F}, domain::EvaluationDomain{F}) where F<:FieldElem
-    values = copy(evals)
+function ifft!(values::Vector{F}, domain::EvaluationDomain{F}) where F<:FieldElem
+    length(values) == domain.size || throw(ArgumentError("Vector length mismatch for FFT domain"))
     ntt!(values, domain; inverse=true)
     scale_powers!(values, domain.offset_inv)
     return values
 end
 
+function padded_domain_buffer(values::Vector{F}, domain::EvaluationDomain{F}) where F<:FieldElem
+    length(values) <= domain.size || throw(ArgumentError(
+        "fft: coefficient vector length $(length(values)) exceeds domain size $(domain.size); " *
+        "choose a larger EvaluationDomain or reduce polynomial degree",
+    ))
+    buffer = Vector{F}(undef, domain.size)
+    n = length(values)
+    @inbounds copyto!(buffer, 1, values, 1, n)
+    if n < domain.size
+        fill!(view(buffer, (n + 1):domain.size), zero(F))
+    end
+    return buffer
+end
+
+function fft(coeffs::Vector{F}, domain::EvaluationDomain{F}) where F<:FieldElem
+    padded = padded_domain_buffer(coeffs, domain)
+    return fft!(padded, domain)
+end
+
+function ifft(evals::Vector{F}, domain::EvaluationDomain{F}) where F<:FieldElem
+    values = copy(evals)
+    return ifft!(values, domain)
+end
+
 function interpolate_fft(domain::EvaluationDomain{F}, values::Vector{F}) where F<:FieldElem
     length(values) <= domain.size || throw(ArgumentError("Too many evaluation points for domain"))
-    buffer = Vector{F}(undef, domain.size)
-    fill!(buffer, zero(F))
-    for i in 1:length(values)
-        buffer[i] = values[i]
-    end
-    coeffs = ifft(buffer, domain)
-    return Polynomial{F}(coeffs)
+    buffer = padded_domain_buffer(values, domain)
+    return Polynomial{F}(ifft!(buffer, domain))
 end
 
 """
@@ -642,8 +684,8 @@ function fft_polynomial_multiply(p::Polynomial{F}, q::Polynomial{F}) where F
         for i in 1:size
             a[i] *= b[i]
         end
-        coeffs = ifft(a, domain)
-        result_coeffs = coeffs[1:total_len]
+        ifft!(a, domain)
+        result_coeffs = a[1:total_len]
         return Polynomial{F}(result_coeffs)
     catch err
         if err isa ArgumentError

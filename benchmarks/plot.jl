@@ -156,6 +156,9 @@ function main()
     plot_single_ops(res, out_dir, :bn254_fr,
         ["add", "sub", "mul", "square", "inv"],
         "BN254 Fr primitive operations", "bn254_fr_ops.png")
+    plot_single_ops(res, out_dir, :bn254_polynomials,
+        ["domain_32", "fft_32", "ifft_32", "interpolate_16_on_32", "poly_mul_16x16", "qap_r1cs_to_qap", "qap_compute_h"],
+        "BN254 Fr polynomial and FFT helpers", "bn254_polynomials.png")
     plot_single_ops(res, out_dir, :bn254_fp2,
         ["add", "mul", "square", "inv"],
         "BN254 Fp2 primitive operations", "bn254_fp2_ops.png")

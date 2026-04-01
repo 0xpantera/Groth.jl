@@ -214,7 +214,7 @@ function compute_h_polynomial(qap::QAP{F}, witness::Witness{F}; use_coset::Bool=
         numerator = u_eval[i] * v_eval[i] - w_eval[i]
         h_eval[i] = numerator * vanishing_inv[i]
     end
-    coeffs = ifft(h_eval, coset)
+    coeffs = GrothAlgebra.ifft!(h_eval, coset)
     dense_len = length(dense_result.coeffs)
     dense_len < length(coeffs) && (coeffs = coeffs[1:dense_len])
     coset_result = Polynomial{F}(coeffs)
