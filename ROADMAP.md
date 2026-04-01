@@ -198,8 +198,8 @@ Goal:
 Rebuild `Fp2`, `Fp6`, and `Fp12` on top of the Montgomery base field.
 
 Status:
-Completed on 2026-04-01 for the BN254 `Fp2` / `Fp6` / `Fp12` tower and
-specialized nonresidue helpers.
+Completed on 2026-04-01 for the BN254 `Fp2` / `Fp6` / `Fp12` tower, concrete
+storage, and specialized nonresidue helpers.
 
 Scope:
 
@@ -223,10 +223,17 @@ Exit Criteria:
 
 Notes:
 
+- `Fp2Element`, `Fp6Element`, and `Fp12Element` now store concrete field
+  members instead of `SVector` wrappers.
+- `Fp6` now uses a dedicated `mul_fp2_by_nonresidue` helper for `xi = 9 + u`,
+  and `Fp12` uses a dedicated `mul_fp6_by_nonresidue` helper for `v = (0, 1,
+  0)`.
 - The first Stage 4 artifact is `benchmarks/artifacts/2026-04-01_145350`.
 - Relative to the Stage 3 baseline, it moved:
   - `Fp6 mul` from `2.324 μs` to `0.533 μs`
+  - `Fp6 square` from `11.919 μs` to `0.432 μs`
   - `Fp12 mul` from `19.527 μs` to `1.721 μs`
+  - `Fp12 inv` from `47.426 μs` to `6.995 μs`
   - `G2 scalar` from `446.993 μs` to `258.031 μs`
   - full `pairing` from `10.409 ms` to `3.843 ms`
 
