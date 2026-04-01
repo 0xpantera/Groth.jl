@@ -44,6 +44,7 @@ const BENCHMARK_PROFILES = Dict(
     "stage6" => [:bn254_primitives, :bn254_curve_kernels, :pairing_micro, :pairing_substeps],
     "stage7" => [:bn254_primitives, :variable_msm, :scalar_msm_tuning, :prove_full],
     "stage7a" => [:bn254_primitives, :glv_scalar_tuning],
+    "stage8" => [:prove_full],
     "primitives" => [:bn254_primitives, :pairing_micro, :py_ecc_primitives],
 )
 
@@ -114,6 +115,14 @@ end
 function serialize_affine(p::G2Point)
     x, y = to_affine(p)
     return Any[serialize_bn254(x), serialize_bn254(y)]
+end
+
+function serialize_proof(proof::Groth16Proof)
+    return Dict(
+        "A" => serialize_affine(proof.A),
+        "B" => serialize_affine(proof.B),
+        "C" => serialize_affine(proof.C),
+    )
 end
 
 # -----------------------------------------------------------------------------
@@ -1242,7 +1251,9 @@ function bench_prove_full(results)
 
         record_fixture_meta!(results, :prove_full, name, fixture_metadata(fixture))
 
-        _ = prove_full(pk, qap, witness; rng=MersenneTwister(prove_seed))
+        proof = prove_full(pk, qap, witness; rng=MersenneTwister(prove_seed))
+        verify_full(fixture.keypair.vk, proof, fixture.public_inputs) || error("prove_full fixture '$name' produced an invalid proof")
+        record_semantic!(results, :prove_full, name, merge(serialize_proof(proof), Dict("verified" => true)))
         tr_end = @benchmark prove_full($pk, $qap, $witness; rng=MersenneTwister($prove_seed)) seconds = 3 samples = 6
         print_stats("prove_full[$(name)] end", tr_end)
         record_fixture_trial!(results, :prove_full, name, "end_to_end", tr_end)
