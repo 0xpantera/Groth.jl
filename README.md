@@ -1,173 +1,139 @@
-```
-                    ╔═══════════════════════════════════════════════════╗
-                    ║                                                   ║
-                    ║    ▄████  ██▀███   ▒█████  ▄▄▄█████▓ ██░ ██     ║
-                    ║   ██▒ ▀█▒▓██ ▒ ██▒▒██▒  ██▒▓  ██▒ ▓▒▓██░ ██▒    ║
-                    ║  ▒██░▄▄▄░▓██ ░▄█ ▒▒██░  ██▒▒ ▓██░ ▒░▒██▀▀██░    ║
-                    ║  ░▓█  ██▓▒██▀▀█▄  ▒██   ██░░ ▓██▓ ░ ░▓█ ░██     ║
-                    ║  ░▒▓███▀▒░██▓ ▒██▒░ ████▓▒░  ▒██▒ ░ ░▓█▒░██▓    ║
-                    ║   ░▒   ▒ ░ ▒▓ ░▒▓░░ ▒░▒░▒░   ▒ ░░    ▒ ░░▒░▒    ║
-                    ║    ░   ░   ░▒ ░ ▒░  ░ ▒ ▒░     ░     ▒ ░▒░ ░    ║
-                    ║  ░ ░   ░   ░░   ░ ░ ░ ░ ▒    ░       ░  ░░ ░    ║
-                    ║        ░    ░         ░ ░             ░  ░  ░    ║
-                    ╚═══════════════════════════════════════════════════╝
-                          ∴‥∵‥∴ zkSNARK SUPREMACY ∴‥∵‥∴
-
-                    ░▒▓█►  ρяσνє єνєяутнιηg, яєνєαℓ ησтнιηg  ◄█▓▒░
-
-         ╔═════════════════════════════════════════════════════════════╗
-         ║  "In cryptography we trust, in zero-knowledge we thrive"   ║
-         ║              ∞ milady privacy maximalism ∞                 ║
-         ╚═════════════════════════════════════════════════════════════╝
-
-                        ▓▓▓▓▓▓▓   ▓▓▓▓▓▓▓
-                       ▓       ▓ ▓       ▓    ┌─────────────┐
-                       ▓  ╳ ╳  ▓ ▓  ╳ ╳  ▓    │ COMMITMENT  │
-                       ▓       ▓ ▓       ▓    │   HIDDEN    │
-                        ▓     ▓   ▓     ▓     │  KNOWLEDGE  │
-                         ▓▓▓▓▓     ▓▓▓▓▓      └─────────────┘
-                           ║         ║
-                        ═══╬═════════╬═══
-                           ║         ║
-                     ╔═════╩═════════╩═════╗
-                     ║  TRUSTED SETUP CULT  ║
-                     ╚═════════════════════╝
-```
-
 # Groth.jl
 
-Research-focused, modular implementation of the Groth16 zero-knowledge proof system in Julia.
-This repository explores cryptographic primitives (finite fields, curves, pairings) and the Groth16 protocol end-to-end in Julia. It is a research codebase and **not** production software.
+Groth.jl is a Julia research platform for **BN254 algebra, pairings, and
+Groth16**.
 
-## Repository layout
+It combines:
 
-```
+- inspectable finite-field, extension-field, curve, and pairing code
+- an end-to-end Groth16 setup / prove / verify pipeline
+- benchmark and profiling infrastructure for prover hot paths
+- Pluto-first educational material alongside performance-oriented engineering
+
+This repository is **research-grade, not production software**. The goals are
+clarity, mathematical correctness, REPL ergonomics, and serious performance
+work without hiding the underlying algebra.
+
+## What Is Implemented
+
+- **GrothAlgebra**
+  - BN254 `Fq` / `Fr` on a fixed-width Montgomery backend
+  - generic polynomial utilities, cached evaluation domains, FFT / inverse FFT
+  - variable-base MSM, fixed-base tables, and scalar-multiplication helpers
+- **GrothCurves**
+  - BN254 `Fp2` / `Fp6` / `Fp12`
+  - G1 / G2 Jacobian arithmetic and batch normalization
+  - optimal ate pairing with Miller loop and final exponentiation
+- **GrothProofs**
+  - R1CS and QAP conversion
+  - Groth16 setup, proving, verification, and prepared-verifier flow
+  - deterministic benchmark fixtures for `prove_full`
+- **Benchmarks and docs**
+  - reproducible JSON/PNG benchmark artifacts
+  - primitive comparisons against `py_ecc` and local arkworks harnesses
+  - roadmap and implementation notes tied to measured performance work
+
+## Current Status
+
+The project has moved well beyond a minimal Groth16 demo.
+
+- BN254 primitives no longer run on the original `BigInt` hot path; the main
+  backend is now Montgomery-based.
+- Primitive benchmarks currently beat `py_ecc` across the tracked BN254 suite.
+- The gap to arkworks has narrowed substantially, but arkworks is still ahead.
+- The current larger deterministic `prove_full` baseline is `28.873 ms` in
+  [benchmarks/artifacts/2026-04-01_223859](./benchmarks/artifacts/2026-04-01_223859),
+  down from the original `136.187 ms` baseline captured at the start of the
+  performance investigation.
+- The active roadmap has shifted from broad backend replacement to targeted
+  specialization: limb-native inversion, final-exponentiation work, safer G2
+  GLV exposure, prover-shaped MSM tuning, and then a fresh prover re-baseline.
+
+See [ROADMAP.md](./ROADMAP.md) for the staged backend history and remaining
+specialization work.
+
+## Repository Layout
+
+```text
 Groth.jl/
- ├── GrothAlgebra/   # finite fields, polynomials, group utilities
- ├── GrothCurves/    # BN254 curve + pairing engine
- ├── GrothProofs/    # R1CS, QAP, Groth16 prover/verifier
- ├── GrothExamples/  # Pluto notebooks and walkthroughs
- ├── GrothCrypto/    # placeholder for higher-level protocols
- ├── benchmarks/     # BenchmarkTools environment + plots
- └── docs/           # Roadmap, package reference, arkworks mapping
+├── GrothAlgebra/   # finite fields, polynomials, group utilities
+├── GrothCurves/    # BN254 tower fields, curve arithmetic, pairing engine
+├── GrothProofs/    # R1CS, QAP, Groth16 prover / verifier
+├── GrothExamples/  # Pluto notebooks and walkthroughs
+├── GrothCrypto/    # higher-level protocol space
+├── benchmarks/     # BenchmarkTools environment, plots, profiling scripts
+└── docs/           # reference docs, benchmarks, implementation notes
 ```
 
-- `docs/PACKAGE_REFERENCE.md` — per-package summary, key modules, follow-ups
-- `docs/Implementation_vs_Arkworks.md` — how our implementation compares to
-  arkworks (domains, MSM, pairing, Groth16 pipeline)
-- `docs/ROADMAP.md` — current priorities and completed milestones
-- `docs/RareSkills_Groth16_Map.md` — link between the RareSkills ZK book and
-  the Julia code
+The sibling repositories in the workspace, such as `ark-works/`, `py_ecc/`,
+and `zk-book/`, are reference checkouts. Active development happens in
+`Groth.jl/`.
 
-The sibling repositories `ark-works/` and `zk-book/` are reference checkouts
-only; all active work lives in `Groth.jl/`.
+## Quick Start
 
-## Getting started
-
-```
-# workspace setup (canonical)
+```bash
+# canonical workspace setup
 julia --project=. -e 'using Pkg; Pkg.instantiate(workspace=true)'
 
-# run all package tests (canonical)
+# canonical full validation
 julia --project=. scripts/test_all.jl
 
-# package-scoped alternatives (when needed)
+# package-scoped validation when intentionally narrowed
 julia --project=GrothAlgebra -e 'using Pkg; Pkg.test()'
+julia --project=GrothCurves -e 'using Pkg; Pkg.test()'
 julia --project=GrothProofs -e 'using Pkg; Pkg.test()'
 
-# benchmarks
-julia --project=. benchmarks/run.jl
+# benchmark harness
+julia --project=. benchmarks/run.jl --list-profiles
+julia --project=. benchmarks/run.jl --profile=quick
 julia --project=. benchmarks/plot.jl
+
+# docs
+julia --project=docs docs/make.jl
 ```
 
-Key tutorials live in `GrothExamples/` as Pluto notebooks (starting with
-`src/r1cs_qap_pluto.jl` and `src/r1cs_qap_groth_pluto.jl`).
+Key notebooks live in `GrothExamples/`, starting with:
 
-## Project status
+- `src/r1cs_qap_pluto.jl`
+- `src/r1cs_qap_groth_pluto.jl`
 
-- **GrothAlgebra** — prime fields, polynomial utilities, MSM helpers. Coset FFT
-  path uses coefficient-first padding; domain alignment with arkworks is the
-  next major task.
-- **GrothCurves** — BN254 tower, Jacobian curve ops, optimal ate pairing, and
-  a pairing-engine abstraction ready for additional curves.
-- **GrothProofs** — R1CS/QAP conversion, Groth16 setup/prove/verify mirroring
-  arkworks. Coset FFT path is default; dense path retained only for assertions.
-- **Benchmarks** — `benchmarks/results_2025-09-29_121914.json` captures the
-  current coset-enabled timings; plots regenerated via `benchmarks/plot.jl`.
+## Documentation Map
 
-See `docs/ROADMAP.md` for detailed milestones and follow-up work (domain
-alignment, MSM optimisations, second curve prototype, proof aggregation).
+- [ROADMAP.md](./ROADMAP.md) — staged BN254 backend roadmap and remaining work
+- [benchmarks/README.md](./benchmarks/README.md) — benchmark methodology and
+  current artifacts
+- [docs/src/benchmarks.md](./docs/src/benchmarks.md) — docs-site benchmark page
+- [docs/PACKAGE_REFERENCE.md](./docs/PACKAGE_REFERENCE.md) — package-level
+  reference and repository notes
+- [docs/Implementation_vs_Arkworks.md](./docs/Implementation_vs_Arkworks.md) —
+  structural comparison with arkworks
+- [docs/RareSkills_Groth16_Map.md](./docs/RareSkills_Groth16_Map.md) —
+  textbook-to-code mapping
 
-## Development guidelines
+## Performance Snapshot
 
-- Follow Julia style conventions: 4-space indent, `lowercase_with_underscores`
-  for functions, docstrings on exported methods, and dispatch-friendly
-  signatures that match existing APIs.
-- Run the relevant `Pkg.test()` suites and update benchmarks when performance
-  changes.
-- Use concise imperative commit messages (e.g., `groth16: align coset domain`).
-- Keep tutorial/docs in sync when user-visible output changes; the docs listed
-  above are the canonical references.
+Groth.jl now has two useful external reference points:
+
+- **vs `py_ecc`**: current primitive benchmarks put Groth.jl ahead across the
+  tracked BN254 scalar, accumulation, and pairing suite
+- **vs arkworks**: Groth.jl has narrowed the gap sharply since the initial
+  `BigInt` backend, but arkworks remains the stronger performance target
+
+This repo is therefore best understood as:
+
+- a serious Julia implementation of BN254 algebra, pairings, and Groth16
+- a research and optimization platform
+- not yet a drop-in replacement for a production Rust stack
+
+## Development Notes
+
+- Follow the repo and workspace `AGENTS.md` files.
+- Use `execplans/` for non-trivial work.
+- Keep benchmarks and docs in sync with user-visible behavior and measured
+  performance changes.
+- Prefer measured claims over aspirational ones.
 
 ## References
 
-- [arkworks](https://github.com/arkworks-rs) (Groth16 and algebra implementations)
+- [arkworks](https://github.com/arkworks-rs)
 - [RareSkills Zero Knowledge Book](https://github.com/zkCollective/zk-book)
-
-This repo explores cryptographic primitives (finite fields, curves, pairings) and the Groth16 protocol end-to-end in Julia.
-
-Note: This project is for research and experimentation. It is not intended for production use.
-
-## Project Structure
-
-This is a monorepo containing several interconnected Julia packages:
-
-### Core Packages
-
-- **[GrothAlgebra](./GrothAlgebra)** - Foundation package with finite field arithmetic, polynomial operations, and group theory primitives
-- **[GrothCurves](./GrothCurves)** - Elliptic curve implementations, focusing on BN254 (alt-bn128) with pairing support
-- **[GrothProofs](./GrothProofs)** - Zero-knowledge proof systems including R1CS, QAP conversion, and Groth16 implementation
-- **[GrothCrypto](./GrothCrypto)** - High-level cryptographic protocols built on top of the primitives
-- **[GrothExamples](./GrothExamples)** - Educational Pluto notebooks and demonstrations
-
-### Documentation & Tools
-
-- **[docs/](./docs)** - Project documentation including the RareSkills→Groth16 map and polishing roadmap
-- **[benchmarks/](./benchmarks)** - Performance benchmarks across packages
-
-## Status Overview
-
-- Algebra (GrothAlgebra)
-  - Prime fields (Fp) and scalar field (Fr) implementations; polynomial arithmetic with interpolation and evaluation.
-  - FFT/NTT and roots-of-unity domain planned (not yet implemented).
-- Curves & Pairing (GrothCurves)
-  - BN254 G1/G2 with Fp2/Fp6/Fp12 tower, optimal ate Miller loop, and final exponentiation.
-  - Pairing engine abstraction (`AbstractPairingEngine`, `BN254Engine`) to support future curves while keeping BN254 optimized.
-- Proofs (GrothProofs)
-  - R1CS and QAP conversion in Fr; end-to-end Groth16 (CRS, prover, verifier) aligned with arkworks structure and equations.
-  - Verifier enforces on-curve and subgroup checks; prepared verifier path batches pairings through the engine interface.
-- Examples (GrothExamples)
-  - Notebook-based walkthroughs (starting with toy R1CS -> QAP in Pluto).
-
-## Roadmap Highlights
-
-- Grow curve/generalization support: extend the pairing-engine interface to additional curves and trait-style abstractions.
-- FFT/NTT + roots-of-unity domain for QAP and faster polynomial ops.
-- MSM, fixed-base tables, and threaded hot paths for the prover plus batch normalization of CRS elements.
-- Documentation polish: Documenter.jl site, Pluto notebooks, and contributor guides for multiple dispatch patterns.
-
-## Pairing Engine Interface
-
-- Depend on `AbstractPairingEngine` (re-exported by `GrothCurves`) when writing code that needs pairings. The interface consists of `miller_loop`, `final_exponentiation`, `pairing`, and `pairing_batch` methods specialised on an engine type parameterised by the curve family.
-- `BN254Engine` is the default zero-sized backend; use the explicit form `pairing(BN254_ENGINE, P, Q)` or pass `engine=BN254_ENGINE` into helpers such as `GrothProofs.setup_full`. Convenience overloads without the engine argument remain available for interactive use.
-- The engine test harness lives in `GrothCurves/test/test_pairing_engine_interface.jl` and checks zero-handling, bilinearity, and batch pairing consistency. Mirror those checks when introducing additional engines.
-
-## Development
-
-- This is a research project: APIs may evolve. Not for production use.
-- Each package is a standalone Julia project with its own tests and docs.
-
-## References
-
-- arkworks-rs (groth16, algebra, relations)
-- RareSkills ZK Book
