@@ -100,6 +100,22 @@ using GrothAlgebra
         @test c1[3] == zero(Fp2Element)
     end
 
+    @testset "Sparse line multiplication" begin
+        P = scalar_mul(g1_generator(), BigInt(19))
+        Q = scalar_mul(g2_generator(), BigInt(23))
+        T = scalar_mul(Q, BigInt(5))
+        _, coeffs = doubling_step(T)
+        P_x, P_y = to_affine(P)
+
+        line_value = evaluate_line(coeffs, P)
+        c0, c3, c4 = GrothCurves.evaluate_line_coeffs(coeffs, P_x, P_y)
+        @test mul_by_034(one(Fp12Element), c0, c3, c4) == line_value
+
+        acc = miller_loop(P, Q)
+        @test GrothCurves.mul_by_line(acc, coeffs, P_x, P_y) == acc * line_value
+        @test evaluate_line(coeffs, P_x, P_y) == line_value
+    end
+
     @testset "Miller loop basic" begin
         # Test with identity elements
         P = zero(G1Point)

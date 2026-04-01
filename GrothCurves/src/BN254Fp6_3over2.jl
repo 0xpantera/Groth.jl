@@ -90,6 +90,40 @@ function Base.:*(a::Fp6Element, b::Fp6Element)
 end
 
 """
+    mul_by_1(a::Fp6Element, c1::Fp2Element)
+
+Multiply an `Fp6Element` by the sparse element `c1 * v`.
+"""
+function mul_by_1(a::Fp6Element, c1::Fp2Element)
+    bb = a.c1 * c1
+
+    t1 = c1 * (a.c1 + a.c2) - bb
+    t1 = mul_fp2_by_nonresidue(t1)
+
+    t2 = c1 * (a.c0 + a.c1) - bb
+
+    return Fp6Element(t1, t2, bb)
+end
+
+"""
+    mul_by_01(a::Fp6Element, c0::Fp2Element, c1::Fp2Element)
+
+Multiply an `Fp6Element` by the sparse element `c0 + c1 * v`.
+"""
+function mul_by_01(a::Fp6Element, c0::Fp2Element, c1::Fp2Element)
+    aa = a.c0 * c0
+    bb = a.c1 * c1
+
+    t1 = c1 * (a.c1 + a.c2) - bb
+    t1 = mul_fp2_by_nonresidue(t1) + aa
+
+    t3 = c0 * (a.c0 + a.c2) - aa + bb
+    t2 = (c0 + c1) * (a.c0 + a.c1) - aa - bb
+
+    return Fp6Element(t1, t2, t3)
+end
+
+"""
     square(a::Fp6Element)
 
 Square an `Fp6Element` using the optimized sextic formula.
@@ -171,4 +205,4 @@ function Base.show(io::IO, a::Fp6Element)
 end
 
 # Export types and functions
-export Fp6Element, FQ6_NONRESIDUE, mul_fp2_by_nonresidue, square
+export Fp6Element, FQ6_NONRESIDUE, mul_fp2_by_nonresidue, mul_by_1, mul_by_01, square
