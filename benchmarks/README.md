@@ -23,6 +23,7 @@ This directory contains a self-contained BenchmarkTools environment and four scr
     `compute_h_polynomial`
   - `Fp2Element`, `Fp6Element`, and `Fp12Element` add / mul / square / inv
   - direct G1 and G2 scalar multiplication independent of external comparisons
+  - direct G1/G2 add, double, and `to_affine` curve kernels
 - Optional external BN254 primitive comparison against a sibling `py_ecc/`
   checkout
   - G1 scalar multiplication
@@ -61,7 +62,7 @@ Each JSON entry records:
 
 `plot.jl` produces the following visual comparisons (all using median timings):
 
-- Primitive baselines: `bn254_fq_ops.png`, `bn254_fr_ops.png`, `bn254_polynomials.png`, `bn254_fp2_ops.png`, `bn254_fp6_ops.png`, `bn254_fp12_ops.png`, `bn254_scalar_mul.png`
+- Primitive baselines: `bn254_fq_ops.png`, `bn254_fr_ops.png`, `bn254_polynomials.png`, `bn254_fp2_ops.png`, `bn254_fp6_ops.png`, `bn254_fp12_ops.png`, `bn254_scalar_mul.png`, `bn254_curve_kernels.png`
 - Microbenchmarks: `fixed_g1.png`, `fixed_g2.png`, `msm_g1.png`, `msm_g2.png`, `norm_g1.png`, `norm_g2.png`
 - External primitive comparison: `py_ecc_scalar.png`, `py_ecc_naive_accum_g1.png`, `py_ecc_naive_accum_g2.png`, `py_ecc_pairing.png`
 - Pairing comparisons: `pairing.png` (sequential vs batch), `pairing_ops.png` (miller loop / final exponent)
@@ -182,6 +183,14 @@ the primitive baseline plus the dedicated `BN254Fr` polynomial family:
 julia --project=. benchmarks/run.jl --profile=stage3
 ```
 
+For Stage 5 curve-kernel and normalization work, use the dedicated curve
+profile or the exact groups directly:
+
+```
+julia --project=. benchmarks/run.jl --profile=stage5
+julia --project=. benchmarks/run.jl --groups=bn254_curve_kernels,batch_norm
+```
+
 Run a custom subset of groups when you need a tighter loop without changing the
 default full regression suite:
 
@@ -229,8 +238,9 @@ julia --project=. benchmarks/report.jl --skip-run --threshold=10
 - `run.jl` defaults to the full benchmark suite. Use `--profile=quick` for a
   tight feedback loop during primitive/backend optimization, use
   `--profile=stage3` when specifically iterating on `BN254Fr`
-  polynomial/domain code, or use `--groups=...` for exact family selection.
-  The chosen profile/groups are recorded in `_meta`.
+  polynomial/domain code, use `--profile=stage5` when iterating on direct
+  G1/G2 curve kernels and batch normalization, or use `--groups=...` for exact
+  family selection. The chosen profile/groups are recorded in `_meta`.
 - The optional `py_ecc` comparison runs inside a dedicated Python process that
   times only the primitive loops after import/setup; it is skipped automatically
   when the sibling `py_ecc/` checkout is absent.

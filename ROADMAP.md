@@ -197,6 +197,10 @@ Notes:
 Goal:
 Rebuild `Fp2`, `Fp6`, and `Fp12` on top of the Montgomery base field.
 
+Status:
+Completed on 2026-04-01 for the BN254 `Fp2` / `Fp6` / `Fp12` tower and
+specialized nonresidue helpers.
+
 Scope:
 
 - replace wrapper-heavy tower arithmetic with fixed-width field operations
@@ -217,10 +221,23 @@ Exit Criteria:
 - Frobenius-based identities hold
 - extension-field benchmarks improve materially, especially on `Fp2` and `Fp12`
 
+Notes:
+
+- The first Stage 4 artifact is `benchmarks/artifacts/2026-04-01_145350`.
+- Relative to the Stage 3 baseline, it moved:
+  - `Fp6 mul` from `2.324 μs` to `0.533 μs`
+  - `Fp12 mul` from `19.527 μs` to `1.721 μs`
+  - `G2 scalar` from `446.993 μs` to `258.031 μs`
+  - full `pairing` from `10.409 ms` to `3.843 ms`
+
 ## Stage 5: G1 And G2 Curve Arithmetic Migration
 
 Goal:
 Move curve points and hot group operations onto the new field backend.
+
+Status:
+Completed on 2026-04-01 for the shared Jacobian kernels, direct curve-kernel
+benchmarks, and lower-allocation `batch_to_affine!` paths.
 
 Scope:
 
@@ -239,6 +256,27 @@ Exit Criteria:
 - deterministic scalar multiplication outputs match the oracle
 - G1 and G2 primitive benchmarks move materially in the right direction
 - current serialization and subgroup expectations remain valid
+
+Notes:
+
+- Stage 5 added a dedicated `bn254_curve_kernels` benchmark family plus the
+  `stage5` benchmark profile so curve arithmetic and normalization can be
+  remeasured without running the full suite.
+- The first Stage 5 artifact is `benchmarks/artifacts/2026-04-01_154740`.
+- Relative to the Stage 4 artifact `2026-04-01_145350`, it moved:
+  - `G1 scalar` from `190.685 μs` to `105.483 μs`
+  - `G2 scalar` from `258.031 μs` to `226.369 μs`
+  - full `pairing` from `3.843 ms` to `3.892 ms`
+- The new direct curve-kernel medians are:
+  - `G1 double`: `4.630 μs`
+  - `G1 add`: `4.755 μs`
+  - `G1 to_affine`: `2.361 μs`
+  - `G2 double`: `8.544 μs`
+  - `G2 add`: `7.687 μs`
+  - `G2 to_affine`: `4.133 μs`
+- For batch normalization at `N = 128`, the same artifact records:
+  - `G1 batch_to_affine!`: `25.262 μs` vs per-point `386.911 μs`
+  - `G2 batch_to_affine!`: `87.669 μs` vs per-point `658.845 μs`
 
 ## Stage 6: Pairing Engine Migration
 
