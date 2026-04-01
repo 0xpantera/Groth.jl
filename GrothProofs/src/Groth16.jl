@@ -17,7 +17,7 @@ using Random
 
 Convert a field element to an `Integer` scalar for use with `scalar_mul`.
 """
-_to_int(x) = Integer(x.value)
+_to_int(x) = convert(BigInt, x)
 
 @inline function _rand_field(::Type{F}, rng::AbstractRNG) where F
     F === BN254Fr || throw(ArgumentError("No CSPRNG-ready sampler configured for field $F"))

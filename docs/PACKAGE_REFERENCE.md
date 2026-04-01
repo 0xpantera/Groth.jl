@@ -11,8 +11,9 @@ annotated rather than discarded), and follow-ups.
   polynomial and group utilities consumed by higher-level packages.
 
 **Key modules**
-- `src/FiniteFields.jl` — BigInt-backed prime fields with normalization,
-  `invmod`, `powermod`, display helpers, and `GaloisField{p}` for prime `p`.
+- `src/FiniteFields.jl` — prime-field semantics plus the current default
+  `BigInt` backend, with normalization, `invmod`, `powermod`, canonical integer
+  conversion, display helpers, and `GaloisField{p}` for prime `p`.
 - `src/Polynomial.jl` — Degree/leading-coefficient management, Horner
   evaluation, Lagrange interpolation, derivative, FFT scaffolding.
 - `src/Group.jl` — Generic group/curve interface with scalar multiplication,
@@ -104,6 +105,13 @@ annotated rather than discarded), and follow-ups.
 
 - Immediate: align QAP domain population with arkworks.
 - Stretch: proof aggregation, pairing optimisations, second curve prototype.
+
+## Backend Migration Notes
+
+- The current BN254 field layer still uses a `BigInt` default backend, but
+  Stage 1 of the Montgomery roadmap extracts the backend boundary so future
+  fixed-width field implementations can slot in without tying higher-level
+  semantics to `.value::BigInt`.
 
 ---
 

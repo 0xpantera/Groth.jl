@@ -140,9 +140,9 @@ frobenius(a::Fp2Element) = conjugate(a)
 # Display
 function Base.show(io::IO, a::Fp2Element)
     if iszero(a[2])
-        print(io, "Fp2(", a[1].value, ")")
+        print(io, "Fp2(", convert(BigInt, a[1]), ")")
     else
-        print(io, "Fp2(", a[1].value, " + ", a[2].value, "*u)")
+        print(io, "Fp2(", convert(BigInt, a[1]), " + ", convert(BigInt, a[2]), "*u)")
     end
 end
 
