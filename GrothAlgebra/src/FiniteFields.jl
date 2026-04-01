@@ -381,6 +381,9 @@ end
 canonical_bigint(x::T) where {T<:MontgomeryFiniteFieldElement} =
     limbs_to_bigint(montgomery_decode_limbs(T, montgomery_storage(x)))
 
+@inline canonical_limbs(x::T) where {T<:MontgomeryFiniteFieldElement} =
+    montgomery_decode_limbs(T, montgomery_storage(x))
+
 Base.iszero(x::T) where {T<:MontgomeryFiniteFieldElement} = montgomery_storage(x) == zero_limbs()
 Base.isone(x::T) where {T<:MontgomeryFiniteFieldElement} = montgomery_storage(x) == montgomery_one_limbs(T)
 

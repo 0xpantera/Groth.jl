@@ -280,6 +280,113 @@ function _multi_scalar_mul_pippenger(points::Vector{G}, scalars::Vector{S}, max_
     return result
 end
 
+function multi_scalar_mul(points::Vector{G}, scalars::Vector{BN254Fr}) where {C,G<:GroupElem{C}}
+    if length(points) != length(scalars)
+        throw(ArgumentError("Points and scalars must have the same length"))
+    end
+
+    isempty(points) && throw(ArgumentError("Cannot compute multi-scalar multiplication of empty vectors"))
+
+    if length(points) == 1
+        return scalar_mul(points[1], scalars[1])
+    end
+
+    scalar_limbs = Vector{NTuple{4,UInt64}}(undef, length(scalars))
+    max_bits = 0
+    @inbounds for i in eachindex(scalars)
+        limbs = canonical_limbs(scalars[i])
+        scalar_limbs[i] = limbs
+        max_bits = max(max_bits, _limbs_bit_length(limbs))
+    end
+
+    if max_bits == 0
+        return zero(points[1])
+    end
+
+    if length(points) < MSM_PIPPENGER_THRESHOLD
+        return _multi_scalar_mul_straus(points, scalar_limbs, max_bits)
+    end
+
+    return _multi_scalar_mul_pippenger(points, scalar_limbs, max_bits, _pippenger_window(G, length(points)))
+end
+
+function _multi_scalar_mul_straus(points::Vector{<:GroupElem{C}}, scalars::Vector{NTuple{4,UInt64}}, max_bits::Int) where C
+    if max_bits == 0
+        return zero(points[1])
+    end
+
+    result = zero(points[1])
+
+    for bit_pos in (max_bits - 1):-1:0
+        result = result + result
+
+        @inbounds for i in eachindex(points, scalars)
+            if _limbs_testbit(scalars[i], bit_pos)
+                result = result + points[i]
+            end
+        end
+    end
+
+    return result
+end
+
+function _multi_scalar_mul_pippenger(points::Vector{G}, scalars::Vector{NTuple{4,UInt64}}, max_bits::Int, window::Int) where {C,G<:GroupElem{C}}
+    normalized_points = Vector{G}(undef, length(points))
+    normalized_scalars = Vector{NTuple{4,UInt64}}(undef, length(scalars))
+    nonzero_count = 0
+
+    @inbounds for i in eachindex(points, scalars)
+        limbs = scalars[i]
+        _limbs_iszero(limbs) && continue
+        nonzero_count += 1
+        normalized_points[nonzero_count] = points[i]
+        normalized_scalars[nonzero_count] = limbs
+    end
+
+    if nonzero_count == 0
+        return zero(points[1])
+    elseif nonzero_count == 1
+        return scalar_mul(normalized_points[1], _bn254fr_from_canonical_limbs(normalized_scalars[1]))
+    elseif nonzero_count < MSM_PIPPENGER_THRESHOLD
+        resize!(normalized_points, nonzero_count)
+        resize!(normalized_scalars, nonzero_count)
+        return _multi_scalar_mul_straus(normalized_points, normalized_scalars, max_bits)
+    end
+
+    resize!(normalized_points, nonzero_count)
+    resize!(normalized_scalars, nonzero_count)
+
+    bucket_count = (1 << window) - 1
+    num_windows = cld(max_bits, window)
+    zero_point = zero(points[1])
+    buckets = fill(zero_point, bucket_count)
+    result = zero_point
+
+    for window_index in (num_windows - 1):-1:0
+        for _ in 1:window
+            result = result + result
+        end
+
+        fill!(buckets, zero_point)
+        shift = window_index * window
+
+        @inbounds for i in eachindex(normalized_points, normalized_scalars)
+            digit = _limbs_window_digit(normalized_scalars[i], shift, window)
+            if digit != 0
+                buckets[digit] = buckets[digit] + normalized_points[i]
+            end
+        end
+
+        running_sum = zero_point
+        @inbounds for bucket_index in bucket_count:-1:1
+            running_sum = running_sum + buckets[bucket_index]
+            result = result + running_sum
+        end
+    end
+
+    return result
+end
+
 @inline _pippenger_window(::Type{<:GroupElem}, size::Int) = _default_pippenger_window(size)
 
 @inline function _default_pippenger_window(size::Int)
@@ -296,6 +403,86 @@ end
     s == 0 && return 0
     return ndigits(abs(s), base=2)
 end
+
+@inline _limbs_iszero(limbs::NTuple{4,UInt64}) = limbs == zero_limbs()
+@inline _limbs_isone(limbs::NTuple{4,UInt64}) = limbs == (UInt64(1), UInt64(0), UInt64(0), UInt64(0))
+
+@inline function _limbs_bit_length(limbs::NTuple{4,UInt64})
+    @inbounds for i in MONT_LIMB_COUNT:-1:1
+        limb = limbs[i]
+        limb == 0 && continue
+        return (i - 1) * MONT_WORD_BITS + (MONT_WORD_BITS - leading_zeros(limb))
+    end
+    return 0
+end
+
+@inline _bit_length(s::BN254Fr) = _limbs_bit_length(canonical_limbs(s))
+
+@inline function _limbs_testbit(limbs::NTuple{4,UInt64}, bit::Int)
+    bit < 0 && return false
+    limb_index = (bit >>> 6) + 1
+    limb_index > MONT_LIMB_COUNT && return false
+    offset = bit & 63
+    return ((limbs[limb_index] >> offset) & UInt64(1)) == UInt64(1)
+end
+
+@inline function _limbs_window_digit(limbs::NTuple{4,UInt64}, shift::Int, width::Int)
+    digit = 0
+    @inbounds for bit_offset in 0:(width - 1)
+        bit = shift + bit_offset
+        limb_index = (bit >>> 6) + 1
+        limb_index > MONT_LIMB_COUNT && break
+        offset = bit & 63
+        digit |= Int((limbs[limb_index] >> offset) & UInt64(1)) << bit_offset
+    end
+    return digit
+end
+
+@inline function _limbs_sub_small(limbs::NTuple{4,UInt64}, small::UInt64)
+    out = MVector{4,UInt64}(undef)
+    @inbounds for i in 1:4
+        out[i] = limbs[i]
+    end
+    borrow = small
+    @inbounds for i in 1:MONT_LIMB_COUNT
+        borrow == 0 && break
+        prev = out[i]
+        out[i] = prev - borrow
+        borrow = prev < borrow ? UInt64(1) : UInt64(0)
+    end
+    borrow == 0 || throw(ArgumentError("underflow while subtracting small digit from scalar limbs"))
+    return (out[1], out[2], out[3], out[4])
+end
+
+@inline function _limbs_add_small(limbs::NTuple{4,UInt64}, small::UInt64)
+    out = MVector{4,UInt64}(undef)
+    @inbounds for i in 1:4
+        out[i] = limbs[i]
+    end
+    carry = small
+    @inbounds for i in 1:MONT_LIMB_COUNT
+        carry == 0 && break
+        prev = out[i]
+        out[i] = prev + carry
+        carry = out[i] < prev ? UInt64(1) : UInt64(0)
+    end
+    carry == 0 || throw(ArgumentError("overflow while adding small digit to scalar limbs"))
+    return (out[1], out[2], out[3], out[4])
+end
+
+@inline function _limbs_shift_right_one(limbs::NTuple{4,UInt64})
+    out = MVector{4,UInt64}(undef)
+    carry = UInt64(0)
+    @inbounds for i in MONT_LIMB_COUNT:-1:1
+        limb = limbs[i]
+        out[i] = (limb >> 1) | (carry << 63)
+        carry = limb & UInt64(1)
+    end
+    return (out[1], out[2], out[3], out[4])
+end
+
+@inline _bn254fr_from_canonical_limbs(limbs::NTuple{4,UInt64}) =
+    construct_montgomery(BN254Fr, montgomery_encode_limbs(BN254Fr, limbs))
 
 # w-NAF (windowed Non-Adjacent Form) utilities
 
@@ -344,6 +531,39 @@ function wnaf_encode(k::Integer, w::Int=4)
     return k >= 0 ? naf : -naf
 end
 
+function wnaf_encode(k::BN254Fr, w::Int=4)
+    if w < 2
+        throw(ArgumentError("Window size must be at least 2"))
+    end
+
+    limbs = canonical_limbs(k)
+    _limbs_iszero(limbs) && return [0]
+
+    naf = Int[]
+    width_mask = UInt64((1 << w) - 1)
+
+    while !_limbs_iszero(limbs)
+        if isodd(limbs[1])
+            digit = Int(limbs[1] & width_mask)
+            if digit >= (1 << (w - 1))
+                digit -= (1 << w)
+            end
+            push!(naf, digit)
+            if digit >= 0
+                limbs = _limbs_sub_small(limbs, UInt64(digit))
+            else
+                limbs = _limbs_add_small(limbs, UInt64(-digit))
+            end
+        else
+            push!(naf, 0)
+        end
+
+        limbs = _limbs_shift_right_one(limbs)
+    end
+
+    return naf
+end
+
 """
     scalar_mul_wnaf(P::GroupElem{C}, k::Integer, w::Int=4) where C
 
@@ -390,6 +610,65 @@ function scalar_mul_wnaf(P::GroupElem{C}, k::Integer, w::Int=4) where C
         end
     end
 
+    return result
+end
+
+function scalar_mul_wnaf(P::GroupElem{C}, k::BN254Fr, w::Int=4) where C
+    if iszero(k)
+        return zero(P)
+    elseif isone(k)
+        return P
+    end
+
+    max_odd = (1 << (w - 1)) - 1
+    precomputed = Vector{typeof(P)}(undef, max_odd)
+    precomputed[1] = P
+
+    if max_odd > 1
+        P2 = P + P
+        for i in 2:max_odd
+            precomputed[i] = precomputed[i - 1] + P2
+        end
+    end
+
+    naf = wnaf_encode(k, w)
+    result = zero(P)
+
+    for i in length(naf):-1:1
+        result = result + result
+
+        digit = naf[i]
+        if digit > 0
+            result = result + precomputed[div(digit + 1, 2)]
+        elseif digit < 0
+            result = result + (-precomputed[div(-digit + 1, 2)])
+        end
+    end
+
+    return result
+end
+
+function scalar_mul(P::GroupElem{C}, k::BN254Fr) where C
+    if iszero(k)
+        return zero(P)
+    elseif isone(k)
+        return P
+    end
+
+    bits = _bit_length(k)
+    w = _scalar_mul_window(typeof(P), bits)
+    if w > 0
+        return scalar_mul_wnaf(P, k, w)
+    end
+
+    limbs = canonical_limbs(k)
+    result = zero(P)
+    for bit_pos in (bits - 1):-1:0
+        result = result + result
+        if _limbs_testbit(limbs, bit_pos)
+            result = result + P
+        end
+    end
     return result
 end
 
@@ -456,12 +735,37 @@ function mul_fixed(table::FixedBaseTable{G}, k::Integer) where {G<:GroupElem}
     return acc
 end
 
+function mul_fixed(table::FixedBaseTable{G}, k::BN254Fr) where {G<:GroupElem}
+    if iszero(k)
+        return zero(table.precomp[1])
+    elseif isone(k)
+        return table.precomp[1]
+    end
+
+    naf = wnaf_encode(k, table.window)
+    acc = zero(table.precomp[1])
+    for i in length(naf):-1:1
+        acc = acc + acc
+        d = naf[i]
+        if d > 0
+            acc = acc + table.precomp[div(d + 1, 2)]
+        elseif d < 0
+            acc = acc + (-table.precomp[div(-d + 1, 2)])
+        end
+    end
+    return acc
+end
+
 """
     batch_mul(table::FixedBaseTable{G}, scalars::Vector{<:Integer}) where {G<:GroupElem}
 
 Compute `kᵢ · base` for each scalar in `scalars` via a shared fixed-base table.
 """
 function batch_mul(table::FixedBaseTable{G}, scalars::Vector{<:Integer}) where {G<:GroupElem}
+    return [mul_fixed(table, ki) for ki in scalars]
+end
+
+function batch_mul(table::FixedBaseTable{G}, scalars::Vector{BN254Fr}) where {G<:GroupElem}
     return [mul_fixed(table, ki) for ki in scalars]
 end
 
