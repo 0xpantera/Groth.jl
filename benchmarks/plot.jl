@@ -149,6 +149,26 @@ function main()
     println("Loading ", canonical_results)
     res = load_results(canonical_results)
 
+    # Primitive field/tower/scalar groups
+    plot_single_ops(res, out_dir, :bn254_fq,
+        ["add", "sub", "mul", "square", "inv"],
+        "BN254 Fq primitive operations", "bn254_fq_ops.png")
+    plot_single_ops(res, out_dir, :bn254_fr,
+        ["add", "sub", "mul", "square", "inv"],
+        "BN254 Fr primitive operations", "bn254_fr_ops.png")
+    plot_single_ops(res, out_dir, :bn254_fp2,
+        ["add", "mul", "square", "inv"],
+        "BN254 Fp2 primitive operations", "bn254_fp2_ops.png")
+    plot_single_ops(res, out_dir, :bn254_fp6,
+        ["add", "mul", "square", "inv"],
+        "BN254 Fp6 primitive operations", "bn254_fp6_ops.png")
+    plot_single_ops(res, out_dir, :bn254_fp12,
+        ["add", "mul", "square", "inv"],
+        "BN254 Fp12 primitive operations", "bn254_fp12_ops.png")
+    plot_single_ops(res, out_dir, :bn254_scalar_mul,
+        ["g1", "g2"],
+        "BN254 scalar multiplication", "bn254_scalar_mul.png")
+
     # Fixed-base / MSM / normalization
     plot_group(res, out_dir, :fixed_g1, "Fixed-base G1 (median)", ["naive", "batch"], "fixed_g1.png")
     plot_group(res, out_dir, :fixed_g2, "Fixed-base G2 (median)", ["naive", "batch"], "fixed_g2.png")

@@ -18,6 +18,15 @@ the latest artefacts.
    julia --project=. benchmarks/run.jl
    ```
 
+   For a faster developer loop during primitive/backend work, use a filtered
+   profile or an explicit group list:
+
+   ```bash
+   julia --project=. benchmarks/run.jl --list-profiles
+   julia --project=. benchmarks/run.jl --profile=quick
+   julia --project=. benchmarks/run.jl --groups=bn254_primitives,pairing_micro
+   ```
+
 3. Regenerate plots (latest run by default, or pass a run id / JSON file):
 
    ```bash
@@ -47,16 +56,22 @@ the latest artefacts.
    ```
 
 The harness writes a timestamped JSON (raw statistics) and PNG charts covering
-MSM, pairing, normalisation, Groth16 end-to-end timings, and `prove_full`
-fixture breakdowns. The profiling script writes text profiler dumps under the
-same artifact tree, but profiling remains a separate workflow from reproducible
-timing baselines.
+direct BN254 field and tower primitives, scalar multiplication, MSM, pairing,
+normalisation, Groth16 end-to-end timings, and `prove_full` fixture breakdowns.
+The profiling script writes text profiler dumps under the same artifact tree,
+but profiling remains a separate workflow from reproducible timing baselines.
 
 When the workspace also includes a sibling `py_ecc/` checkout and `python3` is
 available, the benchmark run additionally records matched BN254 primitive
 comparisons against `py_ecc` for G1/G2 scalar multiplication, naive
 variable-base accumulation, and a single pairing. These are primitive-only
 comparisons; they are not end-to-end Groth16 prover comparisons.
+
+The benchmark artifact also contains a `_semantic` section with deterministic
+serialized outputs for the Stage 0 BN254 primitive fixtures. Those records are
+not plotted, but they are kept so future backend migrations can compare exact
+results alongside timing data. The `_meta` section records whether the run was
+the default full suite or a filtered benchmark profile.
 
 ## Latest Snapshot (2025‑09‑29)
 

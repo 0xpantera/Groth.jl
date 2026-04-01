@@ -5,6 +5,7 @@ using Test
     
     # Test finite fields
     include("test_finite_fields.jl")
+    include("test_bn254_field_oracles.jl")
     
     # Test group operations
     include("test_groups.jl")

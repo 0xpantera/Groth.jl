@@ -2,7 +2,7 @@
 
 This directory contains a self-contained BenchmarkTools environment and four scripts:
 
-- `run.jl` — runs a suite of microbenchmarks and end-to-end timings, saving a JSON summary
+- `run.jl` — runs the benchmark suite, with support for fast filtered profiles, and saves a JSON summary
 - `plot.jl` — reads the latest (or given) JSON and renders comparison plots
 - `compare.jl` — compares two JSON snapshots and flags regressions above a threshold
 - `report.jl` — orchestrates run + plot + compare(latest-1 vs latest) and writes a Markdown report
@@ -15,6 +15,11 @@ This directory contains a self-contained BenchmarkTools environment and four scr
   - `batch_mul` (precomputed) vs `scalar_mul` loop for generating N points
 - Variable-base MSM (prover hot path)
   - `multi_scalar_mul` (MSM) vs naive accumulation for N bases/scalars
+- Direct BN254 primitive baseline
+  - `BN254Fq` add / sub / mul / square / inv
+  - `BN254Fr` add / sub / mul / square / inv
+  - `Fp2Element`, `Fp6Element`, and `Fp12Element` add / mul / square / inv
+  - direct G1 and G2 scalar multiplication independent of external comparisons
 - Optional external BN254 primitive comparison against a sibling `py_ecc/`
   checkout
   - G1 scalar multiplication
@@ -53,6 +58,7 @@ Each JSON entry records:
 
 `plot.jl` produces the following visual comparisons (all using median timings):
 
+- Primitive baselines: `bn254_fq_ops.png`, `bn254_fr_ops.png`, `bn254_fp2_ops.png`, `bn254_fp6_ops.png`, `bn254_fp12_ops.png`, `bn254_scalar_mul.png`
 - Microbenchmarks: `fixed_g1.png`, `fixed_g2.png`, `msm_g1.png`, `msm_g2.png`, `norm_g1.png`, `norm_g2.png`
 - External primitive comparison: `py_ecc_scalar.png`, `py_ecc_naive_accum_g1.png`, `py_ecc_naive_accum_g2.png`, `py_ecc_pairing.png`
 - Pairing comparisons: `pairing.png` (sequential vs batch), `pairing_ops.png` (miller loop / final exponent)
@@ -154,6 +160,25 @@ Run benchmarks (prints stats and saves a JSON):
 julia --project=. benchmarks/run.jl
 ```
 
+List the built-in profiles and benchmark groups:
+
+```
+julia --project=. benchmarks/run.jl --list-profiles
+```
+
+Use a fast developer profile when iterating on primitive/backend work:
+
+```
+julia --project=. benchmarks/run.jl --profile=quick
+```
+
+Run a custom subset of groups when you need a tighter loop without changing the
+default full regression suite:
+
+```
+julia --project=. benchmarks/run.jl --groups=bn254_primitives,pairing_micro
+```
+
 If the workspace also contains a sibling `../py_ecc/` checkout and `python3` is
 available, `run.jl` will additionally record matched BN254 primitive timings for
 Groth.jl vs `py_ecc`. This is a primitive-only comparison, not a Groth16 prover
@@ -191,9 +216,17 @@ julia --project=. benchmarks/report.jl --skip-run --threshold=10
 ## Notes
 
 - BenchmarkTools excludes JIT compilation after the first execution. We also run explicit warmups before timing to avoid first-sample JIT.
+- `run.jl` defaults to the full benchmark suite. Use `--profile=quick` for a
+  tight feedback loop during primitive/backend optimization, or `--groups=...`
+  for exact family selection. The chosen profile/groups are recorded in
+  `_meta`.
 - The optional `py_ecc` comparison runs inside a dedicated Python process that
   times only the primitive loops after import/setup; it is skipped automatically
   when the sibling `py_ecc/` checkout is absent.
+- The benchmark artifact now also records deterministic semantic outputs for the
+  Stage 0 primitive fixtures under the `_semantic` key; plotting/reporting
+  ignores these entries, but they serve as a baseline record for future backend
+  migrations.
 - Fixed-base timings are split between table build (one-time cost per base) and `batch_mul` (per vector). In setup we build once and reuse across A/B/C/H/L/IC.
 - Consider fixing `JULIA_NUM_THREADS` when comparing runs; record CPU/machine info for fair comparisons.
 - JSON now contains numeric fields in seconds for easier downstream processing while keeping the human-readable `TrialEstimate` strings.

@@ -7,6 +7,7 @@ using Test
 
     # Extension field arithmetic
     include("test_extension_fields.jl")
+    include("test_bn254_primitive_oracles.jl")
 
     # Miller loop components
     include("test_miller_loop.jl")
