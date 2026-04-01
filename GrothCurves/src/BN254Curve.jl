@@ -13,8 +13,31 @@ const BN254_ORDER_R = parse(BigInt, "2188824287183927522224640574525727508854836
 const G1Point = ProjectivePoint{BN254Curve, BN254Fq}
 const G2Point = ProjectivePoint{BN254Curve, Fp2Element}
 
-# Small G2 MSMs benefit from a narrower window than the generic default.
-_pippenger_window(::Type{G2Point}, size::Int) = size < 32 ? 2 : ((ndigits(size, base = 2) - 1) * 69) ÷ 100 + 2
+# Stage 7 tuning on the Montgomery backend found that BN254 MSMs prefer
+# smaller windows than the generic schedule at the benchmark sizes we exercise
+# in the prover and benchmark suite. G2 prover query MSMs are especially
+# sensitive at small sizes, where the real prove_full workload prefers w=2.
+function _pippenger_window(::Type{G1Point}, size::Int)
+    if size <= 32
+        return 3
+    elseif size <= 128
+        return 5
+    elseif size >= 512
+        return 6
+    end
+    return GrothAlgebra._default_pippenger_window(size)
+end
+
+function _pippenger_window(::Type{G2Point}, size::Int)
+    if size <= 32
+        return 2
+    elseif size <= 128
+        return 5
+    elseif size >= 512
+        return 6
+    end
+    return GrothAlgebra._default_pippenger_window(size)
+end
 
 # Single-point scalar multiplication uses the same generic API, but BN254
 # points benefit from a tuned w-NAF window instead of the binary fallback.
