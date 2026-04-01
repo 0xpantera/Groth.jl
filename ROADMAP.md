@@ -58,13 +58,16 @@ Completed stages:
 - Stage 6: pairing engine migration
 - Stage 7: MSM and scalar-mul specialization
 - Stage 7A: BN254 GLV scalar multiplication
+- Stage 8: `prove_full` integration and regression baseline
+- Stage 8A: BN254Fr-native prover scalar plumbing
 
 Next concrete work:
 
-- finish Stage 8 follow-through on the end-to-end `prove_full` baseline
-- then target the remaining prover bottlenecks revealed by that baseline,
-  starting from the MSM-heavy buckets rather than assuming the next win is in
-  final proof assembly
+- target the remaining measured `BigInt` / GMP work that still appears after
+  Stage 8A, starting with limb-native inversion and final-exponentiation
+  specialization
+- then re-evaluate the next highest-value prover bottleneck from the updated
+  `prove_full` profile instead of assuming the next win is only in MSM
 
 Stage 8 remains the end-to-end `prove_full` integration and regression
 baseline stage.
@@ -547,6 +550,49 @@ Notes:
 - The Stage 8 baseline therefore updated the hotspot ranking successfully, but
   it did not yet satisfy the “total `prove_full` time drops materially” exit
   criterion on the primary larger fixture.
+
+### Stage 8A Follow-Through: BN254Fr-Native Prover Scalar Plumbing
+
+Goal:
+Eliminate the `BN254Fr -> BigInt` scalar bounce from the prover and setup hot
+paths, then measure whether that plumbing change moves the real `prove_full`
+baseline.
+
+Status:
+Completed on 2026-04-02.
+
+Deliverables:
+
+- direct `BN254Fr` scalar support in `scalar_mul`, `multi_scalar_mul`, and
+  fixed-base batch multiplication
+- prover/setup/benchmark wiring that uses `BN254Fr` scalars directly instead of
+  converting through `BigInt`
+- a dedicated scalar-plumbing benchmark comparing `BigInt` and native
+  `BN254Fr` prover workloads
+- a refreshed `prove_full` baseline and profile tied to the new scalar path
+
+Notes:
+
+- The dedicated scalar-plumbing comparison lives in
+  `benchmarks/artifacts/2026-04-01_223814`.
+- The full Stage 8A re-baseline artifact is
+  `benchmarks/artifacts/2026-04-01_223859`.
+- Relative to the first Stage 8 baseline
+  (`benchmarks/artifacts/2026-04-01_220953`):
+  - `generated_24_constraints` `prove_full` improved from `30.088 ms` to
+    `28.873 ms` (`-4.0%`)
+  - `msm_b_g2` improved from `4.714 ms` to `4.334 ms` (`-8.1%`)
+  - `h_msm` improved from `7.805 ms` to `7.036 ms` (`-9.9%`)
+  - `l_msm` improved from `4.210 ms` to `3.856 ms` (`-8.4%`)
+  - `final_c` improved from `3.001 ms` to `2.804 ms` (`-6.6%`)
+  - the tiny continuity fixture regressed slightly (`8.248 ms -> 8.614 ms`),
+    which is acceptable because the larger deterministic fixture is the primary
+    optimization target
+- The Stage 8A `prove_full` profile no longer contains `canonical_bigint` or
+  `limbs_to_bigint` in the main `generated_24_constraints` prover dump, which
+  confirms that the hot prover scalar conversions were removed successfully.
+- `BigInt` / GMP activity still exists elsewhere in the backend, so the scalar
+  plumbing win is not the end of the gap-to-arkworks story.
 
 ## Stage 9: Parallelism, SIMD, And Optional Accelerators
 

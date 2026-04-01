@@ -124,6 +124,33 @@ function plot_single_ops(results::AbstractDict, out_dir::String, key::Symbol, or
     png(joinpath(out_dir, outfile))
 end
 
+function plot_scalar_plumbing_summary(results::AbstractDict, out_dir::String)
+    ops = [
+        ("scalar_plumbing_g1_scalar", "G1 scalar"),
+        ("scalar_plumbing_g2_scalar", "G2 scalar"),
+        ("scalar_plumbing_a_query_msm", "A query MSM"),
+        ("scalar_plumbing_b2_query_msm", "B2 query MSM"),
+        ("scalar_plumbing_h_msm", "H MSM"),
+        ("scalar_plumbing_l_msm", "L MSM"),
+    ]
+
+    present = [(key, label) for (key, label) in ops if haskey(results, key)]
+    isempty(present) && return
+
+    data = [median_ms(results[key][series]) for series in ("bigint", "bn254fr"), (key, _) in present]
+    groupedbar(
+        [label for (_, label) in present],
+        permutedims(data),
+        bar_position=:dodge,
+        legend=:topleft,
+        title="BN254Fr scalar plumbing: BigInt vs field scalars",
+        ylabel="median time (ms)",
+        label=["bigint" "bn254fr"],
+        xrotation=20,
+    )
+    png(joinpath(out_dir, "scalar_plumbing.png"))
+end
+
 function plot_prove_full_breakdowns(results::AbstractDict, out_dir::String)
     group = get(results, "prove_full", nothing)
     group === nothing && return
@@ -198,6 +225,7 @@ function main()
     plot_group(res, out_dir, :msm_tuning_g2, "MSM tuning G2 (median)",
         ["straus", "auto", "pippenger_w2", "pippenger_w3", "pippenger_w4", "pippenger_w5", "pippenger_w6"],
         "msm_tuning_g2.png")
+    plot_scalar_plumbing_summary(res, out_dir)
     plot_group(res, out_dir, :norm_g1, "Batch norm G1 (median)", ["each", "batch"], "norm_g1.png")
     plot_group(res, out_dir, :norm_g2, "Batch norm G2 (median)", ["each", "batch"], "norm_g2.png")
     plot_categorical_group(res, out_dir, :py_ecc_scalar, ["g1", "g2"], ["groth_jl", "py_ecc"],

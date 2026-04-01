@@ -45,6 +45,10 @@ This directory contains a self-contained BenchmarkTools environment and four scr
   - larger deterministic fixture: `generated_24_constraints`
   - end-to-end prove time plus subphases for witness scalar conversion, query MSMs,
     `compute_h_polynomial`, `H` MSM, `L` MSM, and final `C` assembly
+- Stage 8A prover scalar plumbing comparison
+  - direct `BigInt` vs native `BN254Fr` comparisons for prover-like scalar
+    multiplication and MSM workloads on the deterministic `generated_24_constraints`
+    fixture
 
 Microbenchmarks run at sizes N ∈ {32, 128, 512}. Results are printed with min/median/mean and memory, and artifacts are saved under:
 
@@ -64,7 +68,7 @@ Each JSON entry records:
 
 `plot.jl` produces the following visual comparisons (all using median timings):
 
-- Primitive baselines: `bn254_fq_ops.png`, `bn254_fr_ops.png`, `bn254_polynomials.png`, `bn254_fp2_ops.png`, `bn254_fp6_ops.png`, `bn254_fp12_ops.png`, `bn254_scalar_mul.png`, `bn254_glv_scalar_g1.png`, `bn254_glv_scalar_g2.png`, `bn254_curve_kernels.png`
+- Primitive baselines: `bn254_fq_ops.png`, `bn254_fr_ops.png`, `bn254_polynomials.png`, `bn254_fp2_ops.png`, `bn254_fp6_ops.png`, `bn254_fp12_ops.png`, `bn254_scalar_mul.png`, `bn254_glv_scalar_g1.png`, `bn254_glv_scalar_g2.png`, `bn254_curve_kernels.png`, `scalar_plumbing.png`
 - Microbenchmarks: `fixed_g1.png`, `fixed_g2.png`, `msm_g1.png`, `msm_g2.png`, `norm_g1.png`, `norm_g2.png`
 - External primitive comparison: `py_ecc_scalar.png`, `py_ecc_naive_accum_g1.png`, `py_ecc_naive_accum_g2.png`, `py_ecc_pairing.png`
 - Pairing comparisons: `pairing.png` (sequential vs batch), `pairing_ops.png` (miller loop / final exponent)
@@ -207,6 +211,14 @@ For the Stage 8 prover re-baseline, use the dedicated `prove_full` profile:
 julia --project=. benchmarks/run.jl --profile=stage8
 ```
 
+For the Stage 8A prover scalar-plumbing follow-through, use the dedicated
+profile or the exact group directly:
+
+```
+julia --project=. benchmarks/run.jl --profile=stage8a
+julia --project=. benchmarks/run.jl --groups=scalar_plumbing
+```
+
 Run a custom subset of groups when you need a tighter loop without changing the
 default full regression suite:
 
@@ -269,6 +281,46 @@ The Stage 8 result is therefore mixed: the new backend made final proof
 assembly meaningfully cheaper, but the primary larger fixture stayed flat
 overall because the MSM-heavy prover buckets did not improve with it.
 
+## Stage 8A Snapshot (2026-04-02)
+
+- Scalar-plumbing comparison:
+  `artifacts/2026-04-01_223814/results/benchmark_results.json`
+- Full re-baseline:
+  `artifacts/2026-04-01_223859/results/benchmark_results.json`
+- Profiles:
+  `artifacts/2026-04-01_223859/profiles/`
+
+This follow-through removes the prover’s hot `BN254Fr -> BigInt` scalar
+roundtrips and compares the old and new scalar paths directly before rerunning
+the Stage 8 `prove_full` fixture set.
+
+Scalar-plumbing comparison on the main deterministic fixture:
+
+- `scalar_mul(delta_g1, r)`: `0.737 ms -> 0.720 ms`
+- `scalar_mul(delta_g2, s)`: `2.442 ms -> 2.355 ms`
+- `A_query` MSM: `3.019 ms -> 2.937 ms`
+- `B_query_g2` MSM: `4.477 ms -> 4.299 ms`
+- `H` MSM: `7.198 ms -> 7.128 ms`
+- `L` MSM: `3.993 ms -> 3.873 ms`
+
+Relative to the first Stage 8 `prove_full` baseline
+`artifacts/2026-04-01_220953/results/benchmark_results.json`:
+
+- `generated_24_constraints`
+  - `prove_full` end-to-end: `30.088 ms -> 28.873 ms` (`-4.0%`)
+  - `msm_b_g2`: `4.714 ms -> 4.334 ms` (`-8.1%`)
+  - `h_msm`: `7.805 ms -> 7.036 ms` (`-9.9%`)
+  - `l_msm`: `4.210 ms -> 3.856 ms` (`-8.4%`)
+  - `final_c`: `3.001 ms -> 2.804 ms` (`-6.6%`)
+- `sum_of_products_small`
+  - `prove_full` end-to-end: `8.248 ms -> 8.614 ms` (`+4.4%`)
+
+The key profiler result is that the Stage 8A
+`prove_full_generated_24_constraints.txt` dump no longer contains
+`canonical_bigint` or `limbs_to_bigint`. The prover still creates `BigInt`s
+elsewhere, but the hot prover scalar conversions identified in Stage 8 have now
+been removed from the main `prove_full` path.
+
 Generate a full report (run -> plot -> compare) for latest run:
 
 ```
@@ -283,8 +335,9 @@ julia --project=. benchmarks/report.jl --skip-run --threshold=10
   tight feedback loop during primitive/backend optimization, use
   `--profile=stage3` when specifically iterating on `BN254Fr`
   polynomial/domain code, use `--profile=stage5` when iterating on direct
-  G1/G2 curve kernels and batch normalization, or use `--groups=...` for exact
-  family selection. The chosen profile/groups are recorded in `_meta`.
+  G1/G2 curve kernels and batch normalization, use `--profile=stage8a` when
+  iterating on prover scalar plumbing, or use `--groups=...` for exact family
+  selection. The chosen profile/groups are recorded in `_meta`.
 - The optional `py_ecc` comparison runs inside a dedicated Python process that
   times only the primitive loops after import/setup; it is skipped automatically
   when the sibling `py_ecc/` checkout is absent.

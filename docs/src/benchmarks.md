@@ -28,9 +28,11 @@ the latest artefacts.
    julia --project=. benchmarks/run.jl --profile=stage5
    julia --project=. benchmarks/run.jl --profile=stage7a
    julia --project=. benchmarks/run.jl --profile=stage8
+   julia --project=. benchmarks/run.jl --profile=stage8a
    julia --project=. benchmarks/run.jl --groups=bn254_primitives,bn254_polynomials,pairing_micro
    julia --project=. benchmarks/run.jl --groups=bn254_curve_kernels,batch_norm
    julia --project=. benchmarks/run.jl --groups=glv_scalar_tuning
+   julia --project=. benchmarks/run.jl --groups=scalar_plumbing
    ```
 
 3. Regenerate plots (latest run by default, or pass a run id / JSON file):
@@ -64,7 +66,7 @@ the latest artefacts.
 The harness writes a timestamped JSON (raw statistics) and PNG charts covering
 direct BN254 field and tower primitives, direct G1/G2 add-double-affine kernels,
 BN254 `Fr` polynomial/domain helpers, scalar multiplication, the Stage 7A GLV
-scalar sweep, MSM, pairing,
+scalar sweep, the Stage 8A prover scalar-plumbing comparison, MSM, pairing,
 normalisation, Groth16 end-to-end timings, and `prove_full` fixture
 breakdowns.
 The profiling script writes text profiler dumps under the same artifact tree,
@@ -110,6 +112,41 @@ fixture stayed effectively flat:
 So the backend rewrite clearly reduced final proof assembly cost, but the
 current prover baseline says the next real wins still need to come from the
 MSM-heavy prover buckets rather than from `final_c`.
+
+## Stage 8A Snapshot (2026‑04‑02)
+
+The Stage 8A scalar-plumbing follow-through artifacts are:
+
+- `benchmarks/artifacts/2026-04-01_223814/results/benchmark_results.json`
+- `benchmarks/artifacts/2026-04-01_223859/results/benchmark_results.json`
+
+Stage 8A removed the prover’s hot `BN254Fr -> BigInt` scalar conversions and
+then reran the `prove_full` baseline.
+
+On the direct scalar-plumbing comparison for the main deterministic fixture:
+
+- `scalar_mul(delta_g1, r)`: `0.737 ms -> 0.720 ms`
+- `scalar_mul(delta_g2, s)`: `2.442 ms -> 2.355 ms`
+- `A_query` MSM: `3.019 ms -> 2.937 ms`
+- `B_query_g2` MSM: `4.477 ms -> 4.299 ms`
+- `H` MSM: `7.198 ms -> 7.128 ms`
+- `L` MSM: `3.993 ms -> 3.873 ms`
+
+Relative to the first Stage 8 `prove_full` baseline (`2026-04-01_220953`):
+
+- `generated_24_constraints`
+  - `prove_full`: `30.088 ms -> 28.873 ms`
+  - `msm_b_g2`: `4.714 ms -> 4.334 ms`
+  - `h_msm`: `7.805 ms -> 7.036 ms`
+  - `l_msm`: `4.210 ms -> 3.856 ms`
+  - `final_c`: `3.001 ms -> 2.804 ms`
+- `sum_of_products_small`
+  - `prove_full`: `8.248 ms -> 8.614 ms`
+
+The most important profiler result is qualitative as well as quantitative: the
+main Stage 8A `prove_full` dump no longer contains `canonical_bigint` or
+`limbs_to_bigint`. The prover still creates `BigInt`s elsewhere, but the
+measured hot prover scalar-conversion path identified in Stage 8 is now gone.
 
 ## Latest Snapshot (2025‑09‑29)
 
