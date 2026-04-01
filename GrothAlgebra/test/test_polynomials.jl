@@ -213,6 +213,17 @@ using Test
         @test recovered == coeffs
     end
 
+    @testset "In-place FFT helpers" begin
+        coeffs = [bn254_fr(i) for i in 0:7]
+        domain = EvaluationDomain(BN254Fr, 8)
+        fft_buffer = copy(coeffs)
+        GrothAlgebra.fft!(fft_buffer, domain)
+        @test fft_buffer == fft(coeffs, domain)
+
+        recovered = GrothAlgebra.ifft!(copy(fft_buffer), domain)
+        @test recovered == coeffs
+    end
+
     @testset "FFT polynomial multiply" begin
         p = Polynomial([bn254_fr(1), bn254_fr(2), bn254_fr(3)])
         q = Polynomial([bn254_fr(4), bn254_fr(5)])
