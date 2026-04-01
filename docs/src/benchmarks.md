@@ -27,6 +27,7 @@ the latest artefacts.
    julia --project=. benchmarks/run.jl --profile=stage3
    julia --project=. benchmarks/run.jl --profile=stage5
    julia --project=. benchmarks/run.jl --profile=stage7a
+   julia --project=. benchmarks/run.jl --profile=stage8
    julia --project=. benchmarks/run.jl --groups=bn254_primitives,bn254_polynomials,pairing_micro
    julia --project=. benchmarks/run.jl --groups=bn254_curve_kernels,batch_norm
    julia --project=. benchmarks/run.jl --groups=glv_scalar_tuning
@@ -68,6 +69,9 @@ normalisation, Groth16 end-to-end timings, and `prove_full` fixture
 breakdowns.
 The profiling script writes text profiler dumps under the same artifact tree,
 but profiling remains a separate workflow from reproducible timing baselines.
+For the Stage 8 prover baseline specifically, the benchmark fixtures now prove
+once, assert `verify_full`, and record deterministic proof points in the
+artifact `_semantic` section before any timing starts.
 
 When the workspace also includes a sibling `py_ecc/` checkout and `python3` is
 available, the benchmark run additionally records matched BN254 primitive
@@ -77,10 +81,35 @@ comparisons; they are not end-to-end Groth16 prover comparisons.
 
 The benchmark artifact also contains a `_semantic` section with deterministic
 serialized outputs for the BN254 primitive fixtures and direct curve-kernel
-fixtures. Those records are not plotted, but they are kept so future backend
+fixtures. The Stage 8 `prove_full` fixture run adds deterministic proof-point
+outputs there as well. Those records are not plotted, but they are kept so future backend
 migrations can compare exact results alongside timing data. The `_meta` section
 records whether the run was the default full suite or a filtered benchmark
 profile.
+
+## Stage 8 Snapshot (2026‑04‑01)
+
+The current Stage 8 prover re-baseline artifact is:
+
+- `benchmarks/artifacts/2026-04-01_220953/results/benchmark_results.json`
+
+Relative to the last pre-Stage-8 `prove_full` baseline
+(`2026-04-01_174156`), the continuity fixture improved but the primary larger
+fixture stayed effectively flat:
+
+- `sum_of_products_small`
+  - `prove_full`: `9.219 ms -> 8.248 ms`
+  - `final_c`: `4.015 ms -> 2.983 ms`
+- `generated_24_constraints`
+  - `prove_full`: `30.045 ms -> 30.088 ms`
+  - `final_c`: `4.072 ms -> 3.001 ms`
+  - `msm_b_g2`: `4.509 ms -> 4.714 ms`
+  - `h_msm`: `7.310 ms -> 7.805 ms`
+  - `l_msm`: `3.989 ms -> 4.210 ms`
+
+So the backend rewrite clearly reduced final proof assembly cost, but the
+current prover baseline says the next real wins still need to come from the
+MSM-heavy prover buckets rather than from `final_c`.
 
 ## Latest Snapshot (2025‑09‑29)
 

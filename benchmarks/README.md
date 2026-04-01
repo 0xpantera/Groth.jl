@@ -201,6 +201,12 @@ julia --project=. benchmarks/run.jl --profile=stage7a
 julia --project=. benchmarks/run.jl --groups=glv_scalar_tuning
 ```
 
+For the Stage 8 prover re-baseline, use the dedicated `prove_full` profile:
+
+```
+julia --project=. benchmarks/run.jl --profile=stage8
+```
+
 Run a custom subset of groups when you need a tighter loop without changing the
 default full regression suite:
 
@@ -234,6 +240,34 @@ Profile the `prove_full` path on the deterministic fixtures and save profiler te
 julia --project=. benchmarks/profile_prove_full.jl
 julia --project=. benchmarks/profile_prove_full.jl --run-id=2026-03-05_144036 --fixture=sum_of_products_small --repetitions=75
 ```
+
+## Stage 8 Snapshot (2026-04-01)
+
+- JSON summary:
+  `artifacts/2026-04-01_220953/results/benchmark_results.json`
+- Profiles:
+  `artifacts/2026-04-01_220953/profiles/`
+- This run is the first end-to-end `prove_full` baseline on the merged
+  Stage 7A backend, with benchmark fixtures now proving once, checking
+  `verify_full`, and recording deterministic proof points under `_semantic`
+  before timing begins.
+
+Key deltas versus the pre-Stage-8 baseline
+`artifacts/2026-04-01_174156/results/benchmark_results.json`:
+
+- `sum_of_products_small`
+  - `prove_full` end-to-end: `9.219 ms -> 8.248 ms` (`-10.5%`)
+  - `final_c`: `4.015 ms -> 2.983 ms` (`-25.7%`)
+- `generated_24_constraints`
+  - `prove_full` end-to-end: `30.045 ms -> 30.088 ms` (`+0.1%`)
+  - `final_c`: `4.072 ms -> 3.001 ms` (`-26.3%`)
+  - `msm_b_g2`: `4.509 ms -> 4.714 ms` (`+4.5%`)
+  - `h_msm`: `7.310 ms -> 7.805 ms` (`+6.8%`)
+  - `l_msm`: `3.989 ms -> 4.210 ms` (`+5.5%`)
+
+The Stage 8 result is therefore mixed: the new backend made final proof
+assembly meaningfully cheaper, but the primary larger fixture stayed flat
+overall because the MSM-heavy prover buckets did not improve with it.
 
 Generate a full report (run -> plot -> compare) for latest run:
 
