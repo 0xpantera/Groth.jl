@@ -166,6 +166,21 @@ end
             @test g1 - zero(G1Point) == g1
             @test zero(G1Point) - g1 == -g1
         end
+
+        @testset "Batch normalization" begin
+            p = double(scalar_mul(g1_generator(), 5))
+            q = double(scalar_mul(g1_generator(), 7))
+            pts = [p, zero(G1Point), q]
+            expected = [iszero(point) ? nothing : to_affine(point) for point in pts]
+
+            GrothCurves.batch_to_affine!(pts)
+
+            @test z_coord(pts[1]) == one(BN254Fq)
+            @test iszero(pts[2])
+            @test z_coord(pts[3]) == one(BN254Fq)
+            @test to_affine(pts[1]) == expected[1]
+            @test to_affine(pts[3]) == expected[3]
+        end
     end
     
     @testset "G2 Point Operations" begin
@@ -178,7 +193,7 @@ end
             # Test generator point
             g2 = g2_generator()
             @test !iszero(g2)
-            # Note: is_on_curve not implemented for G2 yet
+            @test is_on_curve(g2)
         end
         
         @testset "Point addition" begin
@@ -259,6 +274,21 @@ end
             for scalar in (benchmark_scalar(301), benchmark_scalar(302), large_scalar, -large_scalar)
                 @test scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar)
             end
+        end
+
+        @testset "Batch normalization" begin
+            p = double(scalar_mul(g2_generator(), 5))
+            q = double(scalar_mul(g2_generator(), 7))
+            pts = [p, zero(G2Point), q]
+            expected = [iszero(point) ? nothing : to_affine(point) for point in pts]
+
+            GrothCurves.batch_to_affine!(pts)
+
+            @test z_coord(pts[1]) == one(Fp2Element)
+            @test iszero(pts[2])
+            @test z_coord(pts[3]) == one(Fp2Element)
+            @test to_affine(pts[1]) == expected[1]
+            @test to_affine(pts[3]) == expected[3]
         end
     end
     

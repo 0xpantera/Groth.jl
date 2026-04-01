@@ -25,7 +25,9 @@ the latest artefacts.
    julia --project=. benchmarks/run.jl --list-profiles
    julia --project=. benchmarks/run.jl --profile=quick
    julia --project=. benchmarks/run.jl --profile=stage3
+   julia --project=. benchmarks/run.jl --profile=stage5
    julia --project=. benchmarks/run.jl --groups=bn254_primitives,bn254_polynomials,pairing_micro
+   julia --project=. benchmarks/run.jl --groups=bn254_curve_kernels,batch_norm
    ```
 
 3. Regenerate plots (latest run by default, or pass a run id / JSON file):
@@ -57,9 +59,10 @@ the latest artefacts.
    ```
 
 The harness writes a timestamped JSON (raw statistics) and PNG charts covering
-direct BN254 field and tower primitives, BN254 `Fr` polynomial/domain helpers,
-scalar multiplication, MSM, pairing, normalisation, Groth16 end-to-end timings,
-and `prove_full` fixture breakdowns.
+direct BN254 field and tower primitives, direct G1/G2 add-double-affine kernels,
+BN254 `Fr` polynomial/domain helpers, scalar multiplication, MSM, pairing,
+normalisation, Groth16 end-to-end timings, and `prove_full` fixture
+breakdowns.
 The profiling script writes text profiler dumps under the same artifact tree,
 but profiling remains a separate workflow from reproducible timing baselines.
 
@@ -70,10 +73,11 @@ variable-base accumulation, and a single pairing. These are primitive-only
 comparisons; they are not end-to-end Groth16 prover comparisons.
 
 The benchmark artifact also contains a `_semantic` section with deterministic
-serialized outputs for the Stage 0 BN254 primitive fixtures. Those records are
-not plotted, but they are kept so future backend migrations can compare exact
-results alongside timing data. The `_meta` section records whether the run was
-the default full suite or a filtered benchmark profile.
+serialized outputs for the BN254 primitive fixtures and direct curve-kernel
+fixtures. Those records are not plotted, but they are kept so future backend
+migrations can compare exact results alongside timing data. The `_meta` section
+records whether the run was the default full suite or a filtered benchmark
+profile.
 
 ## Latest Snapshot (2025‑09‑29)
 

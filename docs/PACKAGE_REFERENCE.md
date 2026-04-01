@@ -61,6 +61,9 @@ annotated rather than discarded), and follow-ups.
   artifact (`2026-04-01_145350`) cut `Fp6 mul` from `2.324 us` to `0.533 us`,
   `Fp12 mul` from `19.527 us` to `1.721 us`, and full pairing from `10.409 ms`
   to `3.843 ms` relative to the Stage 3 profile baseline.
+- (2026-04-01) Stage 5 rewrote `BN254Curve.jl` around shared Jacobian helpers,
+  specialized `Fp2` squaring in the curve hot path, and a lower-allocation
+  `batch_to_affine!` implementation for both G1 and G2.
 
 **Follow-ups**
 - Prototype a second curve/engine (e.g., BLS12-381) to validate abstractions.
@@ -107,8 +110,15 @@ annotated rather than discarded), and follow-ups.
 - `run.jl` / `plot.jl` microbenchmarks with JSON/PNG artefacts.
 
 **Notes**
-- Latest run: `results_2025-09-29_121914.json` (coset path default). README
-  records medians; PNGs regenerated from this run.
+- The benchmark harness now includes a dedicated `bn254_curve_kernels` family
+  for direct G1/G2 add, double, and `to_affine` timings, alongside the Stage 5
+  `batch_to_affine!` normalization families.
+- The focused backend profiles are now `quick`, `stage3`, and `stage5`, with
+  `stage5` covering `bn254_primitives`, `bn254_curve_kernels`, `batch_norm`,
+  and `pairing_micro`.
+- Latest Stage 5 artifact: `benchmarks/artifacts/2026-04-01_154740`, with
+  `G1 scalar` at `105.483 μs`, `G2 scalar` at `226.369 μs`, and full pairing at
+  `3.892 ms`.
 
 ## Docs
 

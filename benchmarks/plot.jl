@@ -171,6 +171,9 @@ function main()
     plot_single_ops(res, out_dir, :bn254_scalar_mul,
         ["g1", "g2"],
         "BN254 scalar multiplication", "bn254_scalar_mul.png")
+    plot_single_ops(res, out_dir, :bn254_curve_kernels,
+        ["g1_double", "g1_add", "g1_to_affine", "g2_double", "g2_add", "g2_to_affine"],
+        "BN254 curve kernels", "bn254_curve_kernels.png")
 
     # Fixed-base / MSM / normalization
     plot_group(res, out_dir, :fixed_g1, "Fixed-base G1 (median)", ["naive", "batch"], "fixed_g1.png")

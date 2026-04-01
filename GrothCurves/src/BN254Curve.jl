@@ -14,20 +14,24 @@ const G1Point = ProjectivePoint{BN254Curve, BN254Fq}
 const G2Point = ProjectivePoint{BN254Curve, Fp2Element}
 
 # Small G2 MSMs benefit from a narrower window than the generic default.
-_pippenger_window(::Type{G2Point}, size::Int) = size < 32 ? 2 : ((ndigits(size, base=2) - 1) * 69) ÷ 100 + 2
+_pippenger_window(::Type{G2Point}, size::Int) = size < 32 ? 2 : ((ndigits(size, base = 2) - 1) * 69) ÷ 100 + 2
 
 # Single-point scalar multiplication uses the same generic API, but BN254
 # points benefit from a tuned w-NAF window instead of the binary fallback.
 _scalar_mul_window(::Type{G1Point}, bit_length::Int) = bit_length <= 64 ? 3 : 4
 _scalar_mul_window(::Type{G2Point}, ::Int) = 3
 
-# Twist coefficient for the BN254 D-twist (y² = x³ + b')
+const G1_B = bn254_fq(3)
+const G1_AFFINE_Z = one(BN254Fq)
+const G2_AFFINE_Z = one(Fp2Element)
+
+# Twist coefficient for the BN254 D-twist (y^2 = x^3 + b')
 const G2_B_TWIST = Fp2Element(3, 0) / Fp2Element(9, 1)
 
 # Convenient constructors for G1
 G1Point(x::Integer, y::Integer, z::Integer) =
     G1Point(bn254_fq(x), bn254_fq(y), bn254_fq(z))
-G1Point(x::Integer, y::Integer) = G1Point(bn254_fq(x), bn254_fq(y), one(BN254Fq))
+G1Point(x::Integer, y::Integer) = G1Point(bn254_fq(x), bn254_fq(y), G1_AFFINE_Z)
 
 # Convenient constructors for G2
 function G2Point(x0::Integer, x1::Integer, y0::Integer, y1::Integer, z0::Integer, z1::Integer)
@@ -40,72 +44,106 @@ end
 function G2Point(x0::Integer, x1::Integer, y0::Integer, y1::Integer)
     X = Fp2Element(bn254_fq(x0), bn254_fq(x1))
     Y = Fp2Element(bn254_fq(y0), bn254_fq(y1))
-    G2Point(X, Y, one(Fp2Element))
+    G2Point(X, Y, G2_AFFINE_Z)
 end
 
-G2Point(X::Fp2Element, Y::Fp2Element) = G2Point(X, Y, one(Fp2Element))
+G2Point(X::Fp2Element, Y::Fp2Element) = G2Point(X, Y, G2_AFFINE_Z)
+
+@inline _square(x) = x * x
+@inline _square(x::Fp2Element) = square(x)
+
+@inline function _to_affine_coords(p::ProjectivePoint{BN254Curve,F}) where {F}
+    if iszero(p)
+        return (zero(F), zero(F))
+    end
+
+    X = x_coord(p)
+    Y = y_coord(p)
+    Z = z_coord(p)
+    if isone(Z)
+        return (X, Y)
+    end
+
+    z_inv = inv(Z)
+    z_inv2 = _square(z_inv)
+    return (X * z_inv2, Y * z_inv2 * z_inv)
+end
 
 # Affine conversion specialised for each field type
-function to_affine(p::G1Point)
-    if iszero(p)
-        return (zero(BN254Fq), zero(BN254Fq))
-    end
-    z_inv = inv(z_coord(p))
-    z_inv2 = z_inv^2
-    z_inv3 = z_inv2 * z_inv
-    return (x_coord(p) * z_inv2, y_coord(p) * z_inv3)
-end
-
-function to_affine(p::G2Point)
-    if iszero(p)
-        return (zero(Fp2Element), zero(Fp2Element))
-    end
-    z_inv = inv(z_coord(p))
-    z_inv2 = z_inv^2
-    z_inv3 = z_inv2 * z_inv
-    return (x_coord(p) * z_inv2, y_coord(p) * z_inv3)
-end
+@inline to_affine(p::G1Point) = _to_affine_coords(p)
+@inline to_affine(p::G2Point) = _to_affine_coords(p)
 
 # Curve membership checks ---------------------------------------------------
 
-function is_on_curve(p::G1Point)
+@inline function _is_on_curve_jacobian(p::ProjectivePoint{BN254Curve,F}, b::F) where {F}
     if iszero(p)
         return true
     end
-    X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
-    Z2 = Z^2
-    Z4 = Z2^2
+
+    X = x_coord(p)
+    Y = y_coord(p)
+    Z = z_coord(p)
+    X2 = _square(X)
+    Z2 = _square(Z)
+    Z4 = _square(Z2)
     Z6 = Z4 * Z2
-    return Y^2 == X^3 + bn254_fq(3) * Z6
+    return _square(Y) == X2 * X + b * Z6
 end
 
-function is_on_curve(p::G2Point)
-    if iszero(p)
-        return true
+is_on_curve(p::G1Point) = _is_on_curve_jacobian(p, G1_B)
+is_on_curve(p::G2Point) = _is_on_curve_jacobian(p, G2_B_TWIST)
+
+# Jacobian helpers ---------------------------------------------------------
+
+@inline function _double_jacobian(::Type{P}, X, Y, Z) where {P}
+    XX = _square(X)
+    YY = _square(Y)
+    YYYY = _square(YY)
+    S = 4 * X * YY
+    M = 3 * XX
+    X3 = _square(M) - 2 * S
+    Y3 = M * (S - X3) - 8 * YYYY
+    Z3 = 2 * Y * Z
+    return P(X3, Y3, Z3)
+end
+
+@inline function _add_jacobian(::Type{P}, p, q) where {P}
+    X1 = x_coord(p)
+    Y1 = y_coord(p)
+    Z1 = z_coord(p)
+    X2 = x_coord(q)
+    Y2 = y_coord(q)
+    Z2 = z_coord(q)
+
+    Z1Z1 = _square(Z1)
+    Z2Z2 = _square(Z2)
+    U1 = X1 * Z2Z2
+    U2 = X2 * Z1Z1
+    S1 = Y1 * Z2 * Z2Z2
+    S2 = Y2 * Z1 * Z1Z1
+
+    if U1 == U2
+        return S1 == S2 ? _double_jacobian(P, X1, Y1, Z1) : zero(P)
     end
-    X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
-    Z2 = Z^2
-    Z4 = Z2^2
-    Z6 = Z4 * Z2
-    return Y^2 == X^3 + G2_B_TWIST * Z6
+
+    H = U2 - U1
+    HH = _square(H)
+    I = 4 * HH
+    J = H * I
+    r = 2 * (S2 - S1)
+    V = U1 * I
+    X3 = _square(r) - J - 2 * V
+    Y3 = r * (V - X3) - 2 * S1 * J
+    Zsum = Z1 + Z2
+    Z3 = (_square(Zsum) - Z1Z1 - Z2Z2) * H
+    return P(X3, Y3, Z3)
 end
 
 # G1 arithmetic -------------------------------------------------------------
 
 function double(p::G1Point)
-    if iszero(p)
-        return p
-    end
-
-    X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
-
-    S = bn254_fq(4) * X * Y^2
-    M = bn254_fq(3) * X^2
-    X3 = M^2 - bn254_fq(2) * S
-    Y3 = M * (S - X3) - bn254_fq(8) * Y^4
-    Z3 = bn254_fq(2) * Y * Z
-
-    return G1Point(X3, Y3, Z3)
+    iszero(p) && return p
+    return _double_jacobian(G1Point, x_coord(p), y_coord(p), z_coord(p))
 end
 
 function Base.:+(p::G1Point, q::G1Point)
@@ -115,34 +153,7 @@ function Base.:+(p::G1Point, q::G1Point)
         return p
     end
 
-    X1, Y1, Z1 = x_coord(p), y_coord(p), z_coord(p)
-    X2, Y2, Z2 = x_coord(q), y_coord(q), z_coord(q)
-
-    Z1Z1 = Z1^2
-    Z2Z2 = Z2^2
-    U1 = X1 * Z2Z2
-    U2 = X2 * Z1Z1
-    S1 = Y1 * Z2 * Z2Z2
-    S2 = Y2 * Z1 * Z1Z1
-
-    if U1 == U2
-        if S1 == S2
-            return double(p)
-        else
-            return zero(G1Point)
-        end
-    end
-
-    H = U2 - U1
-    I = (bn254_fq(2) * H)^2
-    J = H * I
-    r = bn254_fq(2) * (S2 - S1)
-    V = U1 * I
-    X3 = r^2 - J - bn254_fq(2) * V
-    Y3 = r * (V - X3) - bn254_fq(2) * S1 * J
-    Z3 = ((Z1 + Z2)^2 - Z1Z1 - Z2Z2) * H
-
-    return G1Point(X3, Y3, Z3)
+    return _add_jacobian(G1Point, p, q)
 end
 
 Base.:-(p::G1Point) = G1Point(x_coord(p), -y_coord(p), z_coord(p))
@@ -154,20 +165,8 @@ Base.:-(p::G1Point, q::G1Point) = p + (-q)
 # G2 arithmetic -------------------------------------------------------------
 
 function double(p::G2Point)
-    if iszero(p)
-        return p
-    end
-
-    X, Y, Z = x_coord(p), y_coord(p), z_coord(p)
-
-    XX = X^2
-    S = Fp2Element(4) * X * Y^2
-    M = Fp2Element(3) * XX
-    X3 = M^2 - Fp2Element(2) * S
-    Y3 = M * (S - X3) - Fp2Element(8) * Y^4
-    Z3 = Fp2Element(2) * Y * Z
-
-    return G2Point(X3, Y3, Z3)
+    iszero(p) && return p
+    return _double_jacobian(G2Point, x_coord(p), y_coord(p), z_coord(p))
 end
 
 function Base.:+(p::G2Point, q::G2Point)
@@ -177,34 +176,7 @@ function Base.:+(p::G2Point, q::G2Point)
         return p
     end
 
-    X1, Y1, Z1 = x_coord(p), y_coord(p), z_coord(p)
-    X2, Y2, Z2 = x_coord(q), y_coord(q), z_coord(q)
-
-    Z1Z1 = Z1^2
-    Z2Z2 = Z2^2
-    U1 = X1 * Z2Z2
-    U2 = X2 * Z1Z1
-    S1 = Y1 * Z2 * Z2Z2
-    S2 = Y2 * Z1 * Z1Z1
-
-    if U1 == U2
-        if S1 == S2
-            return double(p)
-        else
-            return zero(G2Point)
-        end
-    end
-
-    H = U2 - U1
-    I = (Fp2Element(2) * H)^2
-    J = H * I
-    r = Fp2Element(2) * (S2 - S1)
-    V = U1 * I
-    X3 = r^2 - J - Fp2Element(2) * V
-    Y3 = r * (V - X3) - Fp2Element(2) * S1 * J
-    Z3 = ((Z1 + Z2)^2 - Z1Z1 - Z2Z2) * H
-
-    return G2Point(X3, Y3, Z3)
+    return _add_jacobian(G2Point, p, q)
 end
 
 Base.:-(p::G2Point) = G2Point(x_coord(p), -y_coord(p), z_coord(p))
@@ -224,7 +196,7 @@ function g2_generator()
     G2Point(
         Fp2Element(bn254_fq(x0), bn254_fq(x1)),
         Fp2Element(bn254_fq(y0), bn254_fq(y1)),
-        one(Fp2Element)
+        G2_AFFINE_Z,
     )
 end
 
@@ -237,68 +209,40 @@ export BN254_ORDER_R
 
 # Batch normalisation ------------------------------------------------------
 
-function batch_to_affine!(pts::Vector{G1Point})
+function _batch_to_affine!(pts::Vector{P}, ::Type{F}) where {F,P<:ProjectivePoint{BN254Curve,F}}
     n = length(pts)
-    if n == 0
-        return pts
+    n == 0 && return pts
+
+    prefix = Vector{F}(undef, n)
+    running = one(F)
+    seen_nonzero = false
+
+    @inbounds for i in 1:n
+        point = pts[i]
+        if !iszero(point)
+            running = running * z_coord(point)
+            seen_nonzero = true
+        end
+        prefix[i] = running
     end
-    idxs = [i for i in 1:n if !iszero(pts[i])]
-    if isempty(idxs)
-        return pts
+
+    seen_nonzero || return pts
+
+    inv_total = inv(running)
+    affine_z = one(F)
+
+    @inbounds for i in n:-1:1
+        point = pts[i]
+        iszero(point) && continue
+        prev = i == 1 ? affine_z : prefix[i - 1]
+        z_inv = inv_total * prev
+        inv_total = inv_total * z_coord(point)
+        z_inv2 = _square(z_inv)
+        pts[i] = P(x_coord(point) * z_inv2, y_coord(point) * z_inv2 * z_inv, affine_z)
     end
-    prefix = Vector{BN254Fq}(undef, length(idxs))
-    prefix[1] = z_coord(pts[idxs[1]])
-    for k in 2:length(idxs)
-        prefix[k] = prefix[k-1] * z_coord(pts[idxs[k]])
-    end
-    inv_total = inv(prefix[end])
-    zinv = Vector{BN254Fq}(undef, length(idxs))
-    for k in length(idxs):-1:1
-        z_k = z_coord(pts[idxs[k]])
-        prev = k == 1 ? one(BN254Fq) : prefix[k-1]
-        zinv_k = inv_total * prev
-        zinv[k] = zinv_k
-        inv_total = inv_total * z_k
-    end
-    for (t, i) in enumerate(idxs)
-        P = pts[i]
-        z_inv = zinv[t]
-        z_inv2 = z_inv^2
-        z_inv3 = z_inv2 * z_inv
-        pts[i] = G1Point(x_coord(P) * z_inv2, y_coord(P) * z_inv3, one(BN254Fq))
-    end
+
     return pts
 end
 
-function batch_to_affine!(pts::Vector{G2Point})
-    n = length(pts)
-    if n == 0
-        return pts
-    end
-    idxs = [i for i in 1:n if !iszero(pts[i])]
-    if isempty(idxs)
-        return pts
-    end
-    prefix = Vector{Fp2Element}(undef, length(idxs))
-    prefix[1] = z_coord(pts[idxs[1]])
-    for k in 2:length(idxs)
-        prefix[k] = prefix[k-1] * z_coord(pts[idxs[k]])
-    end
-    inv_total = inv(prefix[end])
-    zinv = Vector{Fp2Element}(undef, length(idxs))
-    for k in length(idxs):-1:1
-        z_k = z_coord(pts[idxs[k]])
-        prev = k == 1 ? one(Fp2Element) : prefix[k-1]
-        zinv_k = inv_total * prev
-        zinv[k] = zinv_k
-        inv_total = inv_total * z_k
-    end
-    for (t, i) in enumerate(idxs)
-        P = pts[i]
-        z_inv = zinv[t]
-        z_inv2 = z_inv^2
-        z_inv3 = z_inv2 * z_inv
-        pts[i] = G2Point(x_coord(P) * z_inv2, y_coord(P) * z_inv3, one(Fp2Element))
-    end
-    return pts
-end
+batch_to_affine!(pts::Vector{G1Point}) = _batch_to_affine!(pts, BN254Fq)
+batch_to_affine!(pts::Vector{G2Point}) = _batch_to_affine!(pts, Fp2Element)
