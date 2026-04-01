@@ -19,9 +19,7 @@ const PROVE_FULL_PHASE_ORDER = [
     "final_c",
 ]
 
-function field_to_int(x)
-    return Integer(x.value)
-end
+field_to_bigint(x) = convert(BigInt, x)
 
 function public_inputs_for(r1cs::R1CS, witness::Witness)
     return r1cs.num_public > 1 ? witness.values[2:r1cs.num_public] : eltype(witness.values)[]
@@ -171,10 +169,14 @@ function fixture_metadata(fixture)
 end
 
 function witness_to_scalars(witness::Witness)
+    return copy(witness.values)
+end
+
+function witness_to_scalars_bigint(witness::Witness)
     w_vals = witness.values
     scalars = Vector{BigInt}(undef, length(w_vals))
     @inbounds for i in eachindex(w_vals)
-        scalars[i] = field_to_int(w_vals[i])
+        scalars[i] = field_to_bigint(w_vals[i])
     end
     return scalars
 end
@@ -224,7 +226,7 @@ function sample_prove_randomizers(fixture)
     return sample_benchmark_field(F, rng), sample_benchmark_field(F, rng)
 end
 
-function prove_query_accumulators(pk::ProvingKey, scalars::Vector{<:Integer})
+function prove_query_accumulators(pk::ProvingKey, scalars::AbstractVector)
     return (
         A_acc_g1 = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, scalars),
         B_acc_g1 = GrothAlgebra.multi_scalar_mul(pk.B_query_g1, scalars),
@@ -235,16 +237,15 @@ end
 function assemble_ab_terms(pk::ProvingKey, A_acc_g1, B_acc_g1, B_acc_g2, r, s)
     A1_g1 = pk.alpha_g1 + A_acc_g1
     B1_g1 = pk.beta_g1 + B_acc_g1
-    A = A1_g1 + scalar_mul(pk.delta_g1, field_to_int(r))
-    B = pk.beta_g2 + B_acc_g2 + scalar_mul(pk.delta_g2, field_to_int(s))
+    A = A1_g1 + scalar_mul(pk.delta_g1, r)
+    B = pk.beta_g2 + B_acc_g2 + scalar_mul(pk.delta_g2, s)
     return (A = A, B = B, A1_g1 = A1_g1, B1_g1 = B1_g1)
 end
 
 function h_msm(pk::ProvingKey, h_poly)
     hk = length(h_poly.coeffs)
     pts_h = pk.H_query_g1[1:hk]
-    scalars_h = [field_to_int(c) for c in h_poly.coeffs]
-    return GrothAlgebra.multi_scalar_mul(pts_h, scalars_h)
+    return GrothAlgebra.multi_scalar_mul(pts_h, h_poly.coeffs)
 end
 
 function l_msm(pk::ProvingKey, witness::Witness)
@@ -252,12 +253,12 @@ function l_msm(pk::ProvingKey, witness::Witness)
     if m <= pk.num_public
         return zero(G1Point)
     end
-    priv_scalars = [field_to_int(witness.values[i]) for i in (pk.num_public+1):m]
+    priv_scalars = witness.values[(pk.num_public+1):m]
     return GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars)
 end
 
 function assemble_c(pk::ProvingKey, A, B1_g1, H, L, r, s)
-    rs_delta = scalar_mul(pk.delta_g1, field_to_int(r * s))
-    g1_b_full = B1_g1 + scalar_mul(pk.delta_g1, field_to_int(s))
-    return H + L + scalar_mul(g1_b_full, field_to_int(r)) + scalar_mul(A, field_to_int(s)) - rs_delta
+    rs_delta = scalar_mul(pk.delta_g1, r * s)
+    g1_b_full = B1_g1 + scalar_mul(pk.delta_g1, s)
+    return H + L + scalar_mul(g1_b_full, r) + scalar_mul(A, s) - rs_delta
 end

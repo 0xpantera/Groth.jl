@@ -190,6 +190,20 @@ function glv_scalar_mul(p::P, k::Integer) where {P<:ProjectivePoint{BN254Curve}}
     return _glv_joint_scalar_mul(p, coeffs, glv_endomorphism(p))
 end
 
+@inline _bn254fr_scalar_bigint(k::GrothAlgebra.BN254Fr) =
+    GrothAlgebra.limbs_to_bigint(GrothAlgebra.canonical_limbs(k))
+
+function glv_scalar_mul(p::P, k::GrothAlgebra.BN254Fr) where {P<:ProjectivePoint{BN254Curve}}
+    if iszero(k)
+        return zero(p)
+    elseif isone(k)
+        return p
+    end
+
+    coeffs = glv_scalar_decomposition(P, _bn254fr_scalar_bigint(k))
+    return _glv_joint_scalar_mul(p, coeffs, glv_endomorphism(p))
+end
+
 function GrothAlgebra.scalar_mul(p::G1Point, k::Integer)
     if k == 0
         return zero(p)
@@ -197,6 +211,21 @@ function GrothAlgebra.scalar_mul(p::G1Point, k::Integer)
         return p
     elseif k == -1
         return -p
+    end
+
+    bits = GrothAlgebra._bit_length(k)
+    if bits < BN254_G1_GLV_THRESHOLD_BITS
+        return GrothAlgebra.scalar_mul_wnaf(p, k, _scalar_mul_window(G1Point, bits))
+    end
+
+    return glv_scalar_mul(p, k)
+end
+
+function GrothAlgebra.scalar_mul(p::G1Point, k::GrothAlgebra.BN254Fr)
+    if iszero(k)
+        return zero(p)
+    elseif isone(k)
+        return p
     end
 
     bits = GrothAlgebra._bit_length(k)
