@@ -63,11 +63,12 @@ Completed stages:
 
 Next concrete work:
 
-- target the remaining measured `BigInt` / GMP work that still appears after
-  Stage 8A, starting with limb-native inversion and final-exponentiation
-  specialization
-- then re-evaluate the next highest-value prover bottleneck from the updated
-  `prove_full` profile instead of assuming the next win is only in MSM
+- execute the remaining targeted specialization roadmap below, starting with
+  limb-native inversion and final-exponentiation specialization
+- re-baseline `prove_full` after each high-leverage specialization stage rather
+  than batching multiple changes and losing attribution
+- leave Stage 9 parallelism and accelerator work until the current
+  single-thread backend bottlenecks are tighter
 
 Stage 8 remains the end-to-end `prove_full` integration and regression
 baseline stage.
@@ -498,16 +499,187 @@ The current BN254 primitive gap to arkworks is no longer dominated by the old
 
 Current priority order for narrowing that gap:
 
-1. Stage 8 `prove_full` re-baseline on the new backend
-2. limb-native inversion
-3. final-exponentiation specialization
-4. more in-place extension-field helpers
-5. subgroup-aware G2 typing or another safe way to expose G2 GLV by default
-6. deeper MSM specialization
+1. limb-native inversion
+2. final-exponentiation specialization
+3. more in-place extension-field helpers
+4. subgroup-aware G2 typing or another safe way to expose G2 GLV by default
+5. deeper MSM specialization on prover-shaped workloads
+6. post-specialization `prove_full` re-baseline
 
-This gap-narrowing track is intentionally placed before Stage 8 so the next
-`prove_full` baseline benefits from the higher-value primitive improvements
-first.
+The scalar-plumbing win in Stage 8A removed the measured
+`canonical_bigint` / `limbs_to_bigint` prover conversions, but the current
+profile still shows other `BigInt` / GMP activity. The next roadmap therefore
+focuses on the remaining low-level escape hatches and on the prover buckets
+that are still largest after Stage 8A.
+
+## Remaining Targeted Specialization Work
+
+This section is the post-Stage-8A execution ladder. Each work package is small
+enough to become its own ExecPlan.
+
+### Work Package 1: Limb-Native Inversion
+
+Goal:
+Replace the current `BigInt invmod` path in the Montgomery backend with a
+limb-native inversion algorithm for `BN254Fq` and `BN254Fr`.
+
+Why this is first:
+
+- it is still a direct `BigInt` / GMP escape hatch in the arithmetic backend
+- inversion sits under `batch_to_affine!`, verifier prep, and the easy part of
+  final exponentiation
+- it should reduce both primitive and prover overhead without changing API
+
+Primary measurements:
+
+- `BN254Fq inv`
+- `BN254Fr inv`
+- `batch_to_affine!`
+- `final_exponentiation_easy`
+- `prove_full final_c`
+
+Exit criteria:
+
+- no `BigInt invmod` in the main inversion path
+- field and pairing invariants still pass
+- measurable improvement in inversion-heavy primitive or prover buckets
+
+### Work Package 2: Final-Exponentiation Specialization
+
+Goal:
+Specialize the hard final-exponentiation path around cyclotomic operations and
+measured BN254 structure instead of generic `Fp12` multiplication/squaring.
+
+Why this is next:
+
+- the arkworks gap is still visible in final exponentiation
+- Stage 6 improved pairing a lot, but final exponentiation is still one of the
+  clearest remaining primitive specialization opportunities
+
+Primary measurements:
+
+- `final_exponentiation`
+- `final_exponentiation_hard`
+- `exp_by_u`
+- full `pairing`
+
+Exit criteria:
+
+- no semantic drift in GT outputs or bilinearity tests
+- final exponentiation moves materially on the primitive benchmark
+- the pairing gap to arkworks narrows further
+
+### Work Package 3: In-Place Extension-Field Hot Paths
+
+Goal:
+Reduce temporary construction and value churn in `Fp2`, `Fp6`, and `Fp12`
+operations that are still hot inside Miller-loop and final-exponentiation code.
+
+Why this is separate:
+
+- it is easy to blur together with Work Package 2, but the risk surface is
+  broader and should be measured independently
+- the current remaining gap is partly about API shape and allocation behavior,
+  not only formulas
+
+Primary measurements:
+
+- `doubling_step`
+- `addition_step`
+- `evaluate_line`
+- `miller_loop`
+- allocation counts in the pairing-substep profiles
+
+Exit criteria:
+
+- fewer allocations or temporary values in pairing hot paths
+- measurable improvement in Miller loop and/or final exponentiation
+- no loss of readability around the core formulas without benchmark evidence
+
+### Work Package 4: Safe G2 GLV Exposure
+
+Goal:
+Find a safe way to use the existing G2 GLV acceleration where subgroup
+membership is actually guaranteed.
+
+Why this matters:
+
+- Stage 7A showed that G2 GLV helps on full-width subgroup scalars
+- the current blocker is semantic safety, not missing arithmetic support
+
+Possible directions:
+
+- subgroup-aware internal point wrapper types
+- explicit trusted-subgroup internal APIs for setup/prover-owned query points
+- another documented safety boundary that does not weaken public semantics
+
+Primary measurements:
+
+- G2 scalar benchmarks on real subgroup points
+- prover-owned G2 query workloads
+- `msm_b_g2` in `prove_full`
+
+Exit criteria:
+
+- no semantic weakening for public `G2Point` APIs
+- a documented safe boundary for GLV-enabled G2 multiplication
+- measurable win on the real prover G2 buckets
+
+### Work Package 5: Prover-Shaped MSM Specialization
+
+Goal:
+Specialize MSM further for the actual scalar and point distributions used by
+`prove_full`, rather than only for synthetic generic benchmarks.
+
+Why this is later:
+
+- Stage 7 and Stage 8A already moved generic MSM and scalar plumbing
+- the next MSM wins should be driven by the current `prove_full` fixture data,
+  not by abstract “MSM should be faster” intuition
+
+Primary measurements:
+
+- `msm_b_g2`
+- `h_msm`
+- `l_msm`
+- dedicated scalar-plumbing and prover-query benchmarks
+
+Possible directions:
+
+- BN254Fr-aware bucket handling and scalar decoding reuse
+- small-size and prover-shaped window retuning
+- internal use of safe subgroup-aware G2 GLV if Work Package 4 lands first
+- less-generic prover-owned MSM helpers where that materially helps
+
+Exit criteria:
+
+- measurable improvement in the largest remaining `prove_full` MSM buckets
+- no regression on the deterministic prover fixtures
+- benchmark evidence tied to the actual prover workloads
+
+### Work Package 6: Post-Specialization `prove_full` Re-Baseline
+
+Goal:
+Re-run the end-to-end `prove_full` benchmark and profiling workflow after the
+targeted specialization passes above.
+
+Why this is a separate work package:
+
+- it is the only honest way to determine which specialization work actually
+  paid off in the prover
+- it keeps the roadmap disciplined: measure, then choose the next stage
+
+Primary measurements:
+
+- Stage 8A baseline artifact `benchmarks/artifacts/2026-04-01_223859`
+- the next full `prove_full` artifact produced after Work Packages 1–5
+
+Exit criteria:
+
+- updated hotspot ranking for `prove_full`
+- explicit attribution of which remaining primitive/backend changes mattered
+- a clear decision on whether the next best move is more single-thread
+  specialization or Stage 9 parallelism
 
 ## Stage 8: `prove_full` Integration And Regression Baseline
 

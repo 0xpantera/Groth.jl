@@ -26,10 +26,12 @@ Depth = 2
 
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
-| Variable-base MSM | Straus with optional endomorphism on BLS curves. | `GrothAlgebra.multi_scalar_mul` now uses a Pippenger-style variable-base backend with a small-input Straus fallback; w-NAF helpers are shared with arkworks. Endomorphism optimisations are still TODO. |
+| Variable-base MSM | Straus / Pippenger variants with endomorphism support where safe. | `GrothAlgebra.multi_scalar_mul` uses a Pippenger-style backend with a small-input Straus fallback; BN254 G1 now has a measured hybrid GLV path, and G2 has an internal GLV path that is not yet the unconditional public default. |
 | Fixed-base tables | `FixedBaseMSM` window tables. | `FixedBaseTable` plus `build_fixed_table`, `mul_fixed`, and `batch_mul` mirror the workflow; benchmarks track table build vs reuse. |
 
-**Next steps:** profile the prover with window heuristics and consider endomorphisms once the coset path stabilises.
+**Next steps:** keep MSM work tied to the real `prove_full` fixtures, pursue
+safe G2 GLV exposure, and avoid treating synthetic MSM sweeps as the sole
+tuning signal.
 
 ## Curve Abstractions & Pairing Engine
 
@@ -48,11 +50,12 @@ Depth = 2
 | Prepared verifier | `PreparedVerifyingKey` batches pairings. | `prepare_verifying_key`, `prepare_inputs`, and `verify_with_prepared` mirror the API. |
 | Aggregation | Optional `groth16::aggregate_proofs`. | Not yet ported; tracked on the roadmap. |
 
-## Upcoming Alignment Tasks
+## Current Follow-Through Tasks
 
-1. Populate every evaluation domain slot (`num_constraints + num_inputs`) before the IFFT so we can delete the barycentric interpolation helper.
-2. Mirror arkworks’ domain utilities (cached vanishing evaluations, twiddle reuse) once the layout matches.
-3. Rebaseline benchmarks after the domain alignment to ensure prover performance stays on track.
-4. Port proof aggregation only after the core prover is arkworks-aligned.
+1. Replace the remaining `BigInt`-based inversion path in the BN254 Montgomery backend.
+2. Specialize final exponentiation further around cyclotomic operations and measured BN254 structure.
+3. Reduce value churn in extension-field hot paths where the current pairing code is still less in-place than arkworks.
+4. Find a safe way to expose G2 GLV acceleration on subgroup-owned points without weakening public semantics.
+5. Rebaseline `prove_full` after each high-leverage specialization stage instead of batching changes together.
 
 Use this page as a checklist whenever behaviour changes—update the tables above as new features land.
