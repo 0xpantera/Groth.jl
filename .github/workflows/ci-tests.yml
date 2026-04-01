@@ -26,6 +26,8 @@ jobs:
         with:
           version: ${{ matrix.julia-version }}
 
+      - uses: julia-actions/cache@v2
+
       - name: Instantiate workspace
         shell: julia --color=yes --project=. {0}
         run: |
@@ -33,4 +35,4 @@ jobs:
           Pkg.instantiate(workspace=true)
 
       - name: Run monorepo package tests
-        run: julia --color=yes --project=. scripts/test_all.jl
+        run: julia --color=yes --project=. scripts/test_ci.jl
