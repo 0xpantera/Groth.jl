@@ -85,6 +85,12 @@ using Test
         # Test operator overloads
         @test 3 * P == TestPoint(6, 9)
         @test P * 3 == TestPoint(6, 9)
+
+        # BN254Fr-native scalar path should match the integer path
+        @test scalar_mul(P, bn254_fr(0)) == O
+        @test scalar_mul(P, bn254_fr(1)) == P
+        @test scalar_mul(P, bn254_fr(5)) == scalar_mul(P, 5)
+        @test scalar_mul_wnaf(P, bn254_fr(23), 4) == scalar_mul(P, 23)
     end
     
     @testset "Multi-scalar Multiplication" begin
@@ -135,6 +141,10 @@ using Test
         big_points = [TestPointBig(BigInt(i), BigInt(2i)) for i in 1:12]
         big_scalars = [BigInt((-1)^i) * (BigInt(1) << (50 + i)) for i in 1:12]
         @test multi_scalar_mul(big_points, big_scalars) == naive_msm(big_points, big_scalars)
+
+        fr_points = [TestPoint(i, 2i) for i in 1:12]
+        fr_scalars = [bn254_fr(7 * i + 3) for i in 1:12]
+        @test multi_scalar_mul(fr_points, fr_scalars) == naive_msm(fr_points, map(x -> Int(convert(BigInt, x)), fr_scalars))
     end
 
     @testset "Forced Pippenger windows preserve MSM semantics" begin
@@ -175,6 +185,16 @@ using Test
         
         # Test invalid window size
         @test_throws ArgumentError wnaf_encode(5, 1)
+
+        fr_scalar = bn254_fr(29)
+        @test wnaf_encode(fr_scalar, 4) == wnaf_encode(29, 4)
+    end
+
+    @testset "Fixed-base BN254Fr scalars" begin
+        P = TestPoint(2, 3)
+        table = build_fixed_table(P; window=4)
+        scalars = [bn254_fr(0), bn254_fr(1), bn254_fr(5), bn254_fr(17)]
+        @test batch_mul(table, scalars) == [scalar_mul(P, 0), scalar_mul(P, 1), scalar_mul(P, 5), scalar_mul(P, 17)]
     end
     
     @testset "w-NAF Scalar Multiplication" begin
