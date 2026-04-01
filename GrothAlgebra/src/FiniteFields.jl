@@ -381,6 +381,15 @@ end
 canonical_bigint(x::T) where {T<:MontgomeryFiniteFieldElement} =
     limbs_to_bigint(montgomery_decode_limbs(T, montgomery_storage(x)))
 
+"""
+    canonical_limbs(x::T) where {T<:MontgomeryFiniteFieldElement}
+
+Decode a Montgomery-backed field element into its canonical 4-limb little-endian
+representation.
+
+This is a low-level helper used by the BN254 scalar and MSM specializations to
+avoid round-tripping through `BigInt` in hot paths.
+"""
 @inline canonical_limbs(x::T) where {T<:MontgomeryFiniteFieldElement} =
     montgomery_decode_limbs(T, montgomery_storage(x))
 

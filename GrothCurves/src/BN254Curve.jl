@@ -124,12 +124,26 @@ function _glv_scalar_decomposition(k::Integer, coeffs::NTuple{4,BigInt})
     return ((k1 >= 0, abs(k1)), (k2 >= 0, abs(k2)))
 end
 
+"""
+    glv_scalar_decomposition(::Type{G1Point}, k::Integer)
+    glv_scalar_decomposition(::Type{G2Point}, k::Integer)
+
+Decompose a scalar into the signed two-term representation used by the BN254
+GLV scalar-multiplication path for the selected group.
+"""
 glv_scalar_decomposition(::Type{G1Point}, k::Integer) = _glv_scalar_decomposition(k, BN254_G1_GLV_DECOMP_MATRIX)
 glv_scalar_decomposition(::Type{G2Point}, k::Integer) = _glv_scalar_decomposition(k, BN254_G2_GLV_DECOMP_MATRIX)
 
 glv_lambda(::Type{G1Point}) = BN254_G1_GLV_LAMBDA
 glv_lambda(::Type{G2Point}) = BN254_G2_GLV_LAMBDA
 
+"""
+    glv_endomorphism(p::G1Point)
+    glv_endomorphism(p::G2Point)
+
+Apply the BN254 GLV endomorphism to a projective point in the corresponding
+subgroup.
+"""
 @inline function glv_endomorphism(p::G1Point)
     iszero(p) && return p
     return G1Point(x_coord(p) * BN254_GLV_BETA, y_coord(p), z_coord(p))
@@ -177,6 +191,13 @@ function _glv_joint_scalar_mul(p::P, coeffs, endo_p::P) where {P<:ProjectivePoin
     return acc
 end
 
+"""
+    glv_scalar_mul(p::P, k::Integer) where {P<:ProjectivePoint{BN254Curve}}
+    glv_scalar_mul(p::P, k::GrothAlgebra.BN254Fr) where {P<:ProjectivePoint{BN254Curve}}
+
+Multiply a BN254 point by `k` using the Gallant-Lambert-Vanstone decomposition
+and the curve-specific endomorphism.
+"""
 function glv_scalar_mul(p::P, k::Integer) where {P<:ProjectivePoint{BN254Curve}}
     if k == 0
         return zero(p)
@@ -204,6 +225,15 @@ function glv_scalar_mul(p::P, k::GrothAlgebra.BN254Fr) where {P<:ProjectivePoint
     return _glv_joint_scalar_mul(p, coeffs, glv_endomorphism(p))
 end
 
+"""
+    GrothAlgebra.scalar_mul(p::G1Point, k::Integer)
+    GrothAlgebra.scalar_mul(p::G1Point, k::GrothAlgebra.BN254Fr)
+
+BN254 G1 scalar multiplication dispatcher.
+
+Small and medium scalars stay on the tuned w-NAF path, while larger scalars use
+the GLV path once the measured threshold is reached.
+"""
 function GrothAlgebra.scalar_mul(p::G1Point, k::Integer)
     if k == 0
         return zero(p)
