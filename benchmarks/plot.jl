@@ -171,6 +171,12 @@ function main()
     plot_single_ops(res, out_dir, :bn254_scalar_mul,
         ["g1", "g2"],
         "BN254 scalar multiplication", "bn254_scalar_mul.png")
+    plot_single_ops(res, out_dir, :bn254_scalar_windows_g1,
+        ["default", "w2", "w3", "w4", "w5", "w6"],
+        "BN254 G1 scalar window sweep", "bn254_scalar_windows_g1.png")
+    plot_single_ops(res, out_dir, :bn254_scalar_windows_g2,
+        ["default", "w2", "w3", "w4", "w5", "w6"],
+        "BN254 G2 scalar window sweep", "bn254_scalar_windows_g2.png")
     plot_single_ops(res, out_dir, :bn254_curve_kernels,
         ["g1_double", "g1_add", "g1_to_affine", "g2_double", "g2_add", "g2_to_affine"],
         "BN254 curve kernels", "bn254_curve_kernels.png")
@@ -180,6 +186,12 @@ function main()
     plot_group(res, out_dir, :fixed_g2, "Fixed-base G2 (median)", ["naive", "batch"], "fixed_g2.png")
     plot_group(res, out_dir, :msm_g1, "MSM G1 (median)", ["naive", "msm"], "msm_g1.png")
     plot_group(res, out_dir, :msm_g2, "MSM G2 (median)", ["naive", "msm"], "msm_g2.png")
+    plot_group(res, out_dir, :msm_tuning_g1, "MSM tuning G1 (median)",
+        ["straus", "auto", "pippenger_w2", "pippenger_w3", "pippenger_w4", "pippenger_w5", "pippenger_w6"],
+        "msm_tuning_g1.png")
+    plot_group(res, out_dir, :msm_tuning_g2, "MSM tuning G2 (median)",
+        ["straus", "auto", "pippenger_w2", "pippenger_w3", "pippenger_w4", "pippenger_w5", "pippenger_w6"],
+        "msm_tuning_g2.png")
     plot_group(res, out_dir, :norm_g1, "Batch norm G1 (median)", ["each", "batch"], "norm_g1.png")
     plot_group(res, out_dir, :norm_g2, "Batch norm G2 (median)", ["each", "batch"], "norm_g2.png")
     plot_categorical_group(res, out_dir, :py_ecc_scalar, ["g1", "g2"], ["groth_jl", "py_ecc"],

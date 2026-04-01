@@ -25,6 +25,7 @@ const BENCHMARK_GROUP_ORDER = [
     :bn254_polynomials,
     :fixed_base,
     :variable_msm,
+    :scalar_msm_tuning,
     :batch_norm,
     :pairing_throughput,
     :pairing_micro,
@@ -40,6 +41,7 @@ const BENCHMARK_PROFILES = Dict(
     "stage3" => [:bn254_primitives, :bn254_polynomials, :pairing_micro],
     "stage5" => [:bn254_primitives, :bn254_curve_kernels, :batch_norm, :pairing_micro],
     "stage6" => [:bn254_primitives, :bn254_curve_kernels, :pairing_micro, :pairing_substeps],
+    "stage7" => [:bn254_primitives, :variable_msm, :scalar_msm_tuning, :prove_full],
     "primitives" => [:bn254_primitives, :pairing_micro, :py_ecc_primitives],
 )
 
@@ -406,6 +408,105 @@ function bench_variable_msm(results)
         print_stats("G2 MSM", tr_msm)
         record_result!(results, :msm_g2, string(N), "naive", tr_naive)
         record_result!(results, :msm_g2, string(N), "msm", tr_msm)
+    end
+end
+
+function bench_scalar_msm_tuning(results)
+    println("\n== Stage 7 scalar-mul and MSM tuning sweep ==")
+    inputs = bn254_stage0_inputs()
+
+    println("\n-- Scalar window sweep (G1) --")
+    g1 = g1_generator()
+    g1_expected = scalar_mul(g1, inputs.g1_scalar)
+    record_semantic!(results, :bn254_scalar_windows_g1, "default", serialize_affine(g1_expected))
+    _ = scalar_mul(g1, inputs.g1_scalar)
+    tr_g1_default = @benchmark scalar_mul($g1, $(inputs.g1_scalar)) seconds = 1 samples = 10
+    print_stats("G1 scalar default", tr_g1_default)
+    record_simple!(results, :bn254_scalar_windows_g1, "default", tr_g1_default)
+    for w in 2:6
+        candidate = scalar_mul_wnaf(g1, inputs.g1_scalar, w)
+        candidate == g1_expected || error("G1 scalar window w=$w changed the scalar-mul result")
+        label = "w$(w)"
+        record_semantic!(results, :bn254_scalar_windows_g1, label, serialize_affine(candidate))
+        _ = scalar_mul_wnaf(g1, inputs.g1_scalar, w)
+        tr = @benchmark scalar_mul_wnaf($g1, $(inputs.g1_scalar), $w) seconds = 1 samples = 10
+        print_stats("G1 scalar $(label)", tr)
+        record_simple!(results, :bn254_scalar_windows_g1, label, tr)
+    end
+
+    println("\n-- Scalar window sweep (G2) --")
+    g2 = g2_generator()
+    g2_expected = scalar_mul(g2, inputs.g2_scalar)
+    record_semantic!(results, :bn254_scalar_windows_g2, "default", serialize_affine(g2_expected))
+    _ = scalar_mul(g2, inputs.g2_scalar)
+    tr_g2_default = @benchmark scalar_mul($g2, $(inputs.g2_scalar)) seconds = 1 samples = 10
+    print_stats("G2 scalar default", tr_g2_default)
+    record_simple!(results, :bn254_scalar_windows_g2, "default", tr_g2_default)
+    for w in 2:6
+        candidate = scalar_mul_wnaf(g2, inputs.g2_scalar, w)
+        candidate == g2_expected || error("G2 scalar window w=$w changed the scalar-mul result")
+        label = "w$(w)"
+        record_semantic!(results, :bn254_scalar_windows_g2, label, serialize_affine(candidate))
+        _ = scalar_mul_wnaf(g2, inputs.g2_scalar, w)
+        tr = @benchmark scalar_mul_wnaf($g2, $(inputs.g2_scalar), $w) seconds = 1 samples = 10
+        print_stats("G2 scalar $(label)", tr)
+        record_simple!(results, :bn254_scalar_windows_g2, label, tr)
+    end
+
+    println("\n-- MSM backend sweep (G1) --")
+    rng = MersenneTwister(17)
+    for N in (32, 128, 512)
+        bases = gen_random_bases_g1(rng, N)
+        scalars = genscalars(rng, N)
+        max_bits = maximum(GrothAlgebra._bit_length, scalars)
+        expected = GrothAlgebra.multi_scalar_mul(bases, scalars)
+        record_semantic!(results, :msm_tuning_g1, "N$(N)_auto", serialize_affine(expected))
+        println("G1 N = ", N)
+        _ = GrothAlgebra.multi_scalar_mul(bases, scalars)
+        _ = GrothAlgebra._multi_scalar_mul_straus(bases, scalars, max_bits)
+        tr_auto = @benchmark GrothAlgebra.multi_scalar_mul($bases, $scalars) seconds = 1 samples = 10
+        tr_straus = @benchmark GrothAlgebra._multi_scalar_mul_straus($bases, $scalars, $max_bits) seconds = 1 samples = 10
+        print_stats("G1 auto", tr_auto)
+        print_stats("G1 straus", tr_straus)
+        record_result!(results, :msm_tuning_g1, string(N), "auto", tr_auto)
+        record_result!(results, :msm_tuning_g1, string(N), "straus", tr_straus)
+        for w in 2:6
+            candidate = GrothAlgebra._multi_scalar_mul_pippenger(bases, scalars, max_bits, w)
+            candidate == expected || error("G1 Pippenger window w=$w changed the MSM result for N=$N")
+            label = "pippenger_w$(w)"
+            _ = GrothAlgebra._multi_scalar_mul_pippenger(bases, scalars, max_bits, w)
+            tr = @benchmark GrothAlgebra._multi_scalar_mul_pippenger($bases, $scalars, $max_bits, $w) seconds = 1 samples = 10
+            print_stats("G1 $(label)", tr)
+            record_result!(results, :msm_tuning_g1, string(N), label, tr)
+        end
+    end
+
+    println("\n-- MSM backend sweep (G2) --")
+    rng = MersenneTwister(19)
+    for N in (32, 128, 512)
+        bases = gen_random_bases_g2(rng, N)
+        scalars = genscalars(rng, N)
+        max_bits = maximum(GrothAlgebra._bit_length, scalars)
+        expected = GrothAlgebra.multi_scalar_mul(bases, scalars)
+        record_semantic!(results, :msm_tuning_g2, "N$(N)_auto", serialize_affine(expected))
+        println("G2 N = ", N)
+        _ = GrothAlgebra.multi_scalar_mul(bases, scalars)
+        _ = GrothAlgebra._multi_scalar_mul_straus(bases, scalars, max_bits)
+        tr_auto = @benchmark GrothAlgebra.multi_scalar_mul($bases, $scalars) seconds = 1 samples = 10
+        tr_straus = @benchmark GrothAlgebra._multi_scalar_mul_straus($bases, $scalars, $max_bits) seconds = 1 samples = 10
+        print_stats("G2 auto", tr_auto)
+        print_stats("G2 straus", tr_straus)
+        record_result!(results, :msm_tuning_g2, string(N), "auto", tr_auto)
+        record_result!(results, :msm_tuning_g2, string(N), "straus", tr_straus)
+        for w in 2:6
+            candidate = GrothAlgebra._multi_scalar_mul_pippenger(bases, scalars, max_bits, w)
+            candidate == expected || error("G2 Pippenger window w=$w changed the MSM result for N=$N")
+            label = "pippenger_w$(w)"
+            _ = GrothAlgebra._multi_scalar_mul_pippenger(bases, scalars, max_bits, w)
+            tr = @benchmark GrothAlgebra._multi_scalar_mul_pippenger($bases, $scalars, $max_bits, $w) seconds = 1 samples = 10
+            print_stats("G2 $(label)", tr)
+            record_result!(results, :msm_tuning_g2, string(N), label, tr)
+        end
     end
 end
 
@@ -1174,6 +1275,7 @@ function main()
     :bn254_polynomials in selected && bench_bn254_polynomials(results)
     :fixed_base in selected && bench_fixed_base(results)
     :variable_msm in selected && bench_variable_msm(results)
+    :scalar_msm_tuning in selected && bench_scalar_msm_tuning(results)
     :batch_norm in selected && bench_batch_norm(results)
     :pairing_throughput in selected && bench_pairing_throughput(results)
     :pairing_micro in selected && bench_pairing_micro(results)
