@@ -99,6 +99,9 @@ Exit Criteria:
 Goal:
 Implement a fixed-width Montgomery backend for BN254 base and scalar fields.
 
+Status:
+Completed on 2026-04-01 for `BN254Fq` and `BN254Fr`.
+
 Scope:
 
 - implement limb-based representation for `Fq`
@@ -120,6 +123,24 @@ Exit Criteria:
   tests
 - base-field benchmarks improve materially over the current `BigInt` path
 - no curve or pairing code has been migrated yet
+
+Notes:
+
+- `BN254Fq` and `BN254Fr` now store 4 `UInt64` limbs in Montgomery form behind
+  the Stage 1 backend hooks.
+- Canonical conversion still flows through `convert(BigInt, x)`.
+- The current inversion path decodes to canonical integers and uses `invmod`,
+  while add/sub/mul/square stay on the fixed-width backend.
+- Relative to the Stage 0 quick baseline (`2026-04-01_122211`), the
+  `2026-04-01_140814` artifact shows:
+  - `Fq` add/sub about `40-48x` faster
+  - `Fq` mul/square about `14-15x` faster
+  - `Fr` add/sub about `35-36x` faster
+  - `Fr` mul/square about `15x` faster
+  - G1 scalar about `1.39x` faster
+  - G2 scalar about `3.50x` faster
+  - Miller loop about `3.82x` faster
+  - Full pairing about `5.20x` faster
 
 ## Stage 3: Polynomial And FFT Integration On `Fr`
 

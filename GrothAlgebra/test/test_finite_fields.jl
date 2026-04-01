@@ -11,23 +11,23 @@ using Test
         @testset "Field Element Construction" begin
             # Test basic construction
             a = bn254_fq(7)
-            @test a.value == BigInt(7)
+            @test convert(BigInt, a) == BigInt(7)
             @test prime(BN254Fq) == parse(BigInt, "21888242871839275222246405745257275088696311157297823662689037894645226208583")
 
             # Test construction from BigInt
             b = BN254Fq(BigInt(12))
-            @test b.value == BigInt(12)
+            @test convert(BigInt, b) == BigInt(12)
 
             # Test normalization
             p = prime(BN254Fq)
             large_val = p + BigInt(5)
             c = BN254Fq(large_val)
-            @test c.value == BigInt(5)
+            @test convert(BigInt, c) == BigInt(5)
 
             # Test negative values (should normalize correctly)
             d = BN254Fq(-5)
             expected = p - BigInt(5)
-            @test d.value == expected
+            @test convert(BigInt, d) == expected
         end
 
         @testset "Field Element Equality" begin
@@ -201,7 +201,7 @@ using Test
         five_over_six = GF7(5) / GF7(6)
 
         @test one_half + one_third == five_over_six
-        @test GF7(9).value == BigInt(2)
+        @test convert(BigInt, GF7(9)) == BigInt(2)
         @test string(GF7(4)) == "GF(7)(4)"
 
         @test_throws ArgumentError galois_field(1)

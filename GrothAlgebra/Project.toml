@@ -16,7 +16,8 @@ julia = "1.11, 1.12"
 [extras]
 AbstractAlgebra = "c3fe647b-3220-5bb0-a1ea-a7954cac585d"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["AbstractAlgebra", "Test"]
+test = ["AbstractAlgebra", "Random", "Test"]

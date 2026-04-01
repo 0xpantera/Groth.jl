@@ -2,7 +2,7 @@ using Test
 using GrothAlgebra
 using GrothCurves
 
-serialize_bn254(x::BN254Fq) = string(x.value)
+serialize_bn254(x::BN254Fq) = string(convert(BigInt, x))
 serialize_bn254(x::Fp2Element) = [serialize_bn254(x[1]), serialize_bn254(x[2])]
 serialize_bn254(x::Fp6Element) = [serialize_bn254(x[1]), serialize_bn254(x[2]), serialize_bn254(x[3])]
 serialize_bn254(x::Fp12Element) = [serialize_bn254(x[1]), serialize_bn254(x[2])]
