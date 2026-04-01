@@ -26,8 +26,10 @@ the latest artefacts.
    julia --project=. benchmarks/run.jl --profile=quick
    julia --project=. benchmarks/run.jl --profile=stage3
    julia --project=. benchmarks/run.jl --profile=stage5
+   julia --project=. benchmarks/run.jl --profile=stage7a
    julia --project=. benchmarks/run.jl --groups=bn254_primitives,bn254_polynomials,pairing_micro
    julia --project=. benchmarks/run.jl --groups=bn254_curve_kernels,batch_norm
+   julia --project=. benchmarks/run.jl --groups=glv_scalar_tuning
    ```
 
 3. Regenerate plots (latest run by default, or pass a run id / JSON file):
@@ -60,7 +62,8 @@ the latest artefacts.
 
 The harness writes a timestamped JSON (raw statistics) and PNG charts covering
 direct BN254 field and tower primitives, direct G1/G2 add-double-affine kernels,
-BN254 `Fr` polynomial/domain helpers, scalar multiplication, MSM, pairing,
+BN254 `Fr` polynomial/domain helpers, scalar multiplication, the Stage 7A GLV
+scalar sweep, MSM, pairing,
 normalisation, Groth16 end-to-end timings, and `prove_full` fixture
 breakdowns.
 The profiling script writes text profiler dumps under the same artifact tree,

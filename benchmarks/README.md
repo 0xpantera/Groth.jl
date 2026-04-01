@@ -23,6 +23,8 @@ This directory contains a self-contained BenchmarkTools environment and four scr
     `compute_h_polynomial`
   - `Fp2Element`, `Fp6Element`, and `Fp12Element` add / mul / square / inv
   - direct G1 and G2 scalar multiplication independent of external comparisons
+  - Stage 7A GLV scalar sweep across deterministic `32`, `64`, `128`, `192`,
+    and `254` bit scalar buckets
   - direct G1/G2 add, double, and `to_affine` curve kernels
 - Optional external BN254 primitive comparison against a sibling `py_ecc/`
   checkout
@@ -62,7 +64,7 @@ Each JSON entry records:
 
 `plot.jl` produces the following visual comparisons (all using median timings):
 
-- Primitive baselines: `bn254_fq_ops.png`, `bn254_fr_ops.png`, `bn254_polynomials.png`, `bn254_fp2_ops.png`, `bn254_fp6_ops.png`, `bn254_fp12_ops.png`, `bn254_scalar_mul.png`, `bn254_curve_kernels.png`
+- Primitive baselines: `bn254_fq_ops.png`, `bn254_fr_ops.png`, `bn254_polynomials.png`, `bn254_fp2_ops.png`, `bn254_fp6_ops.png`, `bn254_fp12_ops.png`, `bn254_scalar_mul.png`, `bn254_glv_scalar_g1.png`, `bn254_glv_scalar_g2.png`, `bn254_curve_kernels.png`
 - Microbenchmarks: `fixed_g1.png`, `fixed_g2.png`, `msm_g1.png`, `msm_g2.png`, `norm_g1.png`, `norm_g2.png`
 - External primitive comparison: `py_ecc_scalar.png`, `py_ecc_naive_accum_g1.png`, `py_ecc_naive_accum_g2.png`, `py_ecc_pairing.png`
 - Pairing comparisons: `pairing.png` (sequential vs batch), `pairing_ops.png` (miller loop / final exponent)
@@ -189,6 +191,14 @@ profile or the exact groups directly:
 ```
 julia --project=. benchmarks/run.jl --profile=stage5
 julia --project=. benchmarks/run.jl --groups=bn254_curve_kernels,batch_norm
+```
+
+For Stage 7A GLV scalar work, use the dedicated scalar profile or the exact
+group directly:
+
+```
+julia --project=. benchmarks/run.jl --profile=stage7a
+julia --project=. benchmarks/run.jl --groups=glv_scalar_tuning
 ```
 
 Run a custom subset of groups when you need a tighter loop without changing the

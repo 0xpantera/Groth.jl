@@ -177,6 +177,12 @@ function main()
     plot_single_ops(res, out_dir, :bn254_scalar_windows_g2,
         ["default", "w2", "w3", "w4", "w5", "w6"],
         "BN254 G2 scalar window sweep", "bn254_scalar_windows_g2.png")
+    plot_categorical_group(res, out_dir, :bn254_glv_scalar_g1,
+        ["bits_32", "bits_64", "bits_128", "bits_192", "bits_254"],
+        ["default", "wnaf", "glv"], "BN254 G1 scalar GLV sweep", "bn254_glv_scalar_g1.png")
+    plot_categorical_group(res, out_dir, :bn254_glv_scalar_g2,
+        ["bits_32", "bits_64", "bits_128", "bits_192", "bits_254"],
+        ["default", "glv"], "BN254 G2 scalar GLV sweep", "bn254_glv_scalar_g2.png")
     plot_single_ops(res, out_dir, :bn254_curve_kernels,
         ["g1_double", "g1_add", "g1_to_affine", "g2_double", "g2_add", "g2_to_affine"],
         "BN254 curve kernels", "bn254_curve_kernels.png")

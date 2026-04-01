@@ -26,6 +26,7 @@ const BENCHMARK_GROUP_ORDER = [
     :fixed_base,
     :variable_msm,
     :scalar_msm_tuning,
+    :glv_scalar_tuning,
     :batch_norm,
     :pairing_throughput,
     :pairing_micro,
@@ -42,6 +43,7 @@ const BENCHMARK_PROFILES = Dict(
     "stage5" => [:bn254_primitives, :bn254_curve_kernels, :batch_norm, :pairing_micro],
     "stage6" => [:bn254_primitives, :bn254_curve_kernels, :pairing_micro, :pairing_substeps],
     "stage7" => [:bn254_primitives, :variable_msm, :scalar_msm_tuning, :prove_full],
+    "stage7a" => [:bn254_primitives, :glv_scalar_tuning],
     "primitives" => [:bn254_primitives, :pairing_micro, :py_ecc_primitives],
 )
 
@@ -507,6 +509,86 @@ function bench_scalar_msm_tuning(results)
             print_stats("G2 $(label)", tr)
             record_result!(results, :msm_tuning_g2, string(N), label, tr)
         end
+    end
+end
+
+function bn254_stage7a_glv_inputs()
+    function scalar_for_bits(bits::Int, tag::Int)
+        if bits >= GrothAlgebra._bit_length(r)
+            return r - det_py_ecc_scalar(5000 + tag)
+        end
+
+        tail_mask = (BigInt(1) << (bits - 1)) - 1
+        tail = (BigInt(tag)^5 + 17 * BigInt(tag)^3 + 23 * BigInt(tag) + 29) & tail_mask
+        return (BigInt(1) << (bits - 1)) + tail
+    end
+
+    return (
+        g1 = g1_generator(),
+        g2 = g2_generator(),
+        cases = [
+            ("bits_32", scalar_for_bits(32, 32)),
+            ("bits_64", scalar_for_bits(64, 64)),
+            ("bits_128", scalar_for_bits(128, 128)),
+            ("bits_192", scalar_for_bits(192, 192)),
+            ("bits_254", scalar_for_bits(254, 254)),
+        ],
+    )
+end
+
+function bench_glv_scalar_tuning(results)
+    println("\n== Stage 7A GLV scalar tuning ==")
+    inputs = bn254_stage7a_glv_inputs()
+
+    println("\n-- BN254 G1 scalar policy sweep --")
+    for (label, scalar) in inputs.cases
+        bits = GrothAlgebra._bit_length(scalar)
+        wnaf_window = GrothAlgebra._scalar_mul_window(G1Point, bits)
+        expected = GrothAlgebra.scalar_mul_wnaf(inputs.g1, scalar, wnaf_window)
+        glv = GrothCurves.glv_scalar_mul(inputs.g1, scalar)
+        default = scalar_mul(inputs.g1, scalar)
+        expected == glv || error("G1 GLV mismatch for $(label)")
+        expected == default || error("G1 default scalar path mismatch for $(label)")
+        record_semantic!(results, :bn254_glv_scalar_g1, label, serialize_affine(glv))
+
+        _ = scalar_mul(inputs.g1, scalar)
+        _ = GrothAlgebra.scalar_mul_wnaf(inputs.g1, scalar, wnaf_window)
+        _ = GrothCurves.glv_scalar_mul(inputs.g1, scalar)
+
+        tr_default = @benchmark scalar_mul($(inputs.g1), $scalar) seconds = 1 samples = 10
+        tr_wnaf = @benchmark GrothAlgebra.scalar_mul_wnaf($(inputs.g1), $scalar, $wnaf_window) seconds = 1 samples = 10
+        tr_glv = @benchmark GrothCurves.glv_scalar_mul($(inputs.g1), $scalar) seconds = 1 samples = 10
+
+        print_stats("G1 $(label) default", tr_default)
+        print_stats("G1 $(label) wnaf", tr_wnaf)
+        print_stats("G1 $(label) glv", tr_glv)
+        record_result!(results, :bn254_glv_scalar_g1, label, "default", tr_default)
+        record_result!(results, :bn254_glv_scalar_g1, label, "wnaf", tr_wnaf)
+        record_result!(results, :bn254_glv_scalar_g1, label, "glv", tr_glv)
+    end
+
+    println("\n-- BN254 G2 scalar policy sweep --")
+    for (label, scalar) in inputs.cases
+        bits = GrothAlgebra._bit_length(scalar)
+        wnaf_window = GrothAlgebra._scalar_mul_window(G2Point, bits)
+        expected = GrothAlgebra.scalar_mul_wnaf(inputs.g2, scalar, wnaf_window)
+        glv = GrothCurves.glv_scalar_mul(inputs.g2, scalar)
+        default = scalar_mul(inputs.g2, scalar)
+        expected == glv || error("G2 GLV mismatch for $(label)")
+        expected == default || error("G2 default scalar path mismatch for $(label)")
+        record_semantic!(results, :bn254_glv_scalar_g2, label, serialize_affine(glv))
+
+        _ = scalar_mul(inputs.g2, scalar)
+        _ = GrothAlgebra.scalar_mul_wnaf(inputs.g2, scalar, wnaf_window)
+        _ = GrothCurves.glv_scalar_mul(inputs.g2, scalar)
+
+        tr_default = @benchmark scalar_mul($(inputs.g2), $scalar) seconds = 1 samples = 10
+        tr_glv = @benchmark GrothCurves.glv_scalar_mul($(inputs.g2), $scalar) seconds = 1 samples = 10
+
+        print_stats("G2 $(label) default", tr_default)
+        print_stats("G2 $(label) glv", tr_glv)
+        record_result!(results, :bn254_glv_scalar_g2, label, "default", tr_default)
+        record_result!(results, :bn254_glv_scalar_g2, label, "glv", tr_glv)
     end
 end
 
@@ -1276,6 +1358,7 @@ function main()
     :fixed_base in selected && bench_fixed_base(results)
     :variable_msm in selected && bench_variable_msm(results)
     :scalar_msm_tuning in selected && bench_scalar_msm_tuning(results)
+    :glv_scalar_tuning in selected && bench_glv_scalar_tuning(results)
     :batch_norm in selected && bench_batch_norm(results)
     :pairing_throughput in selected && bench_pairing_throughput(results)
     :pairing_micro in selected && bench_pairing_micro(results)
