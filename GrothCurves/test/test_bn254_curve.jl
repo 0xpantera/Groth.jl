@@ -35,6 +35,9 @@ function scalar_mul_reference(P, k::Integer)
     return result
 end
 
+glv_signed_value(component::Tuple{Bool,BigInt}) = component[1] ? component[2] : -component[2]
+glv_component_bits(component::Tuple{Bool,BigInt}) = iszero(component[2]) ? 0 : ndigits(component[2], base=2)
+
 @testset "BN254 Curve Operations" begin
     
     @testset "G1 Point Operations" begin
@@ -289,6 +292,81 @@ end
             @test z_coord(pts[3]) == one(Fp2Element)
             @test to_affine(pts[1]) == expected[1]
             @test to_affine(pts[3]) == expected[3]
+        end
+    end
+
+    @testset "BN254 GLV Specialization" begin
+        expected_max_bits = cld(ndigits(GrothCurves.BN254_ORDER_R, base=2), 2)
+
+        @testset "Scalar decomposition identities" begin
+            g1_scalars = (
+                benchmark_scalar(401),
+                benchmark_scalar(402),
+                GrothCurves.BN254_ORDER_R - 1234567,
+            )
+            g2_scalars = (
+                benchmark_scalar(501),
+                benchmark_scalar(502),
+                GrothCurves.BN254_ORDER_R - 7654321,
+            )
+
+            for scalar in g1_scalars
+                k1, k2 = GrothCurves.glv_scalar_decomposition(G1Point, scalar)
+                lhs = mod(glv_signed_value(k1) + glv_signed_value(k2) * GrothCurves.glv_lambda(G1Point), GrothCurves.BN254_ORDER_R)
+                @test lhs == mod(BigInt(scalar), GrothCurves.BN254_ORDER_R)
+                @test glv_component_bits(k1) <= expected_max_bits
+                @test glv_component_bits(k2) <= expected_max_bits
+            end
+
+            for scalar in g2_scalars
+                k1, k2 = GrothCurves.glv_scalar_decomposition(G2Point, scalar)
+                lhs = mod(glv_signed_value(k1) + glv_signed_value(k2) * GrothCurves.glv_lambda(G2Point), GrothCurves.BN254_ORDER_R)
+                @test lhs == mod(BigInt(scalar), GrothCurves.BN254_ORDER_R)
+                @test glv_component_bits(k1) <= expected_max_bits
+                @test glv_component_bits(k2) <= expected_max_bits
+            end
+        end
+
+        @testset "Endomorphism eigenvalue on subgroup points" begin
+            g1 = g1_generator()
+            g2 = g2_generator()
+
+            for scalar in (1, benchmark_scalar(403), benchmark_scalar(404))
+                p = scalar_mul(g1, scalar)
+                @test GrothCurves.glv_endomorphism(p) ==
+                      scalar_mul_reference(p, GrothCurves.glv_lambda(G1Point))
+            end
+
+            for scalar in (1, benchmark_scalar(503), benchmark_scalar(504))
+                p = scalar_mul(g2, scalar)
+                @test GrothCurves.glv_endomorphism(p) ==
+                      scalar_mul_wnaf(p, GrothCurves.glv_lambda(G2Point), 3)
+            end
+        end
+
+        @testset "GLV scalar multiplication matches independent paths on subgroup fixtures" begin
+            g1 = g1_generator()
+            g2 = g2_generator()
+
+            for scalar in (
+                benchmark_scalar(405),
+                -benchmark_scalar(406),
+                GrothCurves.BN254_ORDER_R - 1234567,
+                -(GrothCurves.BN254_ORDER_R - 2345678),
+            )
+                @test GrothCurves.glv_scalar_mul(g1, scalar) == scalar_mul_reference(g1, scalar)
+                @test scalar_mul(g1, scalar) == scalar_mul_reference(g1, scalar)
+            end
+
+            for scalar in (
+                benchmark_scalar(505),
+                -benchmark_scalar(506),
+                GrothCurves.BN254_ORDER_R - 7654321,
+                -(GrothCurves.BN254_ORDER_R - 8765432),
+            )
+                @test GrothCurves.glv_scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar)
+                @test scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar)
+            end
         end
     end
     
