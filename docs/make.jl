@@ -38,7 +38,7 @@ makedocs(
     checkdocs=:none,
     repo=Remotes.GitHub("0xpantera", "Groth.jl"),
     meta=Dict(
-        :description => "Groth.jl provides algebra, curve, and Groth16 proof tooling in Julia.",
+        :description => "Groth.jl is a Julia research platform for BN254 algebra, pairings, and Groth16.",
     ),
 )
 
