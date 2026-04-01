@@ -197,6 +197,10 @@ Notes:
 Goal:
 Rebuild `Fp2`, `Fp6`, and `Fp12` on top of the Montgomery base field.
 
+Status:
+Completed on 2026-04-01 for the BN254 extension tower storage and fixed
+nonresidue helpers.
+
 Scope:
 
 - replace wrapper-heavy tower arithmetic with fixed-width field operations
@@ -216,6 +220,22 @@ Exit Criteria:
 - `Fp2`, `Fp6`, and `Fp12` operations match the oracle
 - Frobenius-based identities hold
 - extension-field benchmarks improve materially, especially on `Fp2` and `Fp12`
+
+Notes:
+
+- `Fp2Element`, `Fp6Element`, and `Fp12Element` now store concrete field
+  members instead of `SVector` wrappers.
+- `Fp6` now uses a dedicated `mul_fp2_by_nonresidue` helper for `xi = 9 + u`,
+  and `Fp12` uses a dedicated `mul_fp6_by_nonresidue` helper for `v = (0, 1,
+  0)`.
+- The Stage 4 artifact is `benchmarks/artifacts/2026-04-01_145350`, with key
+  medians relative to the Stage 3 profile artifact `2026-04-01_142842`:
+  - `Fp6 mul`: `2.324 us -> 0.533 us`
+  - `Fp6 square`: `11.919 us -> 0.432 us`
+  - `Fp12 mul`: `19.527 us -> 1.721 us`
+  - `Fp12 inv`: `47.426 us -> 6.995 us`
+  - `G2 scalar`: `446.993 us -> 258.031 us`
+  - `pairing`: `10.409 ms -> 3.843 ms`
 
 ## Stage 5: G1 And G2 Curve Arithmetic Migration
 
