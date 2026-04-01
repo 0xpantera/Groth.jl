@@ -19,6 +19,23 @@ const WORKSPACE_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const PY_ECC_ROOT = joinpath(WORKSPACE_ROOT, "py_ecc")
 const PY_ECC_SCRIPT = joinpath(@__DIR__, "py_ecc_bn254_bench.py")
 const PY_ECC_ACCUM_SIZES = (32, 128)
+const BENCHMARK_GROUP_ORDER = [
+    :bn254_primitives,
+    :fixed_base,
+    :variable_msm,
+    :batch_norm,
+    :pairing_throughput,
+    :pairing_micro,
+    :py_ecc_primitives,
+    :groth16,
+    :prove_full,
+]
+const BENCHMARK_PROFILES = Dict(
+    "full" => copy(BENCHMARK_GROUP_ORDER),
+    "quick" => [:bn254_primitives, :pairing_micro],
+    "stage0" => [:bn254_primitives, :pairing_micro],
+    "primitives" => [:bn254_primitives, :pairing_micro, :py_ecc_primitives],
+)
 
 # -----------------------------------------------------------------------------
 # Sampling helpers
@@ -55,7 +72,19 @@ function serialize_bn254(x::BN254Fq)
     return string(x.value)
 end
 
+function serialize_bn254(x::BN254Fr)
+    return string(x.value)
+end
+
 function serialize_bn254(x::Fp2Element)
+    return Any[serialize_bn254(x[1]), serialize_bn254(x[2])]
+end
+
+function serialize_bn254(x::Fp6Element)
+    return Any[serialize_bn254(x[1]), serialize_bn254(x[2]), serialize_bn254(x[3])]
+end
+
+function serialize_bn254(x::Fp12Element)
     return Any[serialize_bn254(x[1]), serialize_bn254(x[2])]
 end
 
@@ -129,6 +158,12 @@ function record_fixture_meta!(results::Dict{Symbol,Any}, group::Symbol, fixture_
     fixture_dict["_fixture"] = meta
 end
 
+function record_semantic!(results::Dict{Symbol,Any}, group::Symbol, label::String, value)
+    semantic_root = get!(results, :_semantic, Dict{String,Any}())
+    group_dict = get!(semantic_root, String(group), Dict{String,Any}())
+    group_dict[label] = value
+end
+
 function print_stats(label, tr::BenchmarkTools.Trial)
     tmin = minimum(tr)
     tmed = median(tr)
@@ -196,6 +231,64 @@ function run_metadata()
         "git_commit" => try_readchomp(`git rev-parse HEAD`),
         "git_branch" => try_readchomp(`git rev-parse --abbrev-ref HEAD`),
     )
+end
+
+function print_available_profiles()
+    println("Available benchmark profiles:")
+    for name in sort!(collect(keys(BENCHMARK_PROFILES)))
+        groups = join(string.(BENCHMARK_PROFILES[name]), ", ")
+        println("  ", rpad(name, 10), " -> ", groups)
+    end
+    println("\nAvailable benchmark groups:")
+    for group in BENCHMARK_GROUP_ORDER
+        println("  ", group)
+    end
+end
+
+function parse_group_list(spec::AbstractString)
+    isempty(strip(spec)) && error("Benchmark group list cannot be empty")
+    requested = Symbol[]
+    seen = Set{Symbol}()
+    valid = Set(BENCHMARK_GROUP_ORDER)
+    for token in split(spec, ",")
+        name = Symbol(strip(token))
+        name in valid || error("Unknown benchmark group '$token'. Use --list-profiles to see valid groups.")
+        name in seen && continue
+        push!(requested, name)
+        push!(seen, name)
+    end
+    return requested
+end
+
+function parse_cli_args(args::Vector{String})
+    profile = "full"
+    selected_groups = nothing
+    list_profiles = false
+
+    for arg in args
+        if arg == "--list-profiles"
+            list_profiles = true
+        elseif startswith(arg, "--profile=")
+            profile = split(arg, "=", limit = 2)[2]
+        elseif startswith(arg, "--groups=")
+            selected_groups = parse_group_list(split(arg, "=", limit = 2)[2])
+        else
+            error("Unrecognized argument '$arg'. Supported flags: --profile=<name>, --groups=a,b,c, --list-profiles")
+        end
+    end
+
+    if list_profiles
+        return (list_profiles = true, profile = profile, selected_groups = Symbol[])
+    end
+
+    if selected_groups === nothing
+        haskey(BENCHMARK_PROFILES, profile) || error("Unknown benchmark profile '$profile'. Use --list-profiles to inspect available profiles.")
+        selected_groups = copy(BENCHMARK_PROFILES[profile])
+    else
+        profile = "custom"
+    end
+
+    return (list_profiles = false, profile = profile, selected_groups = selected_groups)
 end
 
 # -----------------------------------------------------------------------------
@@ -368,7 +461,7 @@ function bench_batch_norm(results)
     end
 end
 
-function bench_pairings(results)
+function bench_pairing_throughput(results)
     println("\n== Pairing engine: sequential vs batch ==")
     g1 = g1_generator()
     g2 = g2_generator()
@@ -394,11 +487,18 @@ function bench_pairings(results)
         record_result!(results, :pairing, string(N), "sequential", tr_seq)
         record_result!(results, :pairing, string(N), "batch", tr_batch)
     end
+end
 
+function bench_pairing_micro(results)
     println("\n== Pairing engine micro-ops ==")
-    P1 = scalar_mul(g1, BigInt(5))
-    Q1 = scalar_mul(g2, BigInt(7))
+    inputs = bn254_stage0_inputs()
+    P1 = inputs.pair_p
+    Q1 = inputs.pair_q
     f_pre = miller_loop(ENGINE, P1, Q1)
+    final_pre = final_exponentiation(ENGINE, f_pre)
+    final_pre == pairing(ENGINE, P1, Q1) || error("Pairing micro-op benchmark setup mismatch")
+    record_semantic!(results, :pairing_single, "miller_loop", serialize_bn254(f_pre))
+    record_semantic!(results, :pairing_single, "pairing", serialize_bn254(final_pre))
     tr_single = @benchmark pairing($ENGINE, $P1, $Q1) seconds = 2 samples = 10
     tr_miller = @benchmark miller_loop($ENGINE, $P1, $Q1) seconds = 2 samples = 10
     tr_final = @benchmark final_exponentiation($ENGINE, $f_pre) seconds = 2 samples = 10
@@ -483,6 +583,186 @@ function bench_py_ecc_primitives(results, meta)
     print_external_stats("py_ecc pairing", py_results["pairing"]["single"])
     record_result!(results, :py_ecc_pairing, "single", "groth_jl", tr_pair)
     record_external_result!(results, :py_ecc_pairing, "single", "py_ecc", py_results["pairing"]["single"])
+end
+
+function bn254_stage0_inputs()
+    big(s::AbstractString) = parse(BigInt, s)
+
+    fq_a = bn254_fq(big("1234567890123456789012345678901234567890"))
+    fq_b = bn254_fq(big("987654321098765432109876543210987654321"))
+
+    fr_a = bn254_fr(big("1357913579135791357913579135791357913579"))
+    fr_b = bn254_fr(big("2468024680246802468024680246802468024680"))
+
+    fp2_a = Fp2Element(fq_a, fq_b)
+    fp2_b = Fp2Element(
+        bn254_fq(big("3141592653589793238462643383279502884197")),
+        bn254_fq(big("2718281828459045235360287471352662497757")),
+    )
+
+    fp6_a = Fp6Element(fp2_a, fp2_b, Fp2Element(bn254_fq(42), bn254_fq(99)))
+    fp6_b = Fp6Element(Fp2Element(bn254_fq(777), bn254_fq(333)), fp2_a, fp2_b)
+
+    fp12_a = Fp12Element(fp6_a, fp6_b)
+    fp12_b = Fp12Element(fp6_b, fp6_a)
+
+    return (
+        fq_a = fq_a,
+        fq_b = fq_b,
+        fr_a = fr_a,
+        fr_b = fr_b,
+        fp2_a = fp2_a,
+        fp2_b = fp2_b,
+        fp6_a = fp6_a,
+        fp6_b = fp6_b,
+        fp12_a = fp12_a,
+        fp12_b = fp12_b,
+        g1_scalar = BigInt(1234567),
+        g2_scalar = BigInt(7654321),
+        pair_p = scalar_mul(g1_generator(), BigInt(3333333)),
+        pair_q = scalar_mul(g2_generator(), BigInt(4444444)),
+    )
+end
+
+function bench_bn254_primitives(results)
+    println("\n== BN254 primitive fields, tower, and scalar multiplication ==")
+    inputs = bn254_stage0_inputs()
+
+    fq_mul = inputs.fq_a * inputs.fq_b
+    fq_inv = inv(inputs.fq_a)
+    fr_mul = inputs.fr_a * inputs.fr_b
+    fr_inv = inv(inputs.fr_a)
+    fp2_mul = inputs.fp2_a * inputs.fp2_b
+    fp2_inv = inv(inputs.fp2_a)
+    fp6_mul = inputs.fp6_a * inputs.fp6_b
+    fp6_inv = inv(inputs.fp6_a)
+    fp12_mul = inputs.fp12_a * inputs.fp12_b
+    fp12_inv = inv(inputs.fp12_a)
+    g1_gen = g1_generator()
+    g2_gen = g2_generator()
+    g1_scalar_point = scalar_mul(g1_gen, inputs.g1_scalar)
+    g2_scalar_point = scalar_mul(g2_gen, inputs.g2_scalar)
+
+    record_semantic!(results, :bn254_fq, "mul", serialize_bn254(fq_mul))
+    record_semantic!(results, :bn254_fq, "inv", serialize_bn254(fq_inv))
+    record_semantic!(results, :bn254_fr, "mul", serialize_bn254(fr_mul))
+    record_semantic!(results, :bn254_fr, "inv", serialize_bn254(fr_inv))
+    record_semantic!(results, :bn254_fp2, "mul", serialize_bn254(fp2_mul))
+    record_semantic!(results, :bn254_fp2, "inv", serialize_bn254(fp2_inv))
+    record_semantic!(results, :bn254_fp6, "mul", serialize_bn254(fp6_mul))
+    record_semantic!(results, :bn254_fp6, "inv", serialize_bn254(fp6_inv))
+    record_semantic!(results, :bn254_fp12, "mul", serialize_bn254(fp12_mul))
+    record_semantic!(results, :bn254_fp12, "inv", serialize_bn254(fp12_inv))
+    record_semantic!(results, :bn254_scalar_mul, "g1", serialize_affine(g1_scalar_point))
+    record_semantic!(results, :bn254_scalar_mul, "g2", serialize_affine(g2_scalar_point))
+
+    println("BN254Fq")
+    _ = inputs.fq_a + inputs.fq_b
+    _ = inputs.fq_a - inputs.fq_b
+    _ = inputs.fq_a * inputs.fq_b
+    _ = inputs.fq_a * inputs.fq_a
+    _ = inv(inputs.fq_a)
+    tr_fq_add = @benchmark $((inputs.fq_a)) + $((inputs.fq_b)) seconds = 1 samples = 10
+    tr_fq_sub = @benchmark $((inputs.fq_a)) - $((inputs.fq_b)) seconds = 1 samples = 10
+    tr_fq_mul = @benchmark $((inputs.fq_a)) * $((inputs.fq_b)) seconds = 1 samples = 10
+    tr_fq_square = @benchmark $((inputs.fq_a)) * $((inputs.fq_a)) seconds = 1 samples = 10
+    tr_fq_inv = @benchmark inv($((inputs.fq_a))) seconds = 1 samples = 10
+    print_stats("BN254Fq add", tr_fq_add)
+    print_stats("BN254Fq sub", tr_fq_sub)
+    print_stats("BN254Fq mul", tr_fq_mul)
+    print_stats("BN254Fq square", tr_fq_square)
+    print_stats("BN254Fq inv", tr_fq_inv)
+    record_simple!(results, :bn254_fq, "add", tr_fq_add)
+    record_simple!(results, :bn254_fq, "sub", tr_fq_sub)
+    record_simple!(results, :bn254_fq, "mul", tr_fq_mul)
+    record_simple!(results, :bn254_fq, "square", tr_fq_square)
+    record_simple!(results, :bn254_fq, "inv", tr_fq_inv)
+
+    println("\nBN254Fr")
+    _ = inputs.fr_a + inputs.fr_b
+    _ = inputs.fr_a - inputs.fr_b
+    _ = inputs.fr_a * inputs.fr_b
+    _ = inputs.fr_a * inputs.fr_a
+    _ = inv(inputs.fr_a)
+    tr_fr_add = @benchmark $((inputs.fr_a)) + $((inputs.fr_b)) seconds = 1 samples = 10
+    tr_fr_sub = @benchmark $((inputs.fr_a)) - $((inputs.fr_b)) seconds = 1 samples = 10
+    tr_fr_mul = @benchmark $((inputs.fr_a)) * $((inputs.fr_b)) seconds = 1 samples = 10
+    tr_fr_square = @benchmark $((inputs.fr_a)) * $((inputs.fr_a)) seconds = 1 samples = 10
+    tr_fr_inv = @benchmark inv($((inputs.fr_a))) seconds = 1 samples = 10
+    print_stats("BN254Fr add", tr_fr_add)
+    print_stats("BN254Fr sub", tr_fr_sub)
+    print_stats("BN254Fr mul", tr_fr_mul)
+    print_stats("BN254Fr square", tr_fr_square)
+    print_stats("BN254Fr inv", tr_fr_inv)
+    record_simple!(results, :bn254_fr, "add", tr_fr_add)
+    record_simple!(results, :bn254_fr, "sub", tr_fr_sub)
+    record_simple!(results, :bn254_fr, "mul", tr_fr_mul)
+    record_simple!(results, :bn254_fr, "square", tr_fr_square)
+    record_simple!(results, :bn254_fr, "inv", tr_fr_inv)
+
+    println("\nFp2")
+    _ = inputs.fp2_a + inputs.fp2_b
+    _ = inputs.fp2_a * inputs.fp2_b
+    _ = inputs.fp2_a * inputs.fp2_a
+    _ = inv(inputs.fp2_a)
+    tr_fp2_add = @benchmark $((inputs.fp2_a)) + $((inputs.fp2_b)) seconds = 1 samples = 10
+    tr_fp2_mul = @benchmark $((inputs.fp2_a)) * $((inputs.fp2_b)) seconds = 1 samples = 10
+    tr_fp2_square = @benchmark $((inputs.fp2_a)) * $((inputs.fp2_a)) seconds = 1 samples = 10
+    tr_fp2_inv = @benchmark inv($((inputs.fp2_a))) seconds = 1 samples = 10
+    print_stats("Fp2 add", tr_fp2_add)
+    print_stats("Fp2 mul", tr_fp2_mul)
+    print_stats("Fp2 square", tr_fp2_square)
+    print_stats("Fp2 inv", tr_fp2_inv)
+    record_simple!(results, :bn254_fp2, "add", tr_fp2_add)
+    record_simple!(results, :bn254_fp2, "mul", tr_fp2_mul)
+    record_simple!(results, :bn254_fp2, "square", tr_fp2_square)
+    record_simple!(results, :bn254_fp2, "inv", tr_fp2_inv)
+
+    println("\nFp6")
+    _ = inputs.fp6_a + inputs.fp6_b
+    _ = inputs.fp6_a * inputs.fp6_b
+    _ = square(inputs.fp6_a)
+    _ = inv(inputs.fp6_a)
+    tr_fp6_add = @benchmark $((inputs.fp6_a)) + $((inputs.fp6_b)) seconds = 1 samples = 10
+    tr_fp6_mul = @benchmark $((inputs.fp6_a)) * $((inputs.fp6_b)) seconds = 1 samples = 10
+    tr_fp6_square = @benchmark square($((inputs.fp6_a))) seconds = 1 samples = 10
+    tr_fp6_inv = @benchmark inv($((inputs.fp6_a))) seconds = 1 samples = 10
+    print_stats("Fp6 add", tr_fp6_add)
+    print_stats("Fp6 mul", tr_fp6_mul)
+    print_stats("Fp6 square", tr_fp6_square)
+    print_stats("Fp6 inv", tr_fp6_inv)
+    record_simple!(results, :bn254_fp6, "add", tr_fp6_add)
+    record_simple!(results, :bn254_fp6, "mul", tr_fp6_mul)
+    record_simple!(results, :bn254_fp6, "square", tr_fp6_square)
+    record_simple!(results, :bn254_fp6, "inv", tr_fp6_inv)
+
+    println("\nFp12")
+    _ = inputs.fp12_a + inputs.fp12_b
+    _ = inputs.fp12_a * inputs.fp12_b
+    _ = square(inputs.fp12_a)
+    _ = inv(inputs.fp12_a)
+    tr_fp12_add = @benchmark $((inputs.fp12_a)) + $((inputs.fp12_b)) seconds = 1 samples = 10
+    tr_fp12_mul = @benchmark $((inputs.fp12_a)) * $((inputs.fp12_b)) seconds = 1 samples = 10
+    tr_fp12_square = @benchmark square($((inputs.fp12_a))) seconds = 1 samples = 10
+    tr_fp12_inv = @benchmark inv($((inputs.fp12_a))) seconds = 1 samples = 10
+    print_stats("Fp12 add", tr_fp12_add)
+    print_stats("Fp12 mul", tr_fp12_mul)
+    print_stats("Fp12 square", tr_fp12_square)
+    print_stats("Fp12 inv", tr_fp12_inv)
+    record_simple!(results, :bn254_fp12, "add", tr_fp12_add)
+    record_simple!(results, :bn254_fp12, "mul", tr_fp12_mul)
+    record_simple!(results, :bn254_fp12, "square", tr_fp12_square)
+    record_simple!(results, :bn254_fp12, "inv", tr_fp12_inv)
+
+    println("\nCurve scalar multiplication")
+    _ = scalar_mul(g1_gen, inputs.g1_scalar)
+    _ = scalar_mul(g2_gen, inputs.g2_scalar)
+    tr_g1_scalar = @benchmark scalar_mul($g1_gen, $(inputs.g1_scalar)) seconds = 1 samples = 10
+    tr_g2_scalar = @benchmark scalar_mul($g2_gen, $(inputs.g2_scalar)) seconds = 1 samples = 10
+    print_stats("G1 scalar", tr_g1_scalar)
+    print_stats("G2 scalar", tr_g2_scalar)
+    record_simple!(results, :bn254_scalar_mul, "g1", tr_g1_scalar)
+    record_simple!(results, :bn254_scalar_mul, "g2", tr_g2_scalar)
 end
 
 function bench_groth16(results)
@@ -625,7 +905,15 @@ end
 # -----------------------------------------------------------------------------
 
 function main()
+    cli = parse_cli_args(ARGS)
+    if cli.list_profiles
+        print_available_profiles()
+        return
+    end
+
     println("GrothBenchmarks — Julia $(VERSION)")
+    println("Benchmark profile: ", cli.profile)
+    println("Selected groups: ", join(string.(cli.selected_groups), ", "))
     run_id = Dates.format(Dates.now(Dates.UTC), "yyyy-mm-dd_HHMMSS")
     artifact_dir = joinpath(@__DIR__, "artifacts", run_id)
     results_dir = joinpath(artifact_dir, "results")
@@ -639,14 +927,22 @@ function main()
     meta = run_metadata()
     meta["run_id"] = run_id
     meta["artifact_dir"] = artifact_dir
+    meta["benchmark_profile"] = cli.profile
+    meta["benchmark_groups"] = string.(cli.selected_groups)
+    meta["partial_run"] = cli.profile != "full" || cli.selected_groups != BENCHMARK_PROFILES["full"]
     results[:_meta] = meta
-    bench_fixed_base(results)
-    bench_variable_msm(results)
-    bench_batch_norm(results)
-    bench_pairings(results)
-    bench_py_ecc_primitives(results, meta)
-    bench_groth16(results)
-    bench_prove_full(results)
+    results[:_semantic] = Dict{String,Any}()
+    selected = Set(cli.selected_groups)
+
+    :bn254_primitives in selected && bench_bn254_primitives(results)
+    :fixed_base in selected && bench_fixed_base(results)
+    :variable_msm in selected && bench_variable_msm(results)
+    :batch_norm in selected && bench_batch_norm(results)
+    :pairing_throughput in selected && bench_pairing_throughput(results)
+    :pairing_micro in selected && bench_pairing_micro(results)
+    :py_ecc_primitives in selected && bench_py_ecc_primitives(results, meta)
+    :groth16 in selected && bench_groth16(results)
+    :prove_full in selected && bench_prove_full(results)
 
     results_out = joinpath(results_dir, "benchmark_results.json")
     open(results_out, "w") do io
