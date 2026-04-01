@@ -57,13 +57,13 @@ Completed stages:
 - Stage 5: G1 and G2 curve arithmetic migration
 - Stage 6: pairing engine migration
 - Stage 7: MSM and scalar-mul specialization
+- Stage 7A: BN254 GLV scalar multiplication
 
 Next concrete work:
 
-- narrow the remaining primitive gap to arkworks before re-baselining
-  `prove_full`
-- start with BN254 GLV-style scalar multiplication
-- then revisit limb-native inversion and final-exponentiation specialization
+- Stage 8 `prove_full` integration and regression baseline
+- then revisit limb-native inversion and final-exponentiation specialization if
+  the new prover baseline still points there as the best primitive-level work
 
 Stage 8 remains the end-to-end `prove_full` integration and regression
 baseline stage.
@@ -426,26 +426,80 @@ Notes:
   - `h_msm`: `7.271 ms -> 7.147 ms`
   - `l_msm`: `3.955 ms -> 3.831 ms`
 
+## Stage 7A: BN254 GLV Scalar Multiplication
+
+Goal:
+Add a measured GLV scalar-multiplication path before the Stage 8 prover
+re-baseline.
+
+Status:
+Completed on 2026-04-01.
+
+Scope:
+
+- implement BN254 GLV decomposition and endomorphism helpers for `G1` and `G2`
+- add explicit correctness checks for decomposition and `φ(P) = [λ]P`
+- benchmark GLV against the existing scalar path across multiple scalar sizes
+- promote GLV into the default path only where the win is measured and the
+  semantics remain transparent
+
+Deliverables:
+
+- internal `glv_scalar_mul`, `glv_scalar_decomposition`, and endomorphism
+  helpers in `BN254Curve.jl`
+- deterministic tests for BN254 GLV decomposition and subgroup-eigenvalue
+  checks
+- a dedicated `glv_scalar_tuning` benchmark group and `stage7a` profile
+
+Exit Criteria:
+
+- GLV matches the existing scalar path on deterministic subgroup fixtures
+- benchmark data identifies whether G1, G2, or both should use GLV by default
+- the kept default policy is documented with explicit benchmark evidence
+
+Notes:
+
+- Stage 7A added a GLV helper for both `G1` and `G2`, but only `G1` now uses
+  GLV by default.
+- The final G1 policy is hybrid:
+  - keep w-NAF below `192` bits
+  - switch to GLV at `192` bits and above
+- `G2` keeps the existing public scalar path for now even though GLV wins on
+  full-width subgroup scalars, because `G2Point` does not encode subgroup
+  membership and the GLV eigenvalue relation is only guaranteed on the prime
+  subgroup.
+- The first Stage 7A artifact is
+  `benchmarks/artifacts/2026-04-01_182238`, with medians:
+  - G1 `bits_128`: default `0.436 ms`, w-NAF `0.440 ms`, GLV `0.612 ms`
+  - G1 `bits_192`: default `0.639 ms`, w-NAF `0.654 ms`, GLV `0.648 ms`
+  - G1 `bits_254`: default `0.635 ms`, w-NAF `0.967 ms`, GLV `0.640 ms`
+  - G2 `bits_128`: default `1.413 ms`, GLV `1.422 ms`
+  - G2 `bits_192`: default `1.470 ms`, GLV `1.533 ms`
+  - G2 `bits_254`: default `2.249 ms`, GLV `1.435 ms`
+
 ## Remaining Gap To Arkworks
 
 The current BN254 primitive gap to arkworks is no longer dominated by the old
 `BigInt` representation alone. The biggest remaining causes are now:
 
-- missing GLV-style scalar multiplication for BN254 `G1` and `G2`
 - field inversion still escaping to `BigInt invmod`
 - final exponentiation still using generic multiplication/squaring in places
   where cyclotomic-specialized paths should be used more aggressively
 - extension-field hot paths still being more value-oriented and less in-place
   than the arkworks equivalents
+- G2 does have an internal GLV path now, but the current `G2Point` type does
+  not encode subgroup membership, so that acceleration is not yet safe as the
+  unconditional public default
 - MSM still being more generic than arkworks’ specialized variable-base stack
 
 Current priority order for narrowing that gap:
 
-1. BN254 GLV scalar multiplication
+1. Stage 8 `prove_full` re-baseline on the new backend
 2. limb-native inversion
 3. final-exponentiation specialization
 4. more in-place extension-field helpers
-5. deeper MSM specialization
+5. subgroup-aware G2 typing or another safe way to expose G2 GLV by default
+6. deeper MSM specialization
 
 This gap-narrowing track is intentionally placed before Stage 8 so the next
 `prove_full` baseline benefits from the higher-value primitive improvements
