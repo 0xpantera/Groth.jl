@@ -7,6 +7,10 @@ on:
     tags: "*"
   pull_request:
 
+concurrency:
+  group: documentation-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     permissions:
@@ -19,14 +23,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: "1"
-      - name: Install dependencies
-        shell: julia --color=yes --project=. {0}
+          version: "1.12"
+      - uses: julia-actions/cache@v2
+      - name: Instantiate docs environment
+        shell: julia --color=yes --project=docs {0}
         run: |
           using Pkg
-          Pkg.instantiate(workspace=true)
+          Pkg.instantiate()
       - name: Build and deploy
-        run: julia --color=yes --project=. docs/make.jl
+        run: julia --color=yes --project=docs docs/make.jl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
