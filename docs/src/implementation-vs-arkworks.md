@@ -27,12 +27,11 @@ Depth = 2
 
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
-| Variable-base MSM | Straus / Pippenger variants with endomorphism support where safe. | `GrothAlgebra.multi_scalar_mul` uses a Pippenger-style backend with a small-input Straus fallback; BN254 G1 now has a measured hybrid GLV path, and G2 has an internal GLV path that is not yet the unconditional public default. |
+| Variable-base MSM | Straus / Pippenger variants with endomorphism support where safe. | `GrothAlgebra.multi_scalar_mul` uses a Pippenger-style backend with a small-input Straus fallback; BN254 G1 now has a measured hybrid GLV path, and G2 exposes GLV through an explicit subgroup-only helper rather than the arbitrary-point default. |
 | Fixed-base tables | `FixedBaseMSM` window tables. | `FixedBaseTable` plus `build_fixed_table`, `mul_fixed`, and `batch_mul` mirror the workflow; setup uses measured BN254 scalar/GLV dispatch for G1 query generation and a fixed-window batch path for the G2 query. |
 
-**Next steps:** keep MSM work tied to the real `prove_full` fixtures, pursue
-safe G2 GLV exposure, and avoid treating synthetic MSM sweeps as the sole
-tuning signal.
+**Next steps:** keep MSM work tied to the real `prove_full` fixtures and avoid
+treating synthetic MSM sweeps as the sole tuning signal.
 
 ## Curve Abstractions & Pairing Engine
 
@@ -47,7 +46,7 @@ tuning signal.
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
 | R1CS → QAP | Domain fully populated, IFFT then FFT on the coset. | Same structure; constraints, public-input selector slots, and zero padding are all explicit before IFFT. |
-| Prover/setup | Coset FFT path, dense available for debugging. | `prove_full` uses coset-only H computation and combines H/L into one G1 MSM for `C`; `setup_full` uses measured query-generation dispatch; dense/coset parity is kept in explicit debug/test helpers. |
+| Prover/setup | Coset FFT path, dense available for debugging. | `prove_full` uses coset-only H computation and combines H/L into one G1 MSM for `C`; `setup_full` uses measured query-generation dispatch; subgroup-owned fixed G2 elements use explicit GLV; dense/coset parity is kept in explicit debug/test helpers. |
 | Prepared verifier | `PreparedVerifyingKey` batches pairings. | `prepare_verifying_key`, `prepare_inputs`, and `verify_with_prepared` mirror the API. |
 | Aggregation | Optional `groth16::aggregate_proofs`. | Not yet ported; tracked on the roadmap. |
 
@@ -56,7 +55,6 @@ tuning signal.
 1. Replace the remaining `BigInt`-based inversion path in the BN254 Montgomery backend.
 2. Specialize final exponentiation further around cyclotomic operations and measured BN254 structure.
 3. Reduce value churn in extension-field hot paths where the current pairing code is still less in-place than arkworks.
-4. Find a safe way to expose G2 GLV acceleration on subgroup-owned points without weakening public semantics.
-5. Rebaseline `prove_full` after each high-leverage specialization stage instead of batching changes together.
+4. Rebaseline `prove_full` after each high-leverage specialization stage instead of batching changes together.
 
 Use this page as a checklist whenever behaviour changes—update the tables above as new features land.

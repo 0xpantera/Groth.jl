@@ -298,7 +298,7 @@ function assemble_ab_terms(pk::ProvingKey, A_acc_g1, B_acc_g1, B_acc_g2, r, s)
     A1_g1 = pk.alpha_g1 + A_acc_g1
     B1_g1 = pk.beta_g1 + B_acc_g1
     A = A1_g1 + scalar_mul(pk.delta_g1, r)
-    B = pk.beta_g2 + B_acc_g2 + scalar_mul(pk.delta_g2, s)
+    B = pk.beta_g2 + B_acc_g2 + g2_subgroup_scalar_mul(pk.delta_g2, s)
     return (A = A, B = B, A1_g1 = A1_g1, B1_g1 = B1_g1)
 end
 

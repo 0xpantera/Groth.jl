@@ -556,15 +556,15 @@ function bench_scalar_plumbing(results)
     l_msm_bigint = GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars_bigint)
     g1_scalar_res_fr = scalar_mul(pk.delta_g1, g1_scalar_fr)
     g1_scalar_res_bigint = scalar_mul(pk.delta_g1, g1_scalar_bigint)
-    g2_scalar_res_fr = scalar_mul(pk.delta_g2, g2_scalar_fr)
-    g2_scalar_res_bigint = scalar_mul(pk.delta_g2, g2_scalar_bigint)
+    g2_scalar_res_fr = GrothCurves.g2_subgroup_scalar_mul(pk.delta_g2, g2_scalar_fr)
+    g2_scalar_res_bigint = GrothCurves.g2_subgroup_scalar_mul(pk.delta_g2, g2_scalar_bigint)
 
     msm_a_fr == msm_a_bigint || error("BN254Fr scalar plumbing changed A-query MSM result")
     msm_b2_fr == msm_b2_bigint || error("BN254Fr scalar plumbing changed B2-query MSM result")
     h_msm_fr == h_msm_bigint || error("BN254Fr scalar plumbing changed H MSM result")
     l_msm_fr == l_msm_bigint || error("BN254Fr scalar plumbing changed L MSM result")
     g1_scalar_res_fr == g1_scalar_res_bigint || error("BN254Fr scalar plumbing changed G1 scalar_mul result")
-    g2_scalar_res_fr == g2_scalar_res_bigint || error("BN254Fr scalar plumbing changed G2 scalar_mul result")
+    g2_scalar_res_fr == g2_scalar_res_bigint || error("BN254Fr scalar plumbing changed G2 subgroup scalar_mul result")
 
     record_semantic!(results, :scalar_plumbing, "g1_scalar_delta", serialize_affine(g1_scalar_res_fr))
     record_semantic!(results, :scalar_plumbing, "g2_scalar_delta", serialize_affine(g2_scalar_res_fr))
@@ -585,12 +585,12 @@ function bench_scalar_plumbing(results)
     record_simple!(results, :scalar_plumbing_g1_scalar, "bigint", tr_g1_bigint)
     record_simple!(results, :scalar_plumbing_g1_scalar, "bn254fr", tr_g1_fr)
 
-    _ = scalar_mul(pk.delta_g2, g2_scalar_bigint)
-    _ = scalar_mul(pk.delta_g2, g2_scalar_fr)
-    tr_g2_bigint = @benchmark scalar_mul($pk.delta_g2, $g2_scalar_bigint) seconds = 1 samples = 10
-    tr_g2_fr = @benchmark scalar_mul($pk.delta_g2, $g2_scalar_fr) seconds = 1 samples = 10
-    print_stats("scalar_plumbing G2 bigint", tr_g2_bigint)
-    print_stats("scalar_plumbing G2 bn254fr", tr_g2_fr)
+    _ = GrothCurves.g2_subgroup_scalar_mul(pk.delta_g2, g2_scalar_bigint)
+    _ = GrothCurves.g2_subgroup_scalar_mul(pk.delta_g2, g2_scalar_fr)
+    tr_g2_bigint = @benchmark GrothCurves.g2_subgroup_scalar_mul($pk.delta_g2, $g2_scalar_bigint) seconds = 1 samples = 10
+    tr_g2_fr = @benchmark GrothCurves.g2_subgroup_scalar_mul($pk.delta_g2, $g2_scalar_fr) seconds = 1 samples = 10
+    print_stats("scalar_plumbing G2 subgroup bigint", tr_g2_bigint)
+    print_stats("scalar_plumbing G2 subgroup bn254fr", tr_g2_fr)
     record_simple!(results, :scalar_plumbing_g2_scalar, "bigint", tr_g2_bigint)
     record_simple!(results, :scalar_plumbing_g2_scalar, "bn254fr", tr_g2_fr)
 
@@ -692,23 +692,26 @@ function bench_glv_scalar_tuning(results)
         bits = GrothAlgebra._bit_length(scalar)
         wnaf_window = GrothAlgebra._scalar_mul_window(G2Point, bits)
         expected = GrothAlgebra.scalar_mul_wnaf(inputs.g2, scalar, wnaf_window)
-        glv = GrothCurves.glv_scalar_mul(inputs.g2, scalar)
+        glv = GrothCurves.g2_subgroup_scalar_mul(inputs.g2, scalar)
         default = scalar_mul(inputs.g2, scalar)
-        expected == glv || error("G2 GLV mismatch for $(label)")
+        expected == glv || error("G2 subgroup GLV mismatch for $(label)")
         expected == default || error("G2 default scalar path mismatch for $(label)")
         record_semantic!(results, :bn254_glv_scalar_g2, label, serialize_affine(glv))
 
         _ = scalar_mul(inputs.g2, scalar)
         _ = GrothAlgebra.scalar_mul_wnaf(inputs.g2, scalar, wnaf_window)
-        _ = GrothCurves.glv_scalar_mul(inputs.g2, scalar)
+        _ = GrothCurves.g2_subgroup_scalar_mul(inputs.g2, scalar)
 
         tr_default = @benchmark scalar_mul($(inputs.g2), $scalar) seconds = 1 samples = 10
-        tr_glv = @benchmark GrothCurves.glv_scalar_mul($(inputs.g2), $scalar) seconds = 1 samples = 10
+        tr_wnaf = @benchmark GrothAlgebra.scalar_mul_wnaf($(inputs.g2), $scalar, $wnaf_window) seconds = 1 samples = 10
+        tr_glv = @benchmark GrothCurves.g2_subgroup_scalar_mul($(inputs.g2), $scalar) seconds = 1 samples = 10
 
         print_stats("G2 $(label) default", tr_default)
-        print_stats("G2 $(label) glv", tr_glv)
+        print_stats("G2 $(label) wnaf", tr_wnaf)
+        print_stats("G2 $(label) subgroup_glv", tr_glv)
         record_result!(results, :bn254_glv_scalar_g2, label, "default", tr_default)
-        record_result!(results, :bn254_glv_scalar_g2, label, "glv", tr_glv)
+        record_result!(results, :bn254_glv_scalar_g2, label, "wnaf", tr_wnaf)
+        record_result!(results, :bn254_glv_scalar_g2, label, "subgroup_glv", tr_glv)
     end
 end
 

@@ -52,9 +52,12 @@ The project has moved well beyond a minimal Groth16 demo.
 - The current larger deterministic `setup_full` fixture is `116.918 ms` in
   [docs/src/assets/setup_full_tuning_2026_05_11.json](./docs/src/assets/setup_full_tuning_2026_05_11.json),
   down from the `142.715 ms` pre-change baseline on the same fixture.
+- Groth16 setup/proving now use an explicit G2 subgroup GLV helper for
+  construction-owned key points, while generic G2 scalar multiplication remains
+  the safe path for arbitrary verifier input.
 - The active roadmap has shifted from broad backend replacement to targeted
-  specialization: limb-native inversion, final-exponentiation work, safer G2
-  GLV exposure, prover-shaped MSM tuning, and then a fresh prover re-baseline.
+  specialization: limb-native inversion, final-exponentiation work,
+  prover-shaped MSM tuning, and then a fresh prover re-baseline.
 
 See [ROADMAP.md](./ROADMAP.md) for the staged backend history and remaining
 specialization work.
@@ -179,7 +182,10 @@ Latest tracked `setup_full` fixture summary
 
 Setup now uses the BN254 G1 scalar dispatcher for G1 queries because the GLV
 path beats fixed-base w-NAF on the measured full-width setup scalars; the G2
-query keeps a fixed-window batch path.
+query keeps a fixed-window batch path. Fixed G2 key elements and the prover's
+`delta_g2` randomizer term use an explicit subgroup-only GLV helper, preserving
+the generic G2 scalar path for arbitrary on-curve points and verifier subgroup
+checks.
 
 ## Performance Snapshot
 

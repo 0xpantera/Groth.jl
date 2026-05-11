@@ -28,7 +28,7 @@ Depth = 2
 - FFT helpers guard against silent truncation and support the full-domain QAP
   interpolation path used by Groth16.
 - FFT helpers now gate the dense fallback behind parity assertions.
-- BN254 `scalar_mul` now selects tuned w-NAF windows for G1/G2, while other group types keep the generic fallback.
+- BN254 `scalar_mul` now selects tuned w-NAF windows for G1/G2, while other group types keep the generic fallback. Large G1 scalars use measured GLV dispatch; G2 GLV is exposed separately for subgroup-owned points.
 
 ## Follow-ups
 

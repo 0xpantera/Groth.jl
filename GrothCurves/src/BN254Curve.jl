@@ -236,6 +236,19 @@ function glv_scalar_mul(p::P, k::GrothAlgebra.BN254Fr) where {P<:ProjectivePoint
 end
 
 """
+    g2_subgroup_scalar_mul(p::G2Point, k::Integer)
+    g2_subgroup_scalar_mul(p::G2Point, k::GrothAlgebra.BN254Fr)
+
+Multiply a BN254 G2 point by `k` using the GLV endomorphism, assuming `p` is
+already known to be in the prime-order G2 subgroup.
+
+The generic `scalar_mul(::G2Point, ...)` path intentionally remains the safe
+default for arbitrary on-curve points, including verifier subgroup checks.
+"""
+g2_subgroup_scalar_mul(p::G2Point, k::Integer) = glv_scalar_mul(p, k)
+g2_subgroup_scalar_mul(p::G2Point, k::GrothAlgebra.BN254Fr) = glv_scalar_mul(p, k)
+
+"""
     GrothAlgebra.scalar_mul(p::G1Point, k::Integer)
     GrothAlgebra.scalar_mul(p::G1Point, k::GrothAlgebra.BN254Fr)
 

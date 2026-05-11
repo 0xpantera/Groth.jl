@@ -55,7 +55,10 @@ annotated rather than discarded), and follow-ups.
 - Projective point abstraction (`ProjectivePoint{Curve,F}`) enables additional
   curve engines in future work.
 - BN254 G1/G2 scalar multiplication now dispatches to tuned w-NAF windows by
-  default; the generic binary fallback remains available for other group types.
+  default; large G1 scalars use measured GLV dispatch. G2 exposes
+  `g2_subgroup_scalar_mul` for points already known to be in the BN254
+  prime-order subgroup, while generic G2 `scalar_mul` remains the safe path for
+  arbitrary on-curve points.
 - (2026-04-01) Stage 4 of the Montgomery roadmap replaced `SVector`-backed
   `Fp2`/`Fp6`/`Fp12` storage with concrete field members and specialized
   nonresidue helpers for `xi = 9 + u` and `v = (0, 1, 0)`. The first Stage 4
@@ -95,6 +98,9 @@ annotated rather than discarded), and follow-ups.
 - (2026-05-11) `setup_full` routes G1 query generation through the BN254 scalar
   dispatcher, whose GLV path beats fixed-base w-NAF for the measured setup
   scalars; the G2 query uses a fixed-window batch path.
+- (2026-05-11) `setup_full` and `prove_full` route subgroup-owned fixed G2
+  elements through the explicit `g2_subgroup_scalar_mul` helper. Verifier
+  subgroup checks intentionally keep the generic G2 scalar path.
 - (2026-04-02) The current follow-through work has shifted from broad backend
   migration to the remaining prover and pairing specialization steps surfaced
   by the Stage 8A baseline.
@@ -148,8 +154,7 @@ annotated rather than discarded), and follow-ups.
 ## Roadmap snapshot (see `ROADMAP.md`)
 
 - Immediate: limb-native inversion, final-exponentiation specialization,
-  extension-field hot paths, safe G2 GLV exposure, and prover-shaped MSM
-  specialization.
+  extension-field hot paths, and prover-shaped MSM specialization.
 - Stretch: proof aggregation, second curve prototype, then Stage 9
   parallelism / accelerators once the single-thread backend is tighter.
 
@@ -171,6 +176,8 @@ annotated rather than discarded), and follow-ups.
 - [x] Coset FFT path default with dense assertion.
 - [x] Align QAP domain population with arkworks.
 - [x] Implement variable-base Pippenger MSM and route prover query MSMs through it.
+- [x] Expose G2 GLV through an explicit subgroup-only helper and route
+  construction-owned Groth16 G2 scalar multiplications through it.
 - [ ] Extend MSM work with fixed-base Pippenger / further setup-side tuning if benchmarks justify it.
 - [ ] Prototype second pairing engine (BLS12-381).
 - [ ] Port proof aggregation.

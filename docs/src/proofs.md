@@ -29,6 +29,9 @@ Depth = 2
   proof element, since the algebra only needs their sum.
 - `setup_full` uses the measured BN254 G1 scalar/GLV path for G1 query
   generation and a fixed-window batch path for the G2 query.
+- Fixed G2 key elements and the prover `delta_g2` randomizer term use the
+  explicit subgroup-only G2 GLV helper. Verification subgroup checks still use
+  generic G2 scalar multiplication because proof inputs are untrusted.
 - QAP conversion uses an arkworks-shaped full domain: constraints first,
   public-input selector rows next, zero padding last, and `t(x) = x^N - 1`.
 - The latest prover optimization work is now focused on the remaining

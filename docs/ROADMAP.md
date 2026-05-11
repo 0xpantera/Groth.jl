@@ -72,6 +72,9 @@ an arkworks-aligned, production-friendly Groth16 stack.
 - `setup_full` query generation now uses BN254 G1 scalar/GLV dispatch for G1
   queries and a fixed-window G2 batch path; the generated fixture is now
   `116.918 ms`.
+- G2 GLV is exposed through an explicit subgroup-only helper. Groth16
+  setup/proving use it for construction-owned G2 key points, while verifier
+  subgroup checks keep generic G2 scalar multiplication for arbitrary input.
 - Prepared verifier matches arkworks (batched pairing path).
 - Benchmarks expanded (pairing & Groth16 hot paths with JSON/PNG artefacts).
 - Groth16 tests cover multiple circuits, randomized seeds, prepared-path

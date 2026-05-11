@@ -116,10 +116,12 @@ function plot_categorical_group(results::AbstractDict, out_dir::String, key::Sym
     group === nothing && return
     present = [category for category in categories if haskey(group, category)]
     isempty(present) && return
-    data = [median_ms(group[category][labels[j]]) for j in eachindex(labels), category in present]
+    present_labels = [label for label in labels if all(category -> haskey(group[category], label), present)]
+    isempty(present_labels) && return
+    data = [median_ms(group[category][present_labels[j]]) for j in eachindex(present_labels), category in present]
     groupedbar(present, permutedims(data), bar_position=:dodge,
         legend=:topleft, title=title, xlabel="", ylabel="median time (ms)",
-        label=permutedims(series_label.(labels)))
+        label=permutedims(series_label.(present_labels)))
     png(joinpath(out_dir, outfile))
 end
 
@@ -218,7 +220,7 @@ function main()
         ["default", "wnaf", "glv"], "BN254 G1 scalar GLV sweep", "bn254_glv_scalar_g1.png")
     plot_categorical_group(res, out_dir, :bn254_glv_scalar_g2,
         ["bits_32", "bits_64", "bits_128", "bits_192", "bits_254"],
-        ["default", "glv"], "BN254 G2 scalar GLV sweep", "bn254_glv_scalar_g2.png")
+        ["default", "wnaf", "subgroup_glv", "glv"], "BN254 G2 scalar GLV sweep", "bn254_glv_scalar_g2.png")
     plot_single_ops(res, out_dir, :bn254_curve_kernels,
         ["g1_double", "g1_add", "g1_to_affine", "g2_double", "g2_add", "g2_to_affine"],
         "BN254 curve kernels", "bn254_curve_kernels.png")
