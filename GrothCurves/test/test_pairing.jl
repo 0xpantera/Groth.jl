@@ -165,6 +165,19 @@ using GrothAlgebra
         @test e2 == e2_direct
     end
 
+    @testset "Sparse Line Multiplication" begin
+        a = miller_loop(scalar_mul(P, BigInt(11)), scalar_mul(Q, BigInt(13)))
+        c0 = Fp2Element(17, 19)
+        c3 = Fp2Element(23, 29)
+        c4 = Fp2Element(31, 37)
+        sparse = Fp12Element(
+            Fp6Element(c0, zero(Fp2Element), zero(Fp2Element)),
+            Fp6Element(c3, c4, zero(Fp2Element)),
+        )
+
+        @test GrothCurves.mul_by_034(a, c0, c3, c4) == a * sparse
+    end
+
     @testset "Cyclotomic Helpers" begin
         P_ref = scalar_mul(P, BigInt(11))
         Q_ref = scalar_mul(Q, BigInt(13))

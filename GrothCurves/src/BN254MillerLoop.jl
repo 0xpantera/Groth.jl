@@ -20,6 +20,12 @@ import GrothCurves: conjugate, BN254_PRIME
 # The factor of 6 and addition of 2 are handled by the two Frobenius correction lines
 const BN254_U = BigInt(4965661367192848881)
 const BN254_U_IS_NEGATIVE = false  # u > 0 for BN254
+const FP2_ZERO = zero(Fp2Element)
+const FP2_ONE = one(Fp2Element)
+const FP2_TWO = Fp2Element(2)
+const FP2_THREE = Fp2Element(3)
+const FP2_FOUR = Fp2Element(4)
+const FP2_EIGHT = Fp2Element(8)
 # NAF representation of u for the ate loop (from arkworks)
 # This is the signed binary representation where digits are in {0, 1, -1}
 const ATE_LOOP_COUNT_NAF = Int8[
@@ -71,7 +77,7 @@ Uses D-twist formulas for BN254 with Jacobian coordinates.
 function doubling_step(T::G2Point)
     # Handle point at infinity
     if iszero(T)
-        return (T, LineCoeffs(zero(Fp2Element), zero(Fp2Element), one(Fp2Element)))
+        return (T, LineCoeffs(FP2_ZERO, FP2_ZERO, FP2_ONE))
     end
 
     # Get coordinates of T in Jacobian form
@@ -84,24 +90,24 @@ function doubling_step(T::G2Point)
     Y4 = Y2^2
     Z2 = Z^2
     Z3 = Z2 * Z
-    Z6 = Z2^3  # More efficient than Z3 * Z3
+    Z6 = Z3^2
 
     # Step 1: Compute line coefficients for D-twist
     # For point T = (X:Y:Z) where x = X/Z², y = Y/Z³
     # D-twist coefficients (note the different order from M-twist):
-    a = -Fp2Element(2) * Y * Z3                          # y coefficient (D-twist)
-    b = Fp2Element(3) * X2 * Z2                          # x coefficient (D-twist)
-    c = -X3 + Fp2Element(2) * G2_B_TWIST * Z6            # constant term
+    a = -FP2_TWO * Y * Z3                                # y coefficient (D-twist)
+    b = FP2_THREE * X2 * Z2                              # x coefficient (D-twist)
+    c = -X3 + FP2_TWO * G2_B_TWIST * Z6                  # constant term
 
     # Step 2: NOW compute 2T
-    S = Fp2Element(4) * X * Y2
-    M = Fp2Element(3) * X2
-    T_val = M^2 - Fp2Element(2) * S
+    S = FP2_FOUR * X * Y2
+    M = FP2_THREE * X2
+    T_val = M^2 - FP2_TWO * S
 
     # New coordinates for 2T
     X_2T = T_val
-    Y_2T = M * (S - T_val) - Fp2Element(8) * Y4
-    Z_2T = Fp2Element(2) * Y * Z
+    Y_2T = M * (S - T_val) - FP2_EIGHT * Y4
+    Z_2T = FP2_TWO * Y * Z
 
     result_point = G2Point(X_2T, Y_2T, Z_2T)
     coeffs = LineCoeffs(a, b, c)
@@ -109,32 +115,16 @@ function doubling_step(T::G2Point)
     return (result_point, coeffs)
 end
 
-"""
-    addition_step(T::G2Point, Q::G2Point) -> (G2Point, LineCoeffs)
-
-Compute the addition step in the Miller loop.
-Returns T+Q and the raw line coefficients for the line through T and Q.
-
-This implements the first equation from page 14 of "The Realm of the Pairings".
-Uses mixed addition with Q in affine coordinates.
-"""
-function addition_step(T::G2Point, Q::G2Point)
-    # Handle special cases
+function _addition_step_mixed(T::G2Point, xQ::Fp2Element, yQ::Fp2Element)
     if iszero(T)
-        return (Q, LineCoeffs(zero(Fp2Element), zero(Fp2Element), one(Fp2Element)))
-    end
-    if iszero(Q)
-        return (T, LineCoeffs(zero(Fp2Element), zero(Fp2Element), one(Fp2Element)))
-    end
-
-    # If T == Q, use doubling instead
-    if T == Q
-        return doubling_step(T)
+        return (
+            G2Point(xQ, yQ),
+            LineCoeffs(FP2_ZERO, FP2_ZERO, FP2_ONE),
+        )
     end
 
     # Get coordinates
     X, Y, Z = x_coord(T), y_coord(T), z_coord(T)
-    xQ, yQ = to_affine(Q)  # Q in affine (common for pairing)
 
     # Mixed addition formulas (T projective, Q affine)
     Z2 = Z^2
@@ -165,7 +155,7 @@ function addition_step(T::G2Point, Q::G2Point)
     H2 = H^2
     H3 = H2 * H
 
-    X3 = R^2 - H3 - Fp2Element(2) * X * H2
+    X3 = R^2 - H3 - FP2_TWO * X * H2
     Y3 = R * (X * H2 - X3) - Y * H3
     Z3 = Z * H
 
@@ -173,6 +163,25 @@ function addition_step(T::G2Point, Q::G2Point)
     coeffs = LineCoeffs(a, b, c)
 
     return (result_point, coeffs)
+end
+
+"""
+    addition_step(T::G2Point, Q::G2Point) -> (G2Point, LineCoeffs)
+
+Compute the addition step in the Miller loop.
+Returns T+Q and the raw line coefficients for the line through T and Q.
+
+This implements the first equation from page 14 of "The Realm of the Pairings".
+Uses mixed addition with Q in affine coordinates.
+"""
+function addition_step(T::G2Point, Q::G2Point)
+    # Handle special cases
+    if iszero(Q)
+        return (T, LineCoeffs(FP2_ZERO, FP2_ZERO, FP2_ONE))
+    end
+
+    xQ, yQ = to_affine(Q)  # Q in affine (common for pairing)
+    return _addition_step_mixed(T, xQ, yQ)
 end
 
 function evaluate_line_coeffs(coeffs::LineCoeffs, P_x::BN254Fq, P_y::BN254Fq)
@@ -195,8 +204,8 @@ used by the D-twist BN254 Miller loop.
 """
 function evaluate_line(coeffs::LineCoeffs, P_x::BN254Fq, P_y::BN254Fq)
     c0, c3, c4 = evaluate_line_coeffs(coeffs, P_x, P_y)
-    c0_fp6 = Fp6Element(c0, zero(Fp2Element), zero(Fp2Element))
-    c1_fp6 = Fp6Element(c3, c4, zero(Fp2Element))
+    c0_fp6 = Fp6Element(c0, FP2_ZERO, FP2_ZERO)
+    c1_fp6 = Fp6Element(c3, c4, FP2_ZERO)
     return Fp12Element(c0_fp6, c1_fp6)
 end
 
@@ -290,6 +299,8 @@ function miller_loop(::BN254Engine, P::G1Point, Q::G2Point)
     else
         to_affine(P)
     end
+    Q_x, Q_y = to_affine(Q)
+    neg_Q_y = -Q_y
 
     # Process NAF representation from MSB to LSB
     # The loop matches arkworks: iterate from len-1 down to 1, indexing bits at i-1
@@ -307,11 +318,11 @@ function miller_loop(::BN254Engine, P::G1Point, Q::G2Point)
         # Addition/subtraction step based on NAF digit at index i-1
         bit = ATE_LOOP_COUNT_NAF[i-1]
         if bit == 1
-            T_new, line_coeffs = addition_step(T, Q)
+            T_new, line_coeffs = _addition_step_mixed(T, Q_x, Q_y)
             T = T_new
             f = mul_by_line(f, line_coeffs, P_x, P_y)
         elseif bit == -1
-            T_new, line_coeffs = addition_step(T, -Q)
+            T_new, line_coeffs = _addition_step_mixed(T, Q_x, neg_Q_y)
             T = T_new
             f = mul_by_line(f, line_coeffs, P_x, P_y)
         end
@@ -327,12 +338,13 @@ function miller_loop(::BN254Engine, P::G1Point, Q::G2Point)
     Q_pi2 = frobenius_g2(Q, 2)  # π²(Q)
 
     # Correction step 1: Line through T and π(Q)
-    T1, line1 = addition_step(T, Q_pi)
+    Q_pi_x, Q_pi_y = to_affine(Q_pi)
+    T1, line1 = _addition_step_mixed(T, Q_pi_x, Q_pi_y)
     f = mul_by_line(f, line1, P_x, P_y)
 
     # Correction step 2: Line through T1 and -π²(Q)
-    neg_Q_pi2 = -Q_pi2  # Use proper group negation
-    T2, line2 = addition_step(T1, neg_Q_pi2)
+    Q_pi2_x, Q_pi2_y = to_affine(Q_pi2)
+    T2, line2 = _addition_step_mixed(T1, Q_pi2_x, -Q_pi2_y)
     f = mul_by_line(f, line2, P_x, P_y)
 
     return f

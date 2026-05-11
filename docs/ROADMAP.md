@@ -83,6 +83,10 @@ an arkworks-aligned, production-friendly Groth16 stack.
   established GT membership. The focused pairing benchmark moved final
   exponentiation from `1.270 ms` to `0.939 ms`, with single pairing at
   `2.835 ms`.
+- Miller-loop line operations now reuse module-level Fp2 constants and avoid
+  recomputing affine addend data in the ate loop. The focused pairing benchmark
+  moved the Miller loop from `1.854 ms` to `0.827 ms`, with single pairing at
+  `1.713 ms`.
 - `setup_full` query generation now uses BN254 G1 scalar/GLV dispatch for G1
   queries and a fixed-window G2 batch path; the generated fixture is now
   `116.918 ms`.
