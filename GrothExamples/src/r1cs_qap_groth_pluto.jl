@@ -136,7 +136,9 @@ qap = r1cs_to_qap(r1cs)
 begin
     (
         num_constraints=qap.num_constraints,
+        num_public=qap.num_public,
         num_vars=qap.num_vars,
+        requested_domain_slots=qap.num_constraints + qap.num_public,
         points=[BigInt(p.value) for p in qap.points],
         domain_size=qap.domain.size,
         coset_size=qap.coset_domain.size,
@@ -149,7 +151,7 @@ end
 md"""
 ### Column-wise interpolation spot check
 
-`u[j], v[j], w[j]` are interpolated column polynomials. Evaluating at constraint points recovers matrix entries.
+`u[j], v[j], w[j]` are interpolated column polynomials. Evaluating at constraint points recovers matrix entries. The full domain follows the arkworks layout: constraint rows first, public-input selector rows next, and zero padding last.
 """
 
 # ╔═╡ 7f9fca90-1111-4f2e-93ec-52b9694d0015
@@ -171,6 +173,22 @@ begin
 end
 
 # ╔═╡ 7f9fca90-1111-4f2e-93ec-52b9694d0016
+begin
+    ω = qap.domain.generator
+    selector_rows = map(1:qap.num_public) do public_index
+        pt = ω^(qap.num_constraints + public_index - 1)
+        (
+            public_variable=labels[public_index],
+            point=BigInt(pt.value),
+            u_values=[BigInt(evaluate(qap.u[j], pt).value) for j in 1:qap.num_public],
+            v_zero=all(iszero(evaluate(qap.v[j], pt)) for j in 1:qap.num_vars),
+            w_zero=all(iszero(evaluate(qap.w[j], pt)) for j in 1:qap.num_vars),
+        )
+    end
+    selector_rows
+end
+
+# ╔═╡ 7f9fca90-1111-4f2e-93ec-52b9694d1016
 md"""
 ## Build `A(x)`, `B(x)`, `C(x)` from witness
 """
@@ -196,7 +214,10 @@ end
 md"""
 ## Constraint polynomial `P(x)`
 
-For a valid witness, `P(x) = A(x)B(x) - C(x)` vanishes on all constraint points.
+For a valid witness, `P(x) = A(x)B(x) - C(x)` vanishes on the full QAP domain:
+active constraint points vanish by R1CS satisfaction, public-input selector rows
+vanish because `B` and `C` are zero there, and padding rows vanish because all
+three polynomial families are zero there.
 """
 
 # ╔═╡ 7f9fca90-1111-4f2e-93ec-52b9694d0019
@@ -307,7 +328,8 @@ For the valid witness, divisibility holds; for the bad witness, it breaks.
 # ╠═7f9fca90-1111-4f2e-93ec-52b9694d0013
 # ╟─7f9fca90-1111-4f2e-93ec-52b9694d0014
 # ╠═7f9fca90-1111-4f2e-93ec-52b9694d0015
-# ╟─7f9fca90-1111-4f2e-93ec-52b9694d0016
+# ╠═7f9fca90-1111-4f2e-93ec-52b9694d0016
+# ╟─7f9fca90-1111-4f2e-93ec-52b9694d1016
 # ╠═7f9fca90-1111-4f2e-93ec-52b9694d0017
 # ╟─7f9fca90-1111-4f2e-93ec-52b9694d0018
 # ╠═7f9fca90-1111-4f2e-93ec-52b9694d0019

@@ -25,7 +25,7 @@ graph TD
 
 ## Constraint Systems and Polynomial Encodings
 - **RareSkills chapters:** `rank-1-constraint-system`, `quadratic-constraints`, `quadratic-arithmetic-program`, and `r1cs-to-qap` show how circuits become matrices, then polynomials, culminating in $\mathcal{A}(x)\cdot\mathcal{B}(x) - \mathcal{C}(x) = Z_H(x) H(x)$.
-- **Julia counterparts:** `GrothProofs/R1CS.jl` now ships several fixtures (multiplication, sum-of-products, affine-product, square-offset) plus a seeded circuit generator used in tests (`GrothProofs/test/random_circuits.jl`). `QAP.jl` both records the first `n` constraint points and builds an FFT-friendly power-of-two domain; for `n < domain.size` we now recover the degree `< n` polynomials via barycentric interpolation before padding coefficients for the coset FFT pipeline (`GrothProofs/src/QAP.jl:40-134`).
+- **Julia counterparts:** `GrothProofs/R1CS.jl` now ships several fixtures (multiplication, sum-of-products, affine-product, square-offset) plus a seeded circuit generator used in tests (`GrothProofs/test/random_circuits.jl`). `QAP.jl` records the active constraint points while building an arkworks-shaped power-of-two domain: constraint rows first, public-input selector rows next, and zero padding last. The full-domain vanishing polynomial is `t(x) = x^N - 1`, and the coset quotient path consumes the IFFT output directly (`GrothProofs/src/QAP.jl`).
 
 - **Guidance on FFT vs. coset evaluation:** `docs/Implementation_vs_Arkworks.md` tracks the alignment with arkworks. Our prover now uses the coset-based quotient path by default, so the remaining work is performance-focused (benchmark capture, JET sweeps, possible FFT table reuse).
 

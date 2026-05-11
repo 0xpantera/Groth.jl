@@ -47,7 +47,7 @@ graph TD
 - **RareSkills chapters:** `rank-1-constraint-system`, `quadratic-arithmetic-program`, `r1cs-to-qap`.
 - **Groth.jl counterparts:**
   - `GrothProofs/R1CS.jl` ships multiplication, sum-of-products, affine-product, and square-offset circuits plus randomised fixtures.
-  - `GrothProofs/QAP.jl` records constraint points, constructs power-of-two domains, and currently recovers coefficients via barycentric interpolation before padding for the coset FFT.
+  - `GrothProofs/QAP.jl` records the active constraint points and builds an arkworks-shaped power-of-two domain: constraint rows first, public-input selector rows next, and zero padding last.
 - **What changes in code:** the prover defaults to the coset quotient path, and
   the dense path survives only as a parity assertion. The current performance
   work is now focused more on prover hot paths than on broad domain rewrites.

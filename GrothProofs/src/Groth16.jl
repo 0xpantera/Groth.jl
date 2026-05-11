@@ -143,9 +143,9 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abs
     # Target polynomial at τ
     t_tau = evaluate(qap.t, τ)
 
-    # τ^k powers for H query (match arkworks m_raw - 1 ≈ num_constraints + num_vars - 1)
-    # This supports h(τ) expansion: Σ h_k τ^k
-    max_k = qap.num_constraints + qap.num_vars - 1
+    # τ^k powers for H query. Since t has degree N over the full domain and
+    # U,V,W have degree at most N-1, the quotient H has degree at most N-2.
+    max_k = qap.domain.size - 1
     tau_powers = Vector{F}(undef, max_k)
     tau_powers[1] = one(F)
     for k in 2:max_k

@@ -12,15 +12,15 @@ Depth = 2
 
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
-| Domain sizing | `EvaluationDomain::new(num_constraints + num_inputs)` fills every slot before the IFFT. | Currently we pick the smallest power-of-two ≥ `num_constraints`. When the circuit does not span the full domain we recover the coefficients via barycentric interpolation before padding. **Next step:** populate every slot so the coset FFT can consume the coefficients directly. |
+| Domain sizing | `EvaluationDomain::new(num_constraints + num_inputs)` fills every slot before the IFFT. | Matches arkworks' shape: constraint rows first, public-input selector rows next, then zero padding to the next power of two. |
 | Coset shift | `EvaluationDomain::get_coset(F::GENERATOR)` tracks offsets and inverses. | `get_coset(domain, default_coset_offset)` stores the offset, its inverse, and `offset_pow_size`. |
-| Vanishing polynomial on a coset | Cached evaluation via `domain.evaluate_vanishing_polynomial(g)`. | For full domains we use the closed form `g^n - 1`. Subset domains FFT `t(x)` on the coset; once the padding matches arkworks we can reuse cached evaluations. |
+| Vanishing polynomial on a coset | Cached evaluation via `domain.evaluate_vanishing_polynomial(g)`. | Uses the full-domain closed form `g^n - 1`, cached as a constant inverse over the shifted coset. |
 
 **Refactor snapshot (Sep 2025):**
 
 - Coset path is the default (`compute_h_polynomial` asserts coset vs dense parity).
-- Subset domains temporarily rebuild coefficients via barycentric interpolation before the FFT padding step.
-- Alignment plan: populate the full evaluation domain so the FFT/IFFT pair operates without the interpolation shim.
+- QAP conversion feeds full-domain evaluation vectors to IFFT directly, so the
+  Groth16 path no longer needs subset coefficient recovery.
 
 ## Multi-Scalar Multiplication (MSM)
 
@@ -45,8 +45,8 @@ tuning signal.
 
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
-| R1CS → QAP | Domain fully populated, IFFT then FFT on the coset. | Same structure; subset handling currently performs barycentric recovery before padding. |
-| Prover | Coset FFT path, dense available for debugging. | Coset path is default; dense exists only for assertions. Will align fully once domains match. |
+| R1CS → QAP | Domain fully populated, IFFT then FFT on the coset. | Same structure; constraints, public-input selector slots, and zero padding are all explicit before IFFT. |
+| Prover | Coset FFT path, dense available for debugging. | Coset path is default; dense exists only for assertions. |
 | Prepared verifier | `PreparedVerifyingKey` batches pairings. | `prepare_verifying_key`, `prepare_inputs`, and `verify_with_prepared` mirror the API. |
 | Aggregation | Optional `groth16::aggregate_proofs`. | Not yet ported; tracked on the roadmap. |
 

@@ -24,8 +24,8 @@ Depth = 2
 ## Implementation Notes
 
 - Coset FFT path is the default; dense vs coset parity is asserted to guard regressions.
-- Subset domains currently recover coefficients via barycentric interpolation
-  before the FFT padding step.
+- QAP conversion uses an arkworks-shaped full domain: constraints first,
+  public-input selector rows next, zero padding last, and `t(x) = x^N - 1`.
 - The latest prover optimization work is now focused on the remaining
   specialization buckets surfaced by the Stage 8A `prove_full` baseline rather
   than on broad backend replacement.
