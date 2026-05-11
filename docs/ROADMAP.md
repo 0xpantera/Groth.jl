@@ -6,16 +6,16 @@ an arkworks-aligned, production-friendly Groth16 stack.
 
 ## Snapshot (September 2025)
 
-- **GrothAlgebra** — Prime fields, polynomials, MSM helpers in place. Coset path
-  now recovers coefficients via barycentric interpolation; FFT guard prevents
-  truncation. Pending: align evaluation domain population with arkworks and then
-  revisit FFT optimisations.
+- **GrothAlgebra** — Prime fields, polynomials, MSM helpers in place. FFT guards
+  prevent silent truncation, and QAP conversion now feeds full-domain vectors to
+  the IFFT directly.
 - **GrothCurves** — BN254 tower/curve/pairing fully implemented with pairing
   engine abstraction. Pending: second-curve prototype (e.g., BLS12-381) and
   optional GT optimisations.
-- **GrothProofs** — R1CS/QAP/Groth16 path mirrors arkworks; coset FFT is the
-  default. Dense path retained for assertions. Pending: domain alignment, optional
-  proof aggregation, polishing docs.
+- **GrothProofs** — R1CS/QAP/Groth16 path mirrors arkworks: constraints are
+  followed by public-input selector slots in the QAP domain, coset FFT is the
+  default, and the dense path is retained for assertions. Pending: optional proof
+  aggregation and polishing docs.
 - **GrothExamples** — Notebook-first tutorials now live in Pluto notebooks
   (`r1cs_qap_pluto.jl`, `r1cs_qap_groth_pluto.jl`) for side-by-side pedagogical
   and package-native walkthroughs.
@@ -24,18 +24,12 @@ an arkworks-aligned, production-friendly Groth16 stack.
 
 ## Near-term Focus
 
-1. **Align QAP domain with arkworks**
-   - Populate all domain slots (`num_constraints + num_inputs`, next power of
-     two) before IFFT.
-   - Remove the barycentric interpolation helper, rely on native IFFT/FFT.
-   - Update tests/examples/benchmarks accordingly.
-
-2. **Tooling & verification hardening**
+1. **Tooling & verification hardening**
    - Run JET sweeps after major refactors, keep coset/dense parity assertions.
    - Extend documentation (package reference, RareSkills map, implementation vs
      arkworks) as behaviour changes.
 
-3. **Documenter-based docs rollout**
+2. **Documenter-based docs rollout**
    - Inventory target modules/pages (`GrothAlgebra`, `GrothCurves`, `GrothProofs`, landing page) and decide how existing markdown (roadmap, implementation notes) folds into the site.
    - Maintain a dedicated `docs/Project.toml` environment with `Documenter`, `DocumenterTools`, `LiveServer`, and `dev` the in-tree packages for live loading (root workspace `Manifest.toml` remains canonical).
    - Seed `docs/make.jl` and `docs/src/index.md`; configure `makedocs` (site name, modules, `pages` layout, HTML settings, metadata, repo URL).
@@ -66,6 +60,8 @@ an arkworks-aligned, production-friendly Groth16 stack.
 ## Completed Milestones
 
 - Coset FFT path aligned (dense fallback removed, assertion on parity).
+- QAP domain alignment with arkworks: `num_constraints + num_public` slots feed
+  the IFFT, public-input selector rows are explicit, and `t(x) = x^N - 1`.
 - Prepared verifier matches arkworks (batched pairing path).
 - Benchmarks expanded (pairing & Groth16 hot paths with JSON/PNG artefacts).
 - Groth16 tests cover multiple circuits, randomized seeds, prepared-path

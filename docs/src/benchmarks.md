@@ -229,6 +229,36 @@ main Stage 8A `prove_full` dump no longer contains `canonical_bigint` or
 `limbs_to_bigint`. The prover still creates `BigInt`s elsewhere, but the
 measured hot prover scalar-conversion path identified in Stage 8 is now gone.
 
+## QAP Domain Alignment Snapshot (2026-05-11)
+
+The QAP-domain-aligned Stage 8 run is:
+
+- `benchmarks/artifacts/2026-05-11_130524/results/benchmark_results.json`
+
+This run uses the arkworks-shaped QAP domain: active constraints first,
+public-input selector rows next, and zero padding to the next power of two. The
+fixture setup still proves once and asserts `verify_full` before timing.
+
+- `sum_of_products_small`
+  - constraints/public/domain: `3 / 6 / 16`
+  - `prove_full`: `11.298 ms`
+  - `compute_h_total`: `0.360 ms`
+  - `h_msm`: `5.702 ms`
+  - `final_c`: `2.222 ms`
+- `generated_24_constraints`
+  - constraints/public/domain: `24 / 8 / 32`
+  - `prove_full`: `29.989 ms`
+  - `compute_h_total`: `1.723 ms`
+  - `h_msm`: `9.168 ms`
+  - `l_msm`: `4.028 ms`
+  - `final_c`: `2.211 ms`
+
+Interpretation: the small fixture intentionally gets a larger domain because
+`3 constraints + 6 public` rounds up to `16`, so it is no longer directly
+comparable to the old constraint-only domain timing. The larger fixture already
+rounds to `32`, so it remains the better continuity fixture for prover-shaped
+tuning.
+
 ## Latest Snapshot (2025‑09‑29)
 
 ```@example

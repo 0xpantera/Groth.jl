@@ -25,7 +25,8 @@ Depth = 2
 
 ## Implementation Notes
 
-- Added `interpolate_prefix_points` so subset domains recover coefficients before padding for the coset FFT path.
+- FFT helpers guard against silent truncation and support the full-domain QAP
+  interpolation path used by Groth16.
 - FFT helpers now gate the dense fallback behind parity assertions.
 - BN254 `scalar_mul` now selects tuned w-NAF windows for G1/G2, while other group types keep the generic fallback.
 

@@ -23,8 +23,8 @@ annotated rather than discarded), and follow-ups.
 
 **Implementation notes**
 - (original) FFT helpers were stubs; dense interpolation handled `h(x)`.
-- (2025-09-29) Added `interpolate_prefix_points` so subset domains recover
-  coefficients before padding for coset FFTs.
+- (2025-09-29) Added FFT-domain guards and interpolation helpers used during the
+  early coset rollout.
 - (2026-04-01) Stage 2 of the Montgomery roadmap moved `BN254Fq` and
   `BN254Fr` to a 4-limb Montgomery representation behind the Stage 1 backend
   hooks. The higher layers still see canonical field semantics; compatibility
@@ -82,9 +82,10 @@ annotated rather than discarded), and follow-ups.
 **Implementation notes**
 - (original) QAP interpolation used dense Lagrange polys over `[1..n]`, with a
   future FFT path planned.
-- (2025-09-29) Coset path is default; dense vs coset equality asserted. Subset
-  domains recover coefficients via barycentric interpolation before FFT (dense
-  fallback retained for tests).
+- (2025-09-29) Coset path is default; dense vs coset equality asserted.
+- (2026-05-11) QAP conversion now matches arkworks domain population:
+  constraints first, public-input selector rows next, zero padding last, with
+  `t(x) = x^N - 1` over the full power-of-two domain.
 - (2026-04-02) The current follow-through work has shifted from broad backend
   migration to the remaining prover and pairing specialization steps surfaced
   by the Stage 8A baseline.
@@ -118,9 +119,10 @@ annotated rather than discarded), and follow-ups.
 - The focused backend profiles are now staged through `stage8a`, with
   deterministic prover fixtures and `_semantic` proof checks wired into the
   `prove_full` path.
-- Latest Stage 8A artifact: `benchmarks/artifacts/2026-04-01_223859`, with
-  `generated_24_constraints prove_full` at `28.873 ms`, `msm_b_g2` at
-  `4.334 ms`, `h_msm` at `7.036 ms`, and `final_c` at `2.804 ms`.
+- Latest QAP-domain-aligned Stage 8 artifact:
+  `benchmarks/artifacts/2026-05-11_130524`, with
+  `generated_24_constraints prove_full` at `29.989 ms`, `h_msm` at
+  `9.168 ms`, `l_msm` at `4.028 ms`, and `final_c` at `2.211 ms`.
 
 ## Docs
 
@@ -152,7 +154,7 @@ annotated rather than discarded), and follow-ups.
 ## Concrete Next Steps Checklist
 
 - [x] Coset FFT path default with dense assertion.
-- [ ] Align QAP domain population with arkworks.
+- [x] Align QAP domain population with arkworks.
 - [x] Implement variable-base Pippenger MSM and route prover query MSMs through it.
 - [ ] Extend MSM work with fixed-base Pippenger / further setup-side tuning if benchmarks justify it.
 - [ ] Prototype second pairing engine (BLS12-381).

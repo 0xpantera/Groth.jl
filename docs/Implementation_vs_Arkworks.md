@@ -8,16 +8,14 @@ intentionally diverge from their design.
 
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
-| Domain sizing | `EvaluationDomain::new(num_constraints + num_inputs)` ensures every slot is populated before an IFFT | Currently: minimal power-of-two ≥ `num_constraints`; subset circuits pad coefficients after barycentric interpolation. **Next step:** match arkworks by filling every slot so we can drop the barycentric shim |
+| Domain sizing | `EvaluationDomain::new(num_constraints + num_inputs)` ensures every slot is populated before an IFFT | Matches arkworks' shape: constraints first, public-input selector rows next, then zero padding to the next power of two |
 | Coset shift | `EvaluationDomain::get_coset(F::GENERATOR)` with tracked offset/inverses | `get_coset(domain, default_coset_offset)` tracks offset, inverse, and `offset_pow_size` |
-| Vanishing on coset | `domain.evaluate_vanishing_polynomial(g)` with cached powers | We FFT `t(x)` on the coset; for full domains we use closed form `g^n - 1`. After we align domains we can mirror arkworks’ cached evaluation |
+| Vanishing on coset | `domain.evaluate_vanishing_polynomial(g)` with cached powers | Uses the full-domain closed form `g^n - 1`, cached as a constant inverse over the shifted coset |
 
 Aug 2025 refactor summary:
 - Coset path is default (`compute_h_polynomial` asserts coset/dense equality).
-- Subset domains temporarily recover coefficients via barycentric interpolation
-  before padding in coefficient space.
-- Planned alignment: populate the entire domain as arkworks does so the FFT/IFFT
-  pair is used directly with no coefficient recovery helper.
+- QAP conversion feeds full-domain evaluation vectors to IFFT directly, so no
+  subset coefficient recovery helper is needed for the Groth16 path.
 
 ## Multi-Scalar Multiplication (MSM) & Precomputation
 
@@ -41,8 +39,8 @@ prover path.
 
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
-| R1CS → QAP | Domain filled completely, IFFT → FFT on coset | Same structure; subset handling currently requires barycentric recovery (to be removed when we align domains) |
-| Prover | Coset FFT path by default, dense path available for debugging | Coset path now default, dense used only for assertions; matches arkworks once domain alignment lands |
+| R1CS → QAP | Domain filled completely, IFFT → FFT on coset | Same structure; constraints, public-input selector slots, and zero padding are all explicit before IFFT |
+| Prover | Coset FFT path by default, dense path available for debugging | Coset path now default, dense used only for assertions |
 | Prepared verifier | `PreparedVerifyingKey` with batched pairing | `prepare_verifying_key`, `prepare_inputs`, `verify_with_prepared` mirror arkworks and use the pairing engine |
 | Aggregation | `groth16::aggregate_proofs` available | Not yet ported; on roadmap |
 
@@ -55,12 +53,11 @@ prover path.
 
 ## Upcoming Alignment Tasks
 
-1. Populate the entire evaluation domain (constraints + inputs) before calling
-   IFFT, eliminating the barycentric interpolation helper.
-2. Mirror arkworks’ domain helpers (vanishing evaluations, cached twiddles) once
-   the layout matches.
-3. Re-run benchmarks after domain alignment to ensure performance remains stable.
-4. Port proof aggregation once the core prover alignment is complete.
+1. Mirror more of arkworks' domain helper caching where it materially helps
+   benchmarked prover paths.
+2. Continue prover-side MSM and fixed-base tuning against `prove_full`.
+3. Re-run benchmarks after each high-leverage domain/prover change.
+4. Port proof aggregation once the core prover path is stable.
 
 Feel free to extend this comparison as additional features (e.g., aggregation,
 poly-commitments) land in the Julia stack.

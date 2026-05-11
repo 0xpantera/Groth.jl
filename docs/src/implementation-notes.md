@@ -43,8 +43,9 @@ Depth = 2
 
 - `R1CS.jl` defines reusable fixtures (multiplication, sum-of-products,
   affine-product, square-offset) and powers the randomised circuit generator.
-- `QAP.jl` records constraint points, builds power-of-two domains, and currently
-  recovers coefficients via barycentric interpolation before padding.
+- `QAP.jl` records constraint points and builds arkworks-shaped power-of-two
+  domains with constraint rows, public-input selector rows, and zero padding
+  explicit before IFFT.
 - `Groth16.jl` wires the setup, prover, and verifier paths, including the
   prepared verifier that batches pairings (`pairing_batch`) before the single
   final exponentiation.

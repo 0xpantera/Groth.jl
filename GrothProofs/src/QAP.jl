@@ -23,13 +23,13 @@ struct QAP{F}
     num_public::Int
     # Evaluation domain (power-of-two roots of unity)
     domain::EvaluationDomain{F}
-    # Active constraint points (subset of the domain)
+    # Active constraint points (prefix subset of the domain)
     points::Vector{F}
     # Coset domain used for FFT-based evaluation
     coset_domain::EvaluationDomain{F}
     # Reciprocal evaluations of the vanishing polynomial on the coset domain
     vanishing_coset_inv::Vector{F}
-    # Target polynomial ``t(x) = \\prod_i (x - \\omega_i)``
+    # Target polynomial ``t(x) = x^N - 1`` for the full evaluation domain.
     t::Polynomial{F}
     # Polynomials for each variable
     u::Vector{Polynomial{F}}  # Left polynomials (from L matrix)
@@ -37,36 +37,11 @@ struct QAP{F}
     w::Vector{Polynomial{F}}  # Output polynomials (from O matrix)
 end
 
-function interpolate_prefix_points(samples::Vector{F}, ω::F, n::Int) where F
-    xs = Vector{F}(undef, n)
-    xs[1] = one(F)
-    for i in 2:n
-        xs[i] = xs[i-1] * ω
-    end
-
-    result = zero(Polynomial{F})
-    for i in 1:n
-        xi = xs[i]
-        numerator = Polynomial{F}([one(F)])
-        denom = one(F)
-        for j in 1:n
-            if j == i
-                continue
-            end
-            xj = xs[j]
-            numerator *= Polynomial{F}([-xj, one(F)])
-            denom *= (xi - xj)
-        end
-        scale = samples[i] * inv(denom)
-        result += scale * numerator
-    end
-    return result
-end
-
 """
     get_roots_of_unity(n::Int, ::Type{F}) where F
 
-Construct a power-of-two evaluation domain and return the first `n` points.
+Construct a power-of-two evaluation domain and return the first `n` domain
+points.
 """
 function get_roots_of_unity(n::Int, ::Type{F}) where F
     n > 0 || throw(ArgumentError("Number of roots must be positive"))
@@ -95,57 +70,48 @@ Convert an R1CS to QAP form using Lagrange interpolation.
 function r1cs_to_qap(r1cs::R1CS{F}) where F
     n = r1cs.num_constraints
     m = r1cs.num_vars
+    domain_slots = n + r1cs.num_public
 
-    # Get evaluation domain
-    points, domain = get_roots_of_unity(n, F)
+    # Match arkworks' domain shape: active constraints followed by public-input
+    # selector slots, rounded up to a power of two.
+    domain_points, domain = get_roots_of_unity(domain_slots, F)
+    points = domain_points[1:n]
     coset_domain = get_coset(domain, default_coset_offset(F))
 
-    # Compute target polynomial t(x) = ∏(x - ωⁱ)
-    t = Polynomial{F}([one(F)])  # Start with polynomial 1
-    for ω in points
-        # Multiply by (x - ω)
-        factor = Polynomial{F}([-ω, one(F)])
-        t = t * factor
-    end
+    # Full-domain vanishing polynomial t(x) = x^N - 1.
+    t_coeffs = fill(zero(F), domain.size + 1)
+    t_coeffs[1] = -one(F)
+    t_coeffs[end] = one(F)
+    t = Polynomial{F}(t_coeffs)
 
     # Initialize polynomial arrays
     u = Vector{Polynomial{F}}(undef, m)
     v = Vector{Polynomial{F}}(undef, m)
     w = Vector{Polynomial{F}}(undef, m)
 
-    is_full_domain = n == domain.size
     # For each variable, interpolate its polynomial from the constraint values
     for j in 1:m
-        u_samples = [r1cs.L[i, j] for i in 1:n]
-        v_samples = [r1cs.R[i, j] for i in 1:n]
-        w_samples = [r1cs.O[i, j] for i in 1:n]
+        u_samples = fill(zero(F), domain.size)
+        v_samples = fill(zero(F), domain.size)
+        w_samples = fill(zero(F), domain.size)
 
-        if is_full_domain
-            u[j] = interpolate_fft(domain, u_samples)
-            v[j] = interpolate_fft(domain, v_samples)
-            w[j] = interpolate_fft(domain, w_samples)
-        else
-            coeff_u = interpolate_prefix_points(u_samples, domain.generator, n)
-            coeff_v = interpolate_prefix_points(v_samples, domain.generator, n)
-            coeff_w = interpolate_prefix_points(w_samples, domain.generator, n)
-            u[j] = coeff_u
-            v[j] = coeff_v
-            w[j] = coeff_w
+        @inbounds for i in 1:n
+            u_samples[i] = r1cs.L[i, j]
+            v_samples[i] = r1cs.R[i, j]
+            w_samples[i] = r1cs.O[i, j]
         end
+        if j <= r1cs.num_public
+            u_samples[n + j] = one(F)
+        end
+
+        u[j] = interpolate_fft(domain, u_samples)
+        v[j] = interpolate_fft(domain, v_samples)
+        w[j] = interpolate_fft(domain, w_samples)
     end
 
-    if n == domain.size
-        coset_vanishing = coset_offset_pow_size(coset_domain) - one(F)
-        iszero(coset_vanishing) && error("Coset vanishing polynomial evaluates to zero; choose a different offset")
-        vanishing_coset_inv = fill(inv(coset_vanishing), coset_domain.size)
-    else
-        t_coset = fft(t.coeffs, coset_domain)
-        vanishing_coset_inv = Vector{F}(undef, length(t_coset))
-        for i in eachindex(t_coset)
-            iszero(t_coset[i]) && error("Coset evaluation of t(x) hit zero; choose a different offset")
-            vanishing_coset_inv[i] = inv(t_coset[i])
-        end
-    end
+    coset_vanishing = coset_offset_pow_size(coset_domain) - one(F)
+    iszero(coset_vanishing) && error("Coset vanishing polynomial evaluates to zero; choose a different offset")
+    vanishing_coset_inv = fill(inv(coset_vanishing), coset_domain.size)
 
     return QAP{F}(m, n, r1cs.num_public, domain, points, coset_domain, vanishing_coset_inv, t, u, v, w)
 end

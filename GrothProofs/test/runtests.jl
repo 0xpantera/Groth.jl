@@ -1,12 +1,82 @@
 using GrothProofs
-using GrothAlgebra: bn254_fr, evaluate
+using GrothAlgebra: bn254_fr, evaluate, degree
 using Test
 using Random
 
 include("random_circuits.jl")
 
+function next_power_of_two(n::Int)
+    size = 1
+    while size < n
+        size <<= 1
+    end
+    return size
+end
+
 function public_inputs_for(r1cs::R1CS, witness::Witness)
     return r1cs.num_public > 1 ? witness.values[2:r1cs.num_public] : eltype(witness.values)[]
+end
+
+function combined_qap_polynomials(qap::QAP, witness::Witness)
+    u_poly = zero(qap.u[1])
+    v_poly = zero(qap.v[1])
+    w_poly = zero(qap.w[1])
+    for i in 1:qap.num_vars
+        u_poly = u_poly + witness.values[i] * qap.u[i]
+        v_poly = v_poly + witness.values[i] * qap.v[i]
+        w_poly = w_poly + witness.values[i] * qap.w[i]
+    end
+    return u_poly, v_poly, w_poly
+end
+
+@testset "QAP full-domain alignment" begin
+    for builder in (
+        create_r1cs_example_multiplication,
+        create_r1cs_example_sum_of_products,
+        create_r1cs_example_affine_product,
+        create_r1cs_example_square_offset,
+    )
+        r1cs = builder()
+        qap = r1cs_to_qap(r1cs)
+        expected_domain_size = next_power_of_two(r1cs.num_constraints + r1cs.num_public)
+
+        @test qap.domain.size == expected_domain_size
+        @test length(qap.points) == r1cs.num_constraints
+        @test degree(qap.t) == qap.domain.size
+        @test qap.t.coeffs[1] == -one(eltype(qap.t.coeffs))
+        @test qap.t.coeffs[end] == one(eltype(qap.t.coeffs))
+        @test all(iszero, qap.t.coeffs[2:end-1])
+
+        F = eltype(qap.t.coeffs)
+        for i in 1:r1cs.num_constraints
+            x = qap.points[i]
+            for j in 1:r1cs.num_vars
+                @test evaluate(qap.u[j], x) == r1cs.L[i, j]
+                @test evaluate(qap.v[j], x) == r1cs.R[i, j]
+                @test evaluate(qap.w[j], x) == r1cs.O[i, j]
+            end
+        end
+
+        point = one(eltype(qap.points))
+        for i in 1:qap.domain.size
+            if r1cs.num_constraints < i <= r1cs.num_constraints + r1cs.num_public
+                public_index = i - r1cs.num_constraints
+                for j in 1:r1cs.num_vars
+                    @test evaluate(qap.u[j], point) == (j == public_index ? one(F) : zero(F))
+                    @test iszero(evaluate(qap.v[j], point))
+                    @test iszero(evaluate(qap.w[j], point))
+                end
+            elseif i > r1cs.num_constraints + r1cs.num_public
+                for j in 1:r1cs.num_vars
+                    @test iszero(evaluate(qap.u[j], point))
+                    @test iszero(evaluate(qap.v[j], point))
+                    @test iszero(evaluate(qap.w[j], point))
+                end
+            end
+            @test iszero(evaluate(qap.t, point))
+            point *= qap.domain.generator
+        end
+    end
 end
 
 @testset "Groth16 full pipeline" begin
@@ -265,7 +335,6 @@ end
 end
 
 @testset "QAP divisibility spot-checks" begin
-    # Use both circuits to check U*V - W equals h*t at a few random points
     for builder in (
         create_r1cs_example_multiplication,
         create_r1cs_example_sum_of_products,
@@ -284,22 +353,14 @@ end
             create_witness_affine_product(2, 3, 5, 7) :
             create_witness_square_offset(2, 3, 5)
 
-        # Build combined polynomials
-        u_poly = zero(qap.u[1])
-        v_poly = zero(qap.v[1])
-        w_poly = zero(qap.w[1])
-        for i in 1:qap.num_vars
-            u_poly = u_poly + w.values[i] * qap.u[i]
-            v_poly = v_poly + w.values[i] * qap.v[i]
-            w_poly = w_poly + w.values[i] * qap.w[i]
-        end
+        u_poly, v_poly, w_poly = combined_qap_polynomials(qap, w)
         h_dense = compute_h_polynomial(qap, w; use_coset=false)
         h_coset = compute_h_polynomial(qap, w; use_coset=true)
         @test h_coset == h_dense
         h_poly = h_coset
         t_poly = qap.t
 
-        # Choose a few points outside the domain [1..n]
+        # Choose a few points outside the active constraint index range.
         pts = [bn254_fr(qap.num_constraints + k) for k in (1, 2, 3)]
         for x in pts
             lhs = evaluate(u_poly, x) * evaluate(v_poly, x) - evaluate(w_poly, x)
@@ -315,7 +376,7 @@ end
 @testset "QAP coset vanishing cases" begin
     r1cs_power = create_r1cs_example_square_offset()
     qap_power = r1cs_to_qap(r1cs_power)
-    @test qap_power.num_constraints == qap_power.domain.size
+    @test qap_power.domain.size == next_power_of_two(r1cs_power.num_constraints + r1cs_power.num_public)
     witness_power = create_witness_square_offset(2, 3, 5)
     h_dense_power = compute_h_polynomial(qap_power, witness_power; use_coset=false)
     h_coset_power = compute_h_polynomial(qap_power, witness_power; use_coset=true)
@@ -323,6 +384,7 @@ end
 
     r1cs_subset = create_r1cs_example_multiplication()
     qap_subset = r1cs_to_qap(r1cs_subset)
+    @test qap_subset.domain.size == next_power_of_two(r1cs_subset.num_constraints + r1cs_subset.num_public)
     @test qap_subset.num_constraints < qap_subset.domain.size
     witness_subset = create_witness_multiplication(3, 5, 7, 11)
     h_dense_subset = compute_h_polynomial(qap_subset, witness_subset; use_coset=false)
