@@ -8,6 +8,7 @@ const PROVE_FULL_PHASE_ORDER = [
     "witness_to_scalars",
     "msm_a_g1",
     "msm_b_g1",
+    "msm_a_b1_g1",
     "msm_b_g2",
     "compute_h_total",
     "h_poly_assembly",
@@ -227,9 +228,10 @@ function sample_prove_randomizers(fixture)
 end
 
 function prove_query_accumulators(pk::ProvingKey, scalars::AbstractVector)
+    A_acc_g1, B_acc_g1 = GrothAlgebra.multi_scalar_mul_pair(pk.A_query_g1, pk.B_query_g1, scalars)
     return (
-        A_acc_g1 = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, scalars),
-        B_acc_g1 = GrothAlgebra.multi_scalar_mul(pk.B_query_g1, scalars),
+        A_acc_g1 = A_acc_g1,
+        B_acc_g1 = B_acc_g1,
         B_acc_g2 = GrothAlgebra.multi_scalar_mul(pk.B_query_g2, scalars),
     )
 end

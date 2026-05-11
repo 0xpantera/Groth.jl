@@ -305,7 +305,8 @@ function multi_scalar_mul(points::Vector{G}, scalars::Vector{BN254Fr}) where {C,
     @inbounds for i in eachindex(scalars)
         limbs = canonical_limbs(scalars[i])
         scalar_limbs[i] = limbs
-        max_bits = max(max_bits, _limbs_bit_length(limbs))
+        bit_length = _limbs_bit_length(limbs)
+        max_bits = max(max_bits, bit_length)
     end
 
     if max_bits == 0
@@ -396,7 +397,154 @@ function _multi_scalar_mul_pippenger(points::Vector{G}, scalars::Vector{NTuple{4
     return result
 end
 
+"""
+    multi_scalar_mul_pair(points_a::Vector{G}, points_b::Vector{G}, scalars::Vector{BN254Fr})
+
+Compute two BN254Fr MSMs over the same scalar vector in one scalar scan.
+
+This is useful for Groth16 prover queries where A and B1 are both G1 MSMs over
+the witness scalars. It preserves the same result as calling
+`multi_scalar_mul` twice, while sharing scalar decoding, bit tests, and bucket
+digit extraction.
+"""
+function multi_scalar_mul_pair(points_a::Vector{G}, points_b::Vector{G}, scalars::Vector{BN254Fr}) where {C,G<:GroupElem{C}}
+    if length(points_a) != length(points_b) || length(points_a) != length(scalars)
+        throw(ArgumentError("Point and scalar vectors must have the same length"))
+    end
+
+    isempty(points_a) && throw(ArgumentError("Cannot compute multi-scalar multiplication of empty vectors"))
+
+    if length(points_a) == 1
+        return scalar_mul(points_a[1], scalars[1]), scalar_mul(points_b[1], scalars[1])
+    end
+
+    scalar_limbs = Vector{NTuple{4,UInt64}}(undef, length(scalars))
+    max_bits = 0
+    nonzero_count = 0
+    compact_scalar_count = 0
+    @inbounds for i in eachindex(scalars)
+        limbs = canonical_limbs(scalars[i])
+        scalar_limbs[i] = limbs
+        bit_length = _limbs_bit_length(limbs)
+        max_bits = max(max_bits, bit_length)
+        nonzero_count += Int(bit_length != 0)
+        compact_scalar_count += Int(bit_length <= MONT_WORD_BITS)
+    end
+
+    if max_bits == 0
+        return zero(points_a[1]), zero(points_b[1])
+    end
+
+    if length(points_a) < MSM_PIPPENGER_THRESHOLD
+        return _multi_scalar_mul_straus_pair(points_a, points_b, scalar_limbs, max_bits)
+    end
+
+    return _multi_scalar_mul_pippenger_pair(
+        points_a,
+        points_b,
+        scalar_limbs,
+        max_bits,
+        _pippenger_window(G, length(points_a), max_bits, nonzero_count, compact_scalar_count),
+    )
+end
+
+function _multi_scalar_mul_straus_pair(points_a::Vector{G}, points_b::Vector{G}, scalars::Vector{NTuple{4,UInt64}}, max_bits::Int) where {C,G<:GroupElem{C}}
+    if max_bits == 0
+        return zero(points_a[1]), zero(points_b[1])
+    end
+
+    result_a = zero(points_a[1])
+    result_b = zero(points_b[1])
+
+    for bit_pos in (max_bits - 1):-1:0
+        result_a = result_a + result_a
+        result_b = result_b + result_b
+
+        @inbounds for i in eachindex(points_a, points_b, scalars)
+            if _limbs_testbit(scalars[i], bit_pos)
+                result_a = result_a + points_a[i]
+                result_b = result_b + points_b[i]
+            end
+        end
+    end
+
+    return result_a, result_b
+end
+
+function _multi_scalar_mul_pippenger_pair(points_a::Vector{G}, points_b::Vector{G}, scalars::Vector{NTuple{4,UInt64}}, max_bits::Int, window::Int) where {C,G<:GroupElem{C}}
+    normalized_points_a = Vector{G}(undef, length(points_a))
+    normalized_points_b = Vector{G}(undef, length(points_b))
+    normalized_scalars = Vector{NTuple{4,UInt64}}(undef, length(scalars))
+    nonzero_count = 0
+
+    @inbounds for i in eachindex(points_a, points_b, scalars)
+        limbs = scalars[i]
+        _limbs_iszero(limbs) && continue
+        nonzero_count += 1
+        normalized_points_a[nonzero_count] = points_a[i]
+        normalized_points_b[nonzero_count] = points_b[i]
+        normalized_scalars[nonzero_count] = limbs
+    end
+
+    if nonzero_count == 0
+        return zero(points_a[1]), zero(points_b[1])
+    elseif nonzero_count == 1
+        scalar = _bn254fr_from_canonical_limbs(normalized_scalars[1])
+        return scalar_mul(normalized_points_a[1], scalar), scalar_mul(normalized_points_b[1], scalar)
+    elseif nonzero_count < MSM_PIPPENGER_THRESHOLD
+        resize!(normalized_points_a, nonzero_count)
+        resize!(normalized_points_b, nonzero_count)
+        resize!(normalized_scalars, nonzero_count)
+        return _multi_scalar_mul_straus_pair(normalized_points_a, normalized_points_b, normalized_scalars, max_bits)
+    end
+
+    resize!(normalized_points_a, nonzero_count)
+    resize!(normalized_points_b, nonzero_count)
+    resize!(normalized_scalars, nonzero_count)
+
+    bucket_count = (1 << window) - 1
+    num_windows = cld(max_bits, window)
+    zero_a = zero(points_a[1])
+    zero_b = zero(points_b[1])
+    buckets_a = fill(zero_a, bucket_count)
+    buckets_b = fill(zero_b, bucket_count)
+    result_a = zero_a
+    result_b = zero_b
+
+    for window_index in (num_windows - 1):-1:0
+        for _ in 1:window
+            result_a = result_a + result_a
+            result_b = result_b + result_b
+        end
+
+        fill!(buckets_a, zero_a)
+        fill!(buckets_b, zero_b)
+        shift = window_index * window
+
+        @inbounds for i in eachindex(normalized_points_a, normalized_points_b, normalized_scalars)
+            digit = _limbs_window_digit(normalized_scalars[i], shift, window)
+            if digit != 0
+                buckets_a[digit] = buckets_a[digit] + normalized_points_a[i]
+                buckets_b[digit] = buckets_b[digit] + normalized_points_b[i]
+            end
+        end
+
+        running_sum_a = zero_a
+        running_sum_b = zero_b
+        @inbounds for bucket_index in bucket_count:-1:1
+            running_sum_a = running_sum_a + buckets_a[bucket_index]
+            running_sum_b = running_sum_b + buckets_b[bucket_index]
+            result_a = result_a + running_sum_a
+            result_b = result_b + running_sum_b
+        end
+    end
+
+    return result_a, result_b
+end
+
 @inline _pippenger_window(::Type{<:GroupElem}, size::Int) = _default_pippenger_window(size)
+@inline _pippenger_window(::Type{G}, size::Int, ::Int, ::Int, ::Int) where {G<:GroupElem} =
+    _pippenger_window(G, size)
 
 @inline function _default_pippenger_window(size::Int)
     if size < 32

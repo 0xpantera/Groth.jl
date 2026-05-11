@@ -48,6 +48,16 @@ function _pippenger_window(::Type{G1Point}, size::Int)
     return GrothAlgebra._default_pippenger_window(size)
 end
 
+# The fused Groth16 A/B1 query MSM scans one witness scalar stream for two G1
+# point tables. At the current prover fixture sizes, mixed compact/full-width
+# witness scalars prefer a narrower bucket window than dense H/L MSMs.
+function _pippenger_window(::Type{G1Point}, size::Int, ::Int, ::Int, compact_scalar_count::Int)
+    if 8 <= size <= 32 && compact_scalar_count * 2 >= size
+        return 2
+    end
+    return _pippenger_window(G1Point, size)
+end
+
 function _pippenger_window(::Type{G2Point}, size::Int)
     if size <= 32
         return 2
