@@ -89,6 +89,87 @@ migrations can compare exact results alongside timing data. The `_meta` section
 records whether the run was the default full suite or a filtered benchmark
 profile.
 
+## External Reference Summaries
+
+The large raw benchmark artifacts under `benchmarks/artifacts/` are intentionally
+ignored by git. Durable external-comparison numbers are summarized in
+[`docs/src/assets/external_benchmark_summary.json`](assets/external_benchmark_summary.json).
+
+```@example
+using JSON
+summary_path = joinpath(@__DIR__, "assets", "external_benchmark_summary.json")
+external_summary = JSON.parsefile(summary_path)
+keys(external_summary)
+```
+
+### `py_ecc`
+
+The `py_ecc` comparison is a primitive-only BN254 comparison against the local
+sibling `py_ecc/` checkout. It covers deterministic G1/G2 scalar
+multiplication, naive variable-base accumulation, and a single pairing. It is
+not a Groth16 prover comparison.
+
+Latest preserved local summary: `benchmarks/artifacts/2026-04-01_174825/`
+from branch `feat/bn254-montgomery-stage7-msm-specialization` on machine
+`znver5`. The raw artifact directory is ignored by git; the table below is the
+tracked summary.
+
+| Workload | Groth.jl median | `py_ecc` median | Result |
+| --- | ---: | ---: | ---: |
+| G1 scalar multiplication | `0.126 ms` | `0.264 ms` | Groth.jl `2.09x` faster |
+| G2 scalar multiplication | `0.255 ms` | `1.492 ms` | Groth.jl `5.85x` faster |
+| G1 naive accumulation, N=32 | `4.577 ms` | `12.452 ms` | Groth.jl `2.72x` faster |
+| G2 naive accumulation, N=32 | `11.512 ms` | `69.238 ms` | Groth.jl `6.01x` faster |
+| Single pairing | `3.140 ms` | `149.689 ms` | Groth.jl `47.67x` faster |
+
+The plots below are tracked copies of the PNGs generated for the same preserved
+`2026-04-01_174825` artifact; the benchmark was not rerun when these images
+were added to the docs.
+
+| Scalar multiplication | Pairing |
+| --- | --- |
+| ![Groth.jl vs py_ecc scalar multiplication](assets/py_ecc_scalar_2026_04_01_174825.png) | ![Groth.jl vs py_ecc pairing](assets/py_ecc_pairing_2026_04_01_174825.png) |
+| G1 naive accumulation | G2 naive accumulation |
+| ![Groth.jl vs py_ecc G1 naive accumulation](assets/py_ecc_naive_accum_g1_2026_04_01_174825.png) | ![Groth.jl vs py_ecc G2 naive accumulation](assets/py_ecc_naive_accum_g2_2026_04_01_174825.png) |
+
+Earlier py_ecc checkpoints explain the progression:
+
+| Run | Meaning | Selected medians |
+| --- | --- | --- |
+| `2026-03-31_212200` | First external primitive baseline | G1 scalar: Groth.jl `0.381 ms`, `py_ecc` `0.278 ms`; G2 scalar: Groth.jl `2.092 ms`, `py_ecc` `1.497 ms`; pairing: Groth.jl `51.616 ms`, `py_ecc` `146.294 ms` |
+| `2026-03-31_215847` | After scalar multiplication tuning | G1 scalar: Groth.jl `0.250 ms`, `py_ecc` `0.269 ms`; G2 scalar: Groth.jl `1.522 ms`, `py_ecc` `1.477 ms`; pairing: Groth.jl `51.649 ms`, `py_ecc` `147.931 ms` |
+
+### arkworks
+
+The arkworks comparison uses temporary deterministic one-off harnesses against
+the local `ark-works/` checkout and local Groth.jl packages. The current
+tracked result asset is
+[`docs/src/assets/arkworks_benchmark_refresh_2026_05_11.json`](assets/arkworks_benchmark_refresh_2026_05_11.json).
+
+```@example
+using JSON
+arkworks_path = joinpath(@__DIR__, "assets", "arkworks_benchmark_refresh_2026_05_11.json")
+arkworks_summary = JSON.parsefile(arkworks_path)
+arkworks_summary["run_id"]
+```
+
+The refreshed local run was measured on an AMD Ryzen AI 9 HX 370 with Julia
+`1.12.5`, Rust `1.91.1`, and local arkworks path dependencies. Each value below
+is a median per operation.
+
+| Workload | Groth.jl median | arkworks median | Result |
+| --- | ---: | ---: | ---: |
+| G1 scalar multiplication | `0.115 ms` | `0.00654 ms` | arkworks `17.58x` faster |
+| G2 scalar multiplication | `0.223 ms` | `0.0170 ms` | arkworks `13.11x` faster |
+| G1 naive accumulation, N=32 | `3.462 ms` | `0.182 ms` | arkworks `18.98x` faster |
+| G2 naive accumulation, N=32 | `7.324 ms` | `0.481 ms` | arkworks `15.22x` faster |
+| Single pairing | `2.960 ms` | `0.415 ms` | arkworks `7.14x` faster |
+
+Interpretation: Groth.jl is now well beyond the original `BigInt` path and
+beats `py_ecc` on the preserved primitive comparison, but arkworks still leads
+on these matched BN254 primitive workloads. This is not an end-to-end Groth16
+prover comparison.
+
 ## Stage 8 Snapshot (2026‑04‑01)
 
 The current Stage 8 prover re-baseline artifact is:
