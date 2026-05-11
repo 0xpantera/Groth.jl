@@ -41,7 +41,7 @@ prover path.
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
 | R1CS → QAP | Domain filled completely, IFFT → FFT on coset | Same structure; constraints, public-input selector slots, and zero padding are all explicit before IFFT |
-| Prover | Coset FFT path by default, dense path available for debugging | `prove_full` uses coset-only H computation; dense/coset parity is kept in explicit debug/test helpers |
+| Prover | Coset FFT path by default, dense path available for debugging | `prove_full` uses coset-only H computation and combines H/L into one G1 MSM for `C`; dense/coset parity is kept in explicit debug/test helpers |
 | Prepared verifier | `PreparedVerifyingKey` with batched pairing | `prepare_verifying_key`, `prepare_inputs`, `verify_with_prepared` mirror arkworks and use the pairing engine |
 | Aggregation | `groth16::aggregate_proofs` available | Not yet ported; on roadmap |
 

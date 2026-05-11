@@ -252,22 +252,27 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
     hk <= length(pk.H_query_g1) || error("H polynomial degree exceeds proving key H query length; witness may not satisfy the QAP")
     pts_h = pk.H_query_g1[1:hk]
     scalars_h = h_poly.coeffs
-    H = GrothAlgebra.multi_scalar_mul(pts_h, scalars_h)
 
-    # L for private variables
-    # L for private variables via MSM
+    # H and L are only used as H + L in C, so combine them into one G1 MSM.
     if m > pk.num_public
         priv_scalars = w_vals[(pk.num_public+1):m]
-        L = GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars)
+        hl_len = hk + length(priv_scalars)
+        pts_hl = Vector{G1Point}(undef, hl_len)
+        scalars_hl = Vector{F}(undef, hl_len)
+        copyto!(pts_hl, 1, pts_h, 1, hk)
+        copyto!(pts_hl, hk + 1, pk.L_query_g1, 1, length(priv_scalars))
+        copyto!(scalars_hl, 1, scalars_h, 1, hk)
+        copyto!(scalars_hl, hk + 1, priv_scalars, 1, length(priv_scalars))
+        HL = GrothAlgebra.multi_scalar_mul(pts_hl, scalars_hl)
     else
-        L = zero(G1Point)
+        HL = GrothAlgebra.multi_scalar_mul(pts_h, scalars_h)
     end
 
     # Cross terms in C. This is algebraically equivalent to
     # `s*A + r*(B1_g1 + s*δ) - r*s*δ + L + H`, but avoids one G1 scalar
     # multiplication by expanding A = A1_g1 + r*δ.
     rs_delta = scalar_mul(pk.delta_g1, r * s)
-    C = H + L + scalar_mul(B1_g1, r) + scalar_mul(A1_g1, s) + rs_delta
+    C = HL + scalar_mul(B1_g1, r) + scalar_mul(A1_g1, s) + rs_delta
 
     return Groth16Proof(A, B, C)
 end

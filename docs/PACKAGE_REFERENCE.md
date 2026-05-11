@@ -89,6 +89,9 @@ annotated rather than discarded), and follow-ups.
   `t(x) = x^N - 1` over the full power-of-two domain.
 - (2026-05-11) `prove_full` now uses a coset-only H quotient path; the checked
   dense/coset helper remains available for tests and debugging.
+- (2026-05-11) The prover combines the H and private-variable L contributions
+  into one G1 MSM for the `C` proof element, preserving the same `H + L`
+  algebra while reducing prover-shaped MSM work on the deterministic fixture.
 - (2026-04-02) The current follow-through work has shifted from broad backend
   migration to the remaining prover and pairing specialization steps surfaced
   by the Stage 8A baseline.
@@ -122,11 +125,12 @@ annotated rather than discarded), and follow-ups.
 - The focused backend profiles are now staged through `stage8a`, with
   deterministic prover fixtures and `_semantic` proof checks wired into the
   `prove_full` path.
-- Latest QAP-domain-aligned Stage 8 artifact after coset-only H proving:
-  `benchmarks/artifacts/2026-05-11_133047`, with
-  `generated_24_constraints prove_full` at `28.636 ms`, `compute_h_total` at
-  `1.445 ms`, `h_msm` at `8.925 ms`, `l_msm` at `3.906 ms`, and `final_c` at
-  `2.256 ms`.
+- Latest QAP-domain-aligned Stage 8 artifact after coset-only H proving and H/L
+  MSM fusion: `benchmarks/artifacts/2026-05-11_165756`, with tracked summary
+  `docs/src/assets/prove_full_msm_tuning_2026_05_11.json`. The
+  `generated_24_constraints` fixture reports `prove_full` at `26.643 ms`,
+  `compute_h_total` at `1.481 ms`, `h_msm` at `8.726 ms`, `l_msm` at
+  `3.871 ms`, `h_l_msm` at `11.029 ms`, and `final_c` at `2.140 ms`.
 
 ## Docs
 
