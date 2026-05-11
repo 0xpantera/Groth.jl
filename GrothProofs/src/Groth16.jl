@@ -266,9 +266,9 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
         copyto!(pts_hl, hk + 1, pk.L_query_g1, 1, length(priv_scalars))
         copyto!(scalars_hl, 1, scalars_h, 1, hk)
         copyto!(scalars_hl, hk + 1, priv_scalars, 1, length(priv_scalars))
-        HL = GrothAlgebra.multi_scalar_mul(pts_hl, scalars_hl)
+        HL = g1_subgroup_multi_scalar_mul(pts_hl, scalars_hl)
     else
-        HL = GrothAlgebra.multi_scalar_mul(pts_h, scalars_h)
+        HL = g1_subgroup_multi_scalar_mul(pts_h, scalars_h)
     end
 
     # Cross terms in C. This is algebraically equivalent to

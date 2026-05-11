@@ -38,6 +38,7 @@ export Fp6Element, Fp12Element, GTElement, square
 export BN254Curve, G1Point, G2Point, BN254Engine, BN254_ENGINE
 export to_affine, is_on_curve, double, batch_to_affine!
 export g1_generator, g2_generator
+export g1_subgroup_multi_scalar_mul, g1_subgroup_multi_scalar_mul_pair
 export g2_subgroup_scalar_mul
 export x_coord, y_coord, z_coord
 export LineCoeffs, doubling_step, addition_step, evaluate_line, miller_loop, frobenius_g2

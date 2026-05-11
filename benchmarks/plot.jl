@@ -11,6 +11,7 @@ const PROVE_FULL_PHASE_ORDER = [
     "witness_to_scalars",
     "msm_a_g1",
     "msm_b_g1",
+    "msm_a_b1_g1",
     "msm_b_g2",
     "compute_h_total",
     "h_poly_assembly",
@@ -19,6 +20,8 @@ const PROVE_FULL_PHASE_ORDER = [
     "h_parity_assert",
     "h_msm",
     "l_msm",
+    "h_l_msm_generic",
+    "h_l_msm",
     "final_c",
 ]
 

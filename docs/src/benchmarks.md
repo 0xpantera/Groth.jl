@@ -338,6 +338,31 @@ The `scalar_plumbing` fixture reported `g2_subgroup_scalar_mul(delta_g2, s)` at
 path in the Stage 8A notes. Verifier subgroup checks still use generic G2 scalar
 multiplication because proof inputs are untrusted.
 
+## G1 GLV-MSM Prover Snapshot (2026-05-11)
+
+The G1 GLV-MSM prover artifact is:
+
+- tracked summary:
+  `docs/src/assets/g1_glv_msm_tuning_2026_05_11.json`
+- local full artifact:
+  `benchmarks/artifacts/2026-05-11_193033/results/benchmark_results.json`
+
+This run routes only the combined H/L G1 prover MSM through explicit BN254 G1
+GLV decomposition. The A/B1 fused query MSM was checked separately and did not
+improve, so it remains on the existing fused pair MSM path.
+
+| Fixture | Generic H/L MSM | G1 GLV H/L MSM | Phase change | `prove_full` |
+| --- | ---: | ---: | ---: | ---: |
+| `sum_of_products_small` | `6.642 ms` | `4.924 ms` | `-25.87%` | `11.594 ms` |
+| `generated_24_constraints` | `11.907 ms` | `9.647 ms` | `-18.98%` | `27.626 ms` |
+
+For the generated fixture, the H/L query has `51` original bases and expands to
+`90` GLV terms with maximum component width `127` bits. Interpretation: the
+MSM phase improvement is clear, but end-to-end proving is essentially flat
+relative to the preceding same-day run (`27.659 ms -> 27.626 ms`). The next GLV
+follow-through is limb-native decomposition; the current helper still pays
+`BigInt` decomposition cost.
+
 ## Latest Snapshot (2025‑09‑29)
 
 ```@example

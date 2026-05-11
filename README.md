@@ -43,12 +43,17 @@ The project has moved well beyond a minimal Groth16 demo.
 - The gap to arkworks has narrowed substantially, but arkworks is still ahead.
 - QAP conversion now follows the arkworks domain shape: constraints first,
   public-input selector rows next, and zero padding to the next power of two.
-- The current larger deterministic `prove_full` baseline after QAP domain
+- The QAP-domain-aligned larger deterministic `prove_full` baseline after
   alignment, coset-only H proving, and H/L MSM fusion is `26.643 ms` in the
   tracked summary
   [docs/src/assets/prove_full_msm_tuning_2026_05_11.json](./docs/src/assets/prove_full_msm_tuning_2026_05_11.json),
   down from the original `136.187 ms` baseline captured at the start of the
   performance investigation.
+- The latest G1 GLV-MSM prover pass routes the combined H/L query MSM through
+  an explicit subgroup-owned helper. On the generated fixture, that phase moved
+  from `11.907 ms` to `9.647 ms`; end-to-end `prove_full` stayed essentially
+  flat at `27.626 ms` in
+  [docs/src/assets/g1_glv_msm_tuning_2026_05_11.json](./docs/src/assets/g1_glv_msm_tuning_2026_05_11.json).
 - The current larger deterministic `setup_full` fixture is `116.918 ms` in
   [docs/src/assets/setup_full_tuning_2026_05_11.json](./docs/src/assets/setup_full_tuning_2026_05_11.json),
   down from the `142.715 ms` pre-change baseline on the same fixture.
@@ -161,16 +166,17 @@ These are primitive-level measurements, not end-to-end Groth16 prover
 comparisons.
 
 Latest tracked `prove_full` prover fixture summary
-(`2026-05-11_165756`, Stage 8 profile):
+(`2026-05-11_193033`, G1 GLV-MSM focused profile):
 
 | Fixture | Domain | `prove_full` | Key prover phases |
 | --- | ---: | ---: | --- |
-| `sum_of_products_small` | `16` | `10.943 ms` | H+L MSM `5.619 ms`, final C `2.133 ms` |
-| `generated_24_constraints` | `32` | `26.643 ms` | H+L MSM `11.029 ms`, final C `2.140 ms` |
+| `sum_of_products_small` | `16` | `11.594 ms` | H+L MSM `4.924 ms`, final C `2.444 ms` |
+| `generated_24_constraints` | `32` | `27.626 ms` | H+L MSM `9.647 ms`, final C `2.488 ms` |
 
-The generated fixture improved from `28.636 ms` to `26.643 ms` versus the
-previous coset-only H baseline by combining the separate H and L G1 MSMs into
-one MSM for the `C` proof element.
+The current production H/L MSM uses explicit BN254 G1 GLV decomposition on
+subgroup-owned CRS points. In the generated fixture it was `18.98%` faster than
+the generic H/L MSM measured in the same run; the end-to-end prover movement is
+small enough that we treat it as flat rather than a headline speedup.
 
 Latest tracked `setup_full` fixture summary
 (`2026-05-11_175228`, setup profile):

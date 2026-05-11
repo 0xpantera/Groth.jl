@@ -1435,6 +1435,11 @@ function bench_prove_full(results)
         print_stats("prove_full[$(name)] L_msm", tr_l_msm)
         record_fixture_trial!(results, :prove_full, name, "l_msm", tr_l_msm)
 
+        _ = h_l_msm_generic(pk, h_poly, witness)
+        tr_h_l_msm_generic = @benchmark h_l_msm_generic($pk, $h_poly, $witness) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] H+L_msm_generic", tr_h_l_msm_generic)
+        record_fixture_trial!(results, :prove_full, name, "h_l_msm_generic", tr_h_l_msm_generic)
+
         _ = h_l_msm(pk, h_poly, witness)
         tr_h_l_msm = @benchmark h_l_msm($pk, $h_poly, $witness) seconds = 1 samples = 10
         print_stats("prove_full[$(name)] H+L_msm", tr_h_l_msm)

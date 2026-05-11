@@ -472,6 +472,42 @@ glv_component_bits(component::Tuple{Bool,BigInt}) = iszero(component[2]) ? 0 : n
             @test pair_a == multi_scalar_mul(prover_points, prover_scalars)
             @test pair_b == multi_scalar_mul(prover_points_b, prover_scalars)
         end
+
+        @testset "G1 subgroup GLV MSM helpers match generic MSM" begin
+            g1 = g1_generator()
+            points = [scalar_mul(g1, benchmark_scalar(800 + i)) for i in 1:12]
+            scalars_fr = [
+                bn254_fr(0),
+                bn254_fr(1),
+                bn254_fr(2),
+                bn254_fr(3),
+                bn254_fr(benchmark_scalar(821)),
+                bn254_fr(benchmark_scalar(822)),
+                bn254_fr(benchmark_scalar(823)),
+                bn254_fr(benchmark_scalar(824)),
+                bn254_fr(GrothCurves.BN254_ORDER_R - 12345),
+                bn254_fr(GrothCurves.BN254_ORDER_R - 67890),
+                bn254_fr(17),
+                bn254_fr(31),
+            ]
+            scalars_bigint = map(x -> convert(BigInt, x), scalars_fr)
+
+            @test g1_subgroup_multi_scalar_mul(points, scalars_fr) ==
+                  multi_scalar_mul(points, scalars_fr)
+            @test g1_subgroup_multi_scalar_mul(points, scalars_bigint) ==
+                  multi_scalar_mul(points, scalars_bigint)
+
+            points_b = [scalar_mul(g1, benchmark_scalar(900 + i)) for i in 1:12]
+            pair_a, pair_b = g1_subgroup_multi_scalar_mul_pair(points, points_b, scalars_fr)
+            @test pair_a == multi_scalar_mul(points, scalars_fr)
+            @test pair_b == multi_scalar_mul(points_b, scalars_fr)
+
+            @test g1_subgroup_multi_scalar_mul([points[1]], [scalars_fr[5]]) ==
+                  scalar_mul(points[1], scalars_fr[5])
+            @test_throws ArgumentError g1_subgroup_multi_scalar_mul(G1Point[], BN254Fr[])
+            @test_throws ArgumentError g1_subgroup_multi_scalar_mul(points, scalars_fr[1:3])
+            @test_throws ArgumentError g1_subgroup_multi_scalar_mul_pair(points, points_b[1:3], scalars_fr)
+        end
     end
     
     @testset "Fp2 Field Operations" begin

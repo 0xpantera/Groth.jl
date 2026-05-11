@@ -27,7 +27,7 @@ Depth = 2
 
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
-| Variable-base MSM | Straus / Pippenger variants with endomorphism support where safe. | `GrothAlgebra.multi_scalar_mul` uses a Pippenger-style backend with a small-input Straus fallback; BN254 G1 now has a measured hybrid GLV path, and G2 exposes GLV through an explicit subgroup-only helper rather than the arbitrary-point default. |
+| Variable-base MSM | Straus / Pippenger variants with endomorphism support where safe. | `GrothAlgebra.multi_scalar_mul` uses a Pippenger-style backend with a small-input Straus fallback; BN254 G1 has measured single-scalar GLV and an explicit subgroup-owned GLV-MSM path for the prover H/L query, while G2 exposes scalar GLV through an explicit subgroup-only helper rather than the arbitrary-point default. |
 | Fixed-base tables | `FixedBaseMSM` window tables. | `FixedBaseTable` plus `build_fixed_table`, `mul_fixed`, and `batch_mul` mirror the workflow; setup uses measured BN254 scalar/GLV dispatch for G1 query generation and a fixed-window batch path for the G2 query. |
 
 **Next steps:** keep MSM work tied to the real `prove_full` fixtures and avoid
@@ -46,7 +46,7 @@ treating synthetic MSM sweeps as the sole tuning signal.
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
 | R1CS → QAP | Domain fully populated, IFFT then FFT on the coset. | Same structure; constraints, public-input selector slots, and zero padding are all explicit before IFFT. |
-| Prover/setup | Coset FFT path, dense available for debugging. | `prove_full` uses coset-only H computation and combines H/L into one G1 MSM for `C`; `setup_full` uses measured query-generation dispatch; subgroup-owned fixed G2 elements use explicit GLV; dense/coset parity is kept in explicit debug/test helpers. |
+| Prover/setup | Coset FFT path, dense available for debugging. | `prove_full` uses coset-only H computation and combines H/L into one subgroup-owned G1 GLV-MSM for `C`; `setup_full` uses measured query-generation dispatch; subgroup-owned fixed G2 elements use explicit GLV; dense/coset parity is kept in explicit debug/test helpers. |
 | Prepared verifier | `PreparedVerifyingKey` batches pairings. | `prepare_verifying_key`, `prepare_inputs`, and `verify_with_prepared` mirror the API. |
 | Aggregation | Optional `groth16::aggregate_proofs`. | Not yet ported; tracked on the roadmap. |
 
