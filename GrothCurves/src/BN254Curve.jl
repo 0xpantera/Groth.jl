@@ -468,5 +468,56 @@ function _batch_to_affine!(pts::Vector{P}, ::Type{F}) where {F,P<:ProjectivePoin
     return pts
 end
 
+function _batch_to_affine_vectors!(vectors::Tuple{Vararg{Vector{P}}}, ::Type{F}) where {F,P<:ProjectivePoint{BN254Curve,F}}
+    n = 0
+    @inbounds for pts in vectors
+        n += length(pts)
+    end
+    n == 0 && return vectors
+
+    prefix = Vector{F}(undef, n)
+    running = one(F)
+    seen_nonzero = false
+    idx = 0
+
+    @inbounds for pts in vectors
+        for point in pts
+            idx += 1
+            if !iszero(point)
+                running = running * z_coord(point)
+                seen_nonzero = true
+            end
+            prefix[idx] = running
+        end
+    end
+
+    seen_nonzero || return vectors
+
+    inv_total = inv(running)
+    affine_z = one(F)
+    idx = n
+
+    @inbounds for pts in reverse(vectors)
+        for i in length(pts):-1:1
+            point = pts[i]
+            if !iszero(point)
+                prev = idx == 1 ? affine_z : prefix[idx - 1]
+                z_inv = inv_total * prev
+                inv_total = inv_total * z_coord(point)
+                z_inv2 = _square(z_inv)
+                pts[i] = P(x_coord(point) * z_inv2, y_coord(point) * z_inv2 * z_inv, affine_z)
+            end
+            idx -= 1
+        end
+    end
+
+    return vectors
+end
+
 batch_to_affine!(pts::Vector{G1Point}) = _batch_to_affine!(pts, BN254Fq)
 batch_to_affine!(pts::Vector{G2Point}) = _batch_to_affine!(pts, Fp2Element)
+
+batch_to_affine!(first::Vector{G1Point}, second::Vector{G1Point}, rest::Vector{G1Point}...) =
+    _batch_to_affine_vectors!((first, second, rest...), BN254Fq)
+batch_to_affine!(first::Vector{G2Point}, second::Vector{G2Point}, rest::Vector{G2Point}...) =
+    _batch_to_affine_vectors!((first, second, rest...), Fp2Element)

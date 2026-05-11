@@ -130,15 +130,16 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abs
         C_eval[i] = evaluate(qap.w[i], τ)
     end
 
-    # Fixed-base tables for batch generation
-    g1tab = GrothAlgebra.build_fixed_table(g1)
-    g2tab = GrothAlgebra.build_fixed_table(g2)
+    # Fixed-base table for G2 query generation. G1 setup queries use the BN254
+    # scalar dispatcher because the measured GLV path beats fixed-base w-NAF for
+    # the full-width setup scalars used here.
+    g2tab = GrothAlgebra.build_fixed_table(g2; window=8)
 
-    # Map evaluations into group queries using fixed-base batch mul
-    A_query_g1 = GrothAlgebra.batch_mul(g1tab, A_eval)
-    B_query_g2 = GrothAlgebra.batch_mul(g2tab, B_eval)
-    B_query_g1 = GrothAlgebra.batch_mul(g1tab, B_eval)
-    C_query_g1 = GrothAlgebra.batch_mul(g1tab, C_eval)
+    # Map evaluations into group queries.
+    A_query_g1 = [scalar_mul(g1, s) for s in A_eval]
+    B_query_g2 = GrothAlgebra._batch_mul_fixed_window(g2tab, B_eval)
+    B_query_g1 = [scalar_mul(g1, s) for s in B_eval]
+    C_query_g1 = [scalar_mul(g1, s) for s in C_eval]
 
     # Target polynomial at τ
     t_tau = evaluate(qap.t, τ)
@@ -146,39 +147,41 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abs
     # τ^k powers for H query. Since t has degree N over the full domain and
     # U,V,W have degree at most N-1, the quotient H has degree at most N-2.
     max_k = qap.domain.size - 1
-    tau_powers = Vector{F}(undef, max_k)
-    tau_powers[1] = one(F)
-    for k in 2:max_k
-        tau_powers[k] = tau_powers[k-1] * τ
+    H_scalars = Vector{F}(undef, max_k)
+    tau_power = one(F)
+    t_delta = t_tau * δ_inv
+    for k in 1:max_k
+        H_scalars[k] = t_delta * tau_power
+        tau_power *= τ
     end
 
     # H_query_g1: [τ^k · t(τ) / δ]₁
-    H_query_g1 = GrothAlgebra.batch_mul(g1tab, [t_tau * tau_powers[k] * δ_inv for k in 1:max_k])
+    H_query_g1 = [scalar_mul(g1, s) for s in H_scalars]
 
     # L_query for private variables only: [(β·u_i(τ) + α·v_i(τ) + w_i(τ)) / δ]₁
     num_public = qap.num_public
     L_query_g1 = G1Point[]
     if m > num_public
-        L_scalars = F[]
-        sizehint!(L_scalars, m - num_public)
+        L_scalars = Vector{F}(undef, m - num_public)
+        j = 0
         for i in (num_public+1):m
             acc = β * A_eval[i] + α * B_eval[i] + C_eval[i]
-            push!(L_scalars, acc * δ_inv)
+            j += 1
+            L_scalars[j] = acc * δ_inv
         end
-        L_query_g1 = GrothAlgebra.batch_mul(g1tab, L_scalars)
+        L_query_g1 = [scalar_mul(g1, s) for s in L_scalars]
     end
 
     # IC for public inputs: [(β·u_i(τ) + α·v_i(τ) + w_i(τ)) / γ]₁, including 1
-    IC_scalars = [(β * A_eval[i] + α * B_eval[i] + C_eval[i]) * γ_inv for i in 1:num_public]
-    IC = GrothAlgebra.batch_mul(g1tab, IC_scalars)
+    IC_scalars = Vector{F}(undef, num_public)
+    for i in 1:num_public
+        IC_scalars[i] = (β * A_eval[i] + α * B_eval[i] + C_eval[i]) * γ_inv
+    end
+    IC = [scalar_mul(g1, s) for s in IC_scalars]
 
-    # Normalize queries to affine for efficient storage
-    GrothCurves.batch_to_affine!(A_query_g1)
-    GrothCurves.batch_to_affine!(B_query_g1)
-    GrothCurves.batch_to_affine!(C_query_g1)
-    GrothCurves.batch_to_affine!(H_query_g1)
-    GrothCurves.batch_to_affine!(IC)
-    GrothCurves.batch_to_affine!(L_query_g1)
+    # Normalize G1 queries in one batch to pay only one inversion across the
+    # proving and verification query vectors.
+    GrothCurves.batch_to_affine!(A_query_g1, B_query_g1, C_query_g1, H_query_g1, IC, L_query_g1)
     GrothCurves.batch_to_affine!(B_query_g2)
 
     # Fixed elements

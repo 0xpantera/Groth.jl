@@ -14,7 +14,8 @@ an arkworks-aligned, production-friendly Groth16 stack.
   optional GT optimisations.
 - **GrothProofs** — R1CS/QAP/Groth16 path mirrors arkworks: constraints are
   followed by public-input selector slots in the QAP domain, `prove_full` uses
-  the coset-only H path, combines H/L into one prover MSM, and dense/coset
+  the coset-only H path, combines H/L into one prover MSM, setup query
+  generation uses the measured BN254 scalar/GLV path for G1, and dense/coset
   quotient parity remains available for tests and debugging. Pending: optional
   proof aggregation and polishing docs.
 - **GrothExamples** — Notebook-first tutorials now live in Pluto notebooks
@@ -68,6 +69,9 @@ an arkworks-aligned, production-friendly Groth16 stack.
 - `prove_full` combines the H and private-variable L contributions into one G1
   MSM for the `C` proof element; the Stage 8 generated fixture is now
   `26.643 ms`.
+- `setup_full` query generation now uses BN254 G1 scalar/GLV dispatch for G1
+  queries and a fixed-window G2 batch path; the generated fixture is now
+  `116.918 ms`.
 - Prepared verifier matches arkworks (batched pairing path).
 - Benchmarks expanded (pairing & Groth16 hot paths with JSON/PNG artefacts).
 - Groth16 tests cover multiple circuits, randomized seeds, prepared-path

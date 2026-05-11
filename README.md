@@ -49,6 +49,9 @@ The project has moved well beyond a minimal Groth16 demo.
   [docs/src/assets/prove_full_msm_tuning_2026_05_11.json](./docs/src/assets/prove_full_msm_tuning_2026_05_11.json),
   down from the original `136.187 ms` baseline captured at the start of the
   performance investigation.
+- The current larger deterministic `setup_full` fixture is `116.918 ms` in
+  [docs/src/assets/setup_full_tuning_2026_05_11.json](./docs/src/assets/setup_full_tuning_2026_05_11.json),
+  down from the `142.715 ms` pre-change baseline on the same fixture.
 - The active roadmap has shifted from broad backend replacement to targeted
   specialization: limb-native inversion, final-exponentiation work, safer G2
   GLV exposure, prover-shaped MSM tuning, and then a fresh prover re-baseline.
@@ -165,6 +168,18 @@ Latest tracked `prove_full` prover fixture summary
 The generated fixture improved from `28.636 ms` to `26.643 ms` versus the
 previous coset-only H baseline by combining the separate H and L G1 MSMs into
 one MSM for the `C` proof element.
+
+Latest tracked `setup_full` fixture summary
+(`2026-05-11_175228`, setup profile):
+
+| Fixture | Domain | Baseline | Current |
+| --- | ---: | ---: | ---: |
+| `sum_of_products_small` | `16` | `47.910 ms` | `46.007 ms` |
+| `generated_24_constraints` | `32` | `142.715 ms` | `116.918 ms` |
+
+Setup now uses the BN254 G1 scalar dispatcher for G1 queries because the GLV
+path beats fixed-base w-NAF on the measured full-width setup scalars; the G2
+query keeps a fixed-window batch path.
 
 ## Performance Snapshot
 
