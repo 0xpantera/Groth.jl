@@ -380,6 +380,29 @@ The setup pass keeps a fixed-window batch path for the G2 query, but routes G1
 setup queries through the BN254 scalar dispatcher because the measured GLV path
 beats fixed-base w-NAF for the full-width setup scalars.
 
+## Safe G2 Subgroup GLV Snapshot (2026-05-11)
+
+- Focused run:
+  `artifacts/2026-05-11_190310/results/benchmark_results.json`
+- Tracked summary:
+  `../docs/src/assets/g2_subgroup_glv_tuning_2026_05_11.json`
+
+The G2 scalar policy sweep now reports the arbitrary-point default, explicit
+w-NAF, and the subgroup-only GLV helper separately:
+
+| Scalar bits | G2 default | G2 w-NAF | G2 subgroup GLV |
+| --- | ---: | ---: | ---: |
+| `32` | `0.335 ms` | `0.314 ms` | `0.335 ms` |
+| `64` | `0.525 ms` | `0.530 ms` | `0.554 ms` |
+| `128` | `1.014 ms` | `1.072 ms` | `1.504 ms` |
+| `192` | `1.544 ms` | `1.632 ms` | `1.609 ms` |
+| `254` | `2.455 ms` | `2.440 ms` | `1.612 ms` |
+
+The subgroup helper is deliberately explicit: it is only valid for points
+already known to be in `G2[r]`. Groth16 setup/proving uses it for fixed G2 key
+points constructed from the generator; verifier subgroup checks keep generic
+G2 scalar multiplication for arbitrary proof input.
+
 Generate a full report (run -> plot -> compare) for latest run:
 
 ```

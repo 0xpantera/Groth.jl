@@ -25,6 +25,9 @@ Depth = 2
 
 - Sparse Fp12 placement and Frobenius corrections follow standard BN254 references.
 - `ProjectivePoint{Curve,F}` keeps the pairing engine generic so future curves can reuse the pipeline.
+- `g2_subgroup_scalar_mul` exposes BN254 G2 GLV acceleration only for points
+  already known to be in the prime-order subgroup. Generic `scalar_mul` remains
+  the safe scalar path for arbitrary G2 points.
 
 ## Follow-ups
 
@@ -48,6 +51,7 @@ ProjectivePoint
 GrothCurves.doubling_step
 GrothCurves.addition_step
 GrothCurves.evaluate_line
+GrothCurves.g2_subgroup_scalar_mul
 ```
 
 ### Example

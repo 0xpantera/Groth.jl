@@ -187,10 +187,10 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abs
     # Fixed elements
     alpha_g1 = scalar_mul(g1, α)
     beta_g1 = scalar_mul(g1, β)
-    beta_g2 = scalar_mul(g2, β)
-    gamma_g2 = scalar_mul(g2, γ)
+    beta_g2 = g2_subgroup_scalar_mul(g2, β)
+    gamma_g2 = g2_subgroup_scalar_mul(g2, γ)
     delta_g1 = scalar_mul(g1, δ)
-    delta_g2 = scalar_mul(g2, δ)
+    delta_g2 = g2_subgroup_scalar_mul(g2, δ)
 
     pk = ProvingKey(
         alpha_g1,
@@ -246,7 +246,7 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
     A1_g1 = pk.alpha_g1 + A_acc_g1
     B1_g1 = pk.beta_g1 + B_acc_g1
     A = A1_g1 + scalar_mul(pk.delta_g1, r)
-    B = pk.beta_g2 + B_acc_g2 + scalar_mul(pk.delta_g2, s)
+    B = pk.beta_g2 + B_acc_g2 + g2_subgroup_scalar_mul(pk.delta_g2, s)
 
     # h(x): compute via the fast coset-only FFT path unless debugging asks for
     # the dense/coset parity check.

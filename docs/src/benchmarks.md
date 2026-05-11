@@ -309,6 +309,35 @@ while the G2 query uses a wider fixed-window batch path. The generated fixture
 is again the better continuity signal because it exercises a larger set of
 query scalars.
 
+## Safe G2 Subgroup GLV Snapshot (2026-05-11)
+
+The safe G2 GLV exposure artifact is:
+
+- tracked summary:
+  `docs/src/assets/g2_subgroup_glv_tuning_2026_05_11.json`
+- local full artifact:
+  `benchmarks/artifacts/2026-05-11_190310/results/benchmark_results.json`
+
+This run keeps generic G2 `scalar_mul` on the arbitrary-point w-NAF path and
+measures the explicit subgroup-only GLV helper separately. Groth16 setup/proving
+use the helper only for G2 key points whose subgroup ownership follows from
+construction.
+
+| Scalar bits | G2 default | G2 w-NAF | G2 subgroup GLV |
+| --- | ---: | ---: | ---: |
+| `32` | `0.335 ms` | `0.314 ms` | `0.335 ms` |
+| `64` | `0.525 ms` | `0.530 ms` | `0.554 ms` |
+| `128` | `1.014 ms` | `1.072 ms` | `1.504 ms` |
+| `192` | `1.544 ms` | `1.632 ms` | `1.609 ms` |
+| `254` | `2.455 ms` | `2.440 ms` | `1.612 ms` |
+
+Interpretation: the explicit G2 GLV path is not a universal scalar-mul default;
+it is useful for the full-width subgroup-owned scalars used by setup/proving.
+The `scalar_plumbing` fixture reported `g2_subgroup_scalar_mul(delta_g2, s)` at
+`1.549 ms` for `BN254Fr`, versus `2.355 ms` for the earlier generic G2 scalar
+path in the Stage 8A notes. Verifier subgroup checks still use generic G2 scalar
+multiplication because proof inputs are untrusted.
+
 ## Latest Snapshot (2025‑09‑29)
 
 ```@example

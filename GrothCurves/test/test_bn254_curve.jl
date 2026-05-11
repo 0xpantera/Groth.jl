@@ -395,7 +395,33 @@ glv_component_bits(component::Tuple{Bool,BigInt}) = iszero(component[2]) ? 0 : n
                 -(GrothCurves.BN254_ORDER_R - 8765432),
             )
                 @test GrothCurves.glv_scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar)
+                @test g2_subgroup_scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar)
                 @test scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar)
+            end
+        end
+
+        @testset "G2 subgroup GLV helper keeps generic scalar semantics explicit" begin
+            g2 = g2_generator()
+            subgroup_point = scalar_mul_reference(g2, benchmark_scalar(507))
+            test_scalars = (
+                0,
+                1,
+                -1,
+                23,
+                benchmark_scalar(508),
+                -benchmark_scalar(509),
+                GrothCurves.BN254_ORDER_R - 3456789,
+            )
+
+            for scalar in test_scalars
+                expected = scalar_mul_reference(subgroup_point, scalar)
+                @test g2_subgroup_scalar_mul(subgroup_point, scalar) == expected
+                @test scalar_mul(subgroup_point, scalar) == expected
+
+                bits = GrothAlgebra._bit_length(scalar)
+                window = GrothAlgebra._scalar_mul_window(G2Point, bits)
+                @test scalar_mul(subgroup_point, scalar) ==
+                      scalar_mul_wnaf(subgroup_point, scalar, window)
             end
         end
 
@@ -413,6 +439,7 @@ glv_component_bits(component::Tuple{Bool,BigInt}) = iszero(component[2]) ? 0 : n
                 scalar_big = convert(BigInt, scalar)
                 @test scalar_mul(g1, scalar) == scalar_mul_reference(g1, scalar_big)
                 @test scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar_big)
+                @test g2_subgroup_scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar_big)
             end
 
             g1_points = [scalar_mul(g1, 3), scalar_mul(g1, 5), scalar_mul(g1, 7)]
