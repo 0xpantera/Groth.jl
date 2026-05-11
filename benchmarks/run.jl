@@ -1430,13 +1430,17 @@ function bench_prove_full(results)
         print_stats("prove_full[$(name)] L_msm", tr_l_msm)
         record_fixture_trial!(results, :prove_full, name, "l_msm", tr_l_msm)
 
+        _ = h_l_msm(pk, h_poly, witness)
+        tr_h_l_msm = @benchmark h_l_msm($pk, $h_poly, $witness) seconds = 1 samples = 10
+        print_stats("prove_full[$(name)] H+L_msm", tr_h_l_msm)
+        record_fixture_trial!(results, :prove_full, name, "h_l_msm", tr_h_l_msm)
+
         r_rand, s_rand = sample_prove_randomizers(fixture)
         accum = prove_query_accumulators(pk, scalars)
         ab_terms = assemble_ab_terms(pk, accum.A_acc_g1, accum.B_acc_g1, accum.B_acc_g2, r_rand, s_rand)
-        H = h_msm(pk, h_poly)
-        L = l_msm(pk, witness)
-        _ = assemble_c(pk, ab_terms.A1_g1, ab_terms.B1_g1, H, L, r_rand, s_rand)
-        tr_final_c = @benchmark assemble_c($pk, $(ab_terms.A1_g1), $(ab_terms.B1_g1), $H, $L, $r_rand, $s_rand) seconds = 1 samples = 10
+        HL = h_l_msm(pk, h_poly, witness)
+        _ = assemble_c_with_hl(pk, ab_terms.A1_g1, ab_terms.B1_g1, HL, r_rand, s_rand)
+        tr_final_c = @benchmark assemble_c_with_hl($pk, $(ab_terms.A1_g1), $(ab_terms.B1_g1), $HL, $r_rand, $s_rand) seconds = 1 samples = 10
         print_stats("prove_full[$(name)] C_final", tr_final_c)
         record_fixture_trial!(results, :prove_full, name, "final_c", tr_final_c)
     end

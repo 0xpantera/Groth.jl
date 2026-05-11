@@ -25,6 +25,8 @@ Depth = 2
 
 - `prove_full` uses the coset-only H quotient path; dense vs coset parity is
   still asserted in tests and available through the checked helper.
+- The prover combines H and private-variable L into one G1 MSM for the `C`
+  proof element, since the algebra only needs their sum.
 - QAP conversion uses an arkworks-shaped full domain: constraints first,
   public-input selector rows next, zero padding last, and `t(x) = x^N - 1`.
 - The latest prover optimization work is now focused on the remaining

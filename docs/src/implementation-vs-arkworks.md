@@ -47,7 +47,7 @@ tuning signal.
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
 | R1CS → QAP | Domain fully populated, IFFT then FFT on the coset. | Same structure; constraints, public-input selector slots, and zero padding are all explicit before IFFT. |
-| Prover | Coset FFT path, dense available for debugging. | `prove_full` uses coset-only H computation; dense/coset parity is kept in explicit debug/test helpers. |
+| Prover | Coset FFT path, dense available for debugging. | `prove_full` uses coset-only H computation and combines H/L into one G1 MSM for `C`; dense/coset parity is kept in explicit debug/test helpers. |
 | Prepared verifier | `PreparedVerifyingKey` batches pairings. | `prepare_verifying_key`, `prepare_inputs`, and `verify_with_prepared` mirror the API. |
 | Aggregation | Optional `groth16::aggregate_proofs`. | Not yet ported; tracked on the roadmap. |
 

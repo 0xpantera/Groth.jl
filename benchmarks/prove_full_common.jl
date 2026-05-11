@@ -17,6 +17,7 @@ const PROVE_FULL_PHASE_ORDER = [
     "h_parity_assert",
     "h_msm",
     "l_msm",
+    "h_l_msm",
     "final_c",
 ]
 
@@ -155,6 +156,9 @@ end
 
 function fixture_metadata(fixture)
     qap = fixture.qap
+    pk = fixture.keypair.pk
+    witness = fixture.witness
+    h_poly = GrothProofs.compute_h_polynomial_coset(qap, witness)
     return Dict{String,Any}(
         "name" => fixture.name,
         "description" => fixture.description,
@@ -166,6 +170,60 @@ function fixture_metadata(fixture)
         "coset_domain_size" => qap.coset_domain.size,
         "setup_seed" => fixture.setup_seed,
         "prove_seed" => fixture.prove_seed,
+        "msm_selection" => Dict{String,Any}(
+            "a_query_g1" => msm_selection_metadata(pk.A_query_g1, witness.values),
+            "b_query_g1" => msm_selection_metadata(pk.B_query_g1, witness.values),
+            "a_b1_query_g1" => msm_pair_selection_metadata(pk.A_query_g1, pk.B_query_g1, witness.values),
+            "b_query_g2" => msm_selection_metadata(pk.B_query_g2, witness.values),
+            "h_query_g1" => msm_selection_metadata(pk.H_query_g1[1:length(h_poly.coeffs)], h_poly.coeffs),
+            "l_query_g1" => msm_selection_metadata(pk.L_query_g1, witness.values[(pk.num_public + 1):end]),
+            "h_l_query_g1" => msm_selection_metadata(
+                vcat(pk.H_query_g1[1:length(h_poly.coeffs)], pk.L_query_g1),
+                vcat(h_poly.coeffs, witness.values[(pk.num_public + 1):end]),
+            ),
+        ),
+    )
+end
+
+function msm_scalar_stats(scalars::AbstractVector{BN254Fr})
+    limbs = [GrothAlgebra.canonical_limbs(s) for s in scalars]
+    max_bits = isempty(limbs) ? 0 : maximum(GrothAlgebra._limbs_bit_length, limbs)
+    nonzero_count = count(!iszero, scalars)
+    compact_scalar_count = count(l -> GrothAlgebra._limbs_bit_length(l) <= GrothAlgebra.MONT_WORD_BITS, limbs)
+    return (
+        max_bits = max_bits,
+        nonzero_count = nonzero_count,
+        compact_scalar_count = compact_scalar_count,
+    )
+end
+
+function msm_selection_metadata(points::AbstractVector, scalars::AbstractVector{BN254Fr})
+    stats = msm_scalar_stats(scalars)
+    size = length(points)
+    selected = size <= 1 ? "scalar_mul" :
+        GrothAlgebra._use_straus_msm(size, stats.max_bits) ? "straus" :
+        "pippenger_w$(GrothAlgebra._pippenger_window(eltype(points), size))"
+    return Dict{String,Any}(
+        "size" => size,
+        "nonzero_scalars" => stats.nonzero_count,
+        "compact_scalars" => stats.compact_scalar_count,
+        "max_scalar_bits" => stats.max_bits,
+        "selected" => selected,
+    )
+end
+
+function msm_pair_selection_metadata(points_a::AbstractVector, points_b::AbstractVector, scalars::AbstractVector{BN254Fr})
+    stats = msm_scalar_stats(scalars)
+    size = length(points_a)
+    selected = size <= 1 ? "scalar_mul_pair" :
+        GrothAlgebra._use_straus_msm(size, stats.max_bits) ? "straus_pair" :
+        "pippenger_pair_w$(GrothAlgebra._pippenger_window(eltype(points_a), size, stats.max_bits, stats.nonzero_count, stats.compact_scalar_count))"
+    return Dict{String,Any}(
+        "size" => size,
+        "nonzero_scalars" => stats.nonzero_count,
+        "compact_scalars" => stats.compact_scalar_count,
+        "max_scalar_bits" => stats.max_bits,
+        "selected" => selected,
     )
 end
 
@@ -259,7 +317,30 @@ function l_msm(pk::ProvingKey, witness::Witness)
     return GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars)
 end
 
+function h_l_msm(pk::ProvingKey, h_poly, witness::Witness)
+    hk = length(h_poly.coeffs)
+    pts_h = pk.H_query_g1[1:hk]
+    m = length(witness.values)
+    if m <= pk.num_public
+        return GrothAlgebra.multi_scalar_mul(pts_h, h_poly.coeffs)
+    end
+    priv_scalars = witness.values[(pk.num_public+1):m]
+    hl_len = hk + length(priv_scalars)
+    pts_hl = Vector{G1Point}(undef, hl_len)
+    scalars_hl = Vector{eltype(h_poly.coeffs)}(undef, hl_len)
+    copyto!(pts_hl, 1, pts_h, 1, hk)
+    copyto!(pts_hl, hk + 1, pk.L_query_g1, 1, length(priv_scalars))
+    copyto!(scalars_hl, 1, h_poly.coeffs, 1, hk)
+    copyto!(scalars_hl, hk + 1, priv_scalars, 1, length(priv_scalars))
+    return GrothAlgebra.multi_scalar_mul(pts_hl, scalars_hl)
+end
+
 function assemble_c(pk::ProvingKey, A1_g1, B1_g1, H, L, r, s)
     rs_delta = scalar_mul(pk.delta_g1, r * s)
     return H + L + scalar_mul(B1_g1, r) + scalar_mul(A1_g1, s) + rs_delta
+end
+
+function assemble_c_with_hl(pk::ProvingKey, A1_g1, B1_g1, HL, r, s)
+    rs_delta = scalar_mul(pk.delta_g1, r * s)
+    return HL + scalar_mul(B1_g1, r) + scalar_mul(A1_g1, s) + rs_delta
 end

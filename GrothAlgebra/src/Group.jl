@@ -151,6 +151,10 @@ Base.:*(P::GroupElem{C}, k::Integer) where C = scalar_mul(P, k)
 
 const MSM_PIPPENGER_THRESHOLD = 8
 
+@inline function _use_straus_msm(size::Int, max_bits::Int)
+    return size < MSM_PIPPENGER_THRESHOLD
+end
+
 """
     multi_scalar_mul(points::Vector{GroupElem{C}}, scalars::Vector{<:Integer}) where C
 
@@ -179,7 +183,7 @@ function multi_scalar_mul(points::Vector{<:GroupElem{C}}, scalars::Vector{S}) wh
         return zero(points[1])
     end
 
-    if length(points) < MSM_PIPPENGER_THRESHOLD
+    if _use_straus_msm(length(points), max_bits)
         return _multi_scalar_mul_straus(points, scalars, max_bits)
     end
 
@@ -238,7 +242,7 @@ function _multi_scalar_mul_pippenger(points::Vector{G}, scalars::Vector{S}, max_
         return zero(points[1])
     elseif nonzero_count == 1
         return scalar_mul(normalized_points[1], normalized_scalars[1])
-    elseif nonzero_count < MSM_PIPPENGER_THRESHOLD
+    elseif _use_straus_msm(nonzero_count, max_bits)
         resize!(normalized_points, nonzero_count)
         resize!(normalized_scalars, nonzero_count)
         return _multi_scalar_mul_straus(normalized_points, normalized_scalars, max_bits)
@@ -313,7 +317,7 @@ function multi_scalar_mul(points::Vector{G}, scalars::Vector{BN254Fr}) where {C,
         return zero(points[1])
     end
 
-    if length(points) < MSM_PIPPENGER_THRESHOLD
+    if _use_straus_msm(length(points), max_bits)
         return _multi_scalar_mul_straus(points, scalar_limbs, max_bits)
     end
 
@@ -357,7 +361,7 @@ function _multi_scalar_mul_pippenger(points::Vector{G}, scalars::Vector{NTuple{4
         return zero(points[1])
     elseif nonzero_count == 1
         return scalar_mul(normalized_points[1], _bn254fr_from_canonical_limbs(normalized_scalars[1]))
-    elseif nonzero_count < MSM_PIPPENGER_THRESHOLD
+    elseif _use_straus_msm(nonzero_count, max_bits)
         resize!(normalized_points, nonzero_count)
         resize!(normalized_scalars, nonzero_count)
         return _multi_scalar_mul_straus(normalized_points, normalized_scalars, max_bits)
@@ -435,7 +439,7 @@ function multi_scalar_mul_pair(points_a::Vector{G}, points_b::Vector{G}, scalars
         return zero(points_a[1]), zero(points_b[1])
     end
 
-    if length(points_a) < MSM_PIPPENGER_THRESHOLD
+    if _use_straus_msm(length(points_a), max_bits)
         return _multi_scalar_mul_straus_pair(points_a, points_b, scalar_limbs, max_bits)
     end
 
@@ -491,7 +495,7 @@ function _multi_scalar_mul_pippenger_pair(points_a::Vector{G}, points_b::Vector{
     elseif nonzero_count == 1
         scalar = _bn254fr_from_canonical_limbs(normalized_scalars[1])
         return scalar_mul(normalized_points_a[1], scalar), scalar_mul(normalized_points_b[1], scalar)
-    elseif nonzero_count < MSM_PIPPENGER_THRESHOLD
+    elseif _use_straus_msm(nonzero_count, max_bits)
         resize!(normalized_points_a, nonzero_count)
         resize!(normalized_points_b, nonzero_count)
         resize!(normalized_scalars, nonzero_count)

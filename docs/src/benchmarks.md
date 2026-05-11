@@ -229,38 +229,60 @@ main Stage 8A `prove_full` dump no longer contains `canonical_bigint` or
 `limbs_to_bigint`. The prover still creates `BigInt`s elsewhere, but the
 measured hot prover scalar-conversion path identified in Stage 8 is now gone.
 
-## QAP Domain and H Quotient Snapshot (2026-05-11)
+## QAP Domain, H Quotient, and H/L MSM Snapshot (2026-05-11)
 
-The QAP-domain-aligned, coset-only H Stage 8 run is:
+The latest QAP-domain-aligned Stage 8 prover fixture run is:
 
-- `benchmarks/artifacts/2026-05-11_133047/results/benchmark_results.json`
+- tracked summary:
+  `docs/src/assets/prove_full_msm_tuning_2026_05_11.json`
+- local full artifact:
+  `benchmarks/artifacts/2026-05-11_165756/results/benchmark_results.json`
 
 This run uses the arkworks-shaped QAP domain: active constraints first,
 public-input selector rows next, and zero padding to the next power of two.
-`prove_full` computes H through the coset-only quotient path, while the checked
-dense/coset helper remains covered by tests. The fixture setup still proves
-once and asserts `verify_full` before timing.
+`prove_full` computes H through the coset-only quotient path and now combines
+the H and L contributions into one G1 MSM because the `C` proof element only
+uses `H + L`. The checked dense/coset helper remains covered by tests. The
+fixture setup still proves once and asserts `verify_full` before timing.
 
 - `sum_of_products_small`
   - constraints/public/domain: `3 / 6 / 16`
-  - `prove_full`: `11.063 ms`
-  - `compute_h_total`: `0.243 ms`
-  - `h_msm`: `5.399 ms`
-  - `final_c`: `2.530 ms`
+  - `prove_full`: `10.943 ms`
+  - `compute_h_total`: `0.234 ms`
+  - `h_msm`: `5.458 ms`
+  - `l_msm`: `0.055 ms`
+  - `h_l_msm`: `5.619 ms`
+  - `final_c`: `2.133 ms`
 - `generated_24_constraints`
   - constraints/public/domain: `24 / 8 / 32`
-  - `prove_full`: `28.636 ms`
-  - `compute_h_total`: `1.445 ms`
-  - `h_msm`: `8.925 ms`
-  - `l_msm`: `3.906 ms`
-  - `final_c`: `2.256 ms`
+  - `prove_full`: `26.643 ms`
+  - `compute_h_total`: `1.481 ms`
+  - `h_msm`: `8.726 ms`
+  - `l_msm`: `3.871 ms`
+  - `h_l_msm`: `11.029 ms`
+  - `final_c`: `2.140 ms`
+
+The generated fixture MSM selections recorded in the tracked summary are:
+
+| Query | Size | Selected backend |
+| --- | ---: | --- |
+| A query G1 | `28` | `pippenger_w3` |
+| A/B1 fused G1 | `28` | `pippenger_pair_w2` |
+| B query G2 | `28` | `pippenger_w2` |
+| H query G1 | `31` | `pippenger_w3` |
+| L query G1 | `20` | `pippenger_w3` |
+| H+L query G1 | `51` | `pippenger_w5` |
+
+| Generated fixture | Small fixture |
+| --- | --- |
+| ![prove_full generated fixture phase breakdown](assets/prove_full_generated_24_constraints_2026_05_11_165756.png) | ![prove_full small fixture phase breakdown](assets/prove_full_sum_of_products_small_2026_05_11_165756.png) |
 
 Interpretation: the small fixture intentionally gets a larger domain because
 `3 constraints + 6 public` rounds up to `16`, so it is no longer directly
 comparable to the old constraint-only domain timing. The larger fixture already
 rounds to `32`, so it remains the better continuity fixture for prover-shaped
-tuning. Relative to `2026-05-11_130524`, the generated fixture improved
-`prove_full` by `4.51%` and `compute_h_total` by `16.13%`.
+tuning. Relative to the previous coset-only H baseline `2026-05-11_133047`, the
+generated fixture improved `prove_full` by `6.96%` and `final_c` by `5.14%`.
 
 ## Latest Snapshot (2025‑09‑29)
 

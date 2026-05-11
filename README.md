@@ -44,8 +44,9 @@ The project has moved well beyond a minimal Groth16 demo.
 - QAP conversion now follows the arkworks domain shape: constraints first,
   public-input selector rows next, and zero padding to the next power of two.
 - The current larger deterministic `prove_full` baseline after QAP domain
-  alignment and coset-only H proving is `28.636 ms` in
-  [benchmarks/artifacts/2026-05-11_133047](./benchmarks/artifacts/2026-05-11_133047),
+  alignment, coset-only H proving, and H/L MSM fusion is `26.643 ms` in the
+  tracked summary
+  [docs/src/assets/prove_full_msm_tuning_2026_05_11.json](./docs/src/assets/prove_full_msm_tuning_2026_05_11.json),
   down from the original `136.187 ms` baseline captured at the start of the
   performance investigation.
 - The active roadmap has shifted from broad backend replacement to targeted
@@ -152,6 +153,18 @@ Refreshed local arkworks primitive comparison
 
 These are primitive-level measurements, not end-to-end Groth16 prover
 comparisons.
+
+Latest tracked `prove_full` prover fixture summary
+(`2026-05-11_165756`, Stage 8 profile):
+
+| Fixture | Domain | `prove_full` | Key prover phases |
+| --- | ---: | ---: | --- |
+| `sum_of_products_small` | `16` | `10.943 ms` | H+L MSM `5.619 ms`, final C `2.133 ms` |
+| `generated_24_constraints` | `32` | `26.643 ms` | H+L MSM `11.029 ms`, final C `2.140 ms` |
+
+The generated fixture improved from `28.636 ms` to `26.643 ms` versus the
+previous coset-only H baseline by combining the separate H and L G1 MSMs into
+one MSM for the `C` proof element.
 
 ## Performance Snapshot
 
