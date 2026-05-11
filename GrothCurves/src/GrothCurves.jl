@@ -44,7 +44,7 @@ export x_coord, y_coord, z_coord
 export LineCoeffs, doubling_step, addition_step, evaluate_line, miller_loop, frobenius_g2
 export frobenius_map, frobenius_p1, frobenius_p2, frobenius_p3
 export final_exponentiation_easy, final_exponentiation_hard
-export final_exponentiation, exp_by_u
+export final_exponentiation, exp_by_u, cyclotomic_exp_by_u
 export optimal_ate_pairing, pairing, pairing_batch
 
 end

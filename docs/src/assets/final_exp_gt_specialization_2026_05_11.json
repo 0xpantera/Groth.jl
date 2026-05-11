@@ -1,0 +1,65 @@
+{
+  "summary": "Final exponentiation / GT specialization: the hard final exponentiation now uses an explicit cyclotomic u-exponent helper and routes subgroup-safe self-squares through the optimized cyclotomic square. The cyclotomic square helper was also adjusted to use field additions for doubling/tripling instead of integer scalar multiplication.",
+  "date": "2026-05-11",
+  "baseline_artifact": "benchmarks/artifacts/2026-05-11_212628/results/benchmark_results.json",
+  "current_artifact": "benchmarks/artifacts/2026-05-11_212945/results/benchmark_results.json",
+  "benchmark_profile": "custom",
+  "groups": [
+    "pairing_micro",
+    "pairing_substeps"
+  ],
+  "environment": {
+    "cpu_name": "znver5",
+    "julia_version": "1.12.6",
+    "threadpools": {
+      "default": 24,
+      "interactive": 1
+    },
+    "machine": "x86_64-linux-gnu"
+  },
+  "pairing_micro": {
+    "pairing": {
+      "baseline_median_ms": 3.135,
+      "current_median_ms": 2.835,
+      "relative_to_baseline": "-9.57%"
+    },
+    "final_exponentiation": {
+      "baseline_median_ms": 1.270,
+      "current_median_ms": 0.939,
+      "relative_to_baseline": "-26.03%"
+    },
+    "miller_loop": {
+      "baseline_median_ms": 1.834,
+      "current_median_ms": 1.894,
+      "relative_to_baseline": "+3.27%"
+    }
+  },
+  "pairing_substeps": {
+    "exp_by_u_generic": {
+      "baseline_median_ms": 0.379,
+      "current_median_ms": 0.385,
+      "relative_to_baseline": "+1.61%"
+    },
+    "cyclotomic_exp_by_u": {
+      "current_median_ms": 0.243,
+      "relative_to_current_generic_exp_by_u": "-36.90%"
+    },
+    "final_exponentiation_hard": {
+      "baseline_median_ms": 1.301,
+      "current_median_ms": 0.930,
+      "relative_to_baseline": "-28.51%"
+    }
+  },
+  "validation": [
+    "cyclotomic_square(m) == square(m) for deterministic easy-part pairing output",
+    "cyclotomic_exp_by_u(m) == exp_by_u(m)",
+    "cyclotomic_exp_by_u(cyclotomic_exp_by_u(m)) == cyclotomic_exp(m, BN254_U^2)",
+    "Pairing bilinearity tests passed",
+    "Pkg.test(\"GrothCurves\"), Pkg.test(\"GrothProofs\"), and include(\"scripts/test_all.jl\") passed"
+  ],
+  "notes": [
+    "The generic exp_by_u(a::Fp12Element) remains available and preserves arbitrary-Fp12 semantics.",
+    "The optimized cyclotomic helper is used only after final_exponentiation_easy has moved the value into the cyclotomic subgroup.",
+    "Miller-loop movement in the focused run is benchmark noise; this change only targets final exponentiation."
+  ]
+}
