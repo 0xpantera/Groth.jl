@@ -23,7 +23,7 @@ Aug 2025 refactor summary:
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
 | MSM backend | `VariableBaseMSM` (Straus + endomorphism on BLS curves) | `GrothAlgebra.multi_scalar_mul` now uses a Pippenger-style variable-base backend with a small-input Straus fallback; w-NAF helpers remain shared. Endomorphism optimisations TBD |
-| Fixed-base tables | `FixedBaseMSM` with windowing | `FixedBaseTable` in `GrothAlgebra/src/Group.jl`; benchmarks cover table build & batch multiply |
+| Fixed-base tables | `FixedBaseMSM` with windowing | `FixedBaseTable` in `GrothAlgebra/src/Group.jl`; setup uses measured BN254 scalar/GLV dispatch for G1 query generation and a fixed-window batch path for the G2 query |
 
 Planned work: evaluate window sizes and endomorphisms once we profile the coset
 prover path.
@@ -41,7 +41,7 @@ prover path.
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
 | R1CS → QAP | Domain filled completely, IFFT → FFT on coset | Same structure; constraints, public-input selector slots, and zero padding are all explicit before IFFT |
-| Prover | Coset FFT path by default, dense path available for debugging | `prove_full` uses coset-only H computation and combines H/L into one G1 MSM for `C`; dense/coset parity is kept in explicit debug/test helpers |
+| Prover/setup | Coset FFT path by default, dense path available for debugging | `prove_full` uses coset-only H computation and combines H/L into one G1 MSM for `C`; `setup_full` uses measured query-generation dispatch; dense/coset parity is kept in explicit debug/test helpers |
 | Prepared verifier | `PreparedVerifyingKey` with batched pairing | `prepare_verifying_key`, `prepare_inputs`, `verify_with_prepared` mirror arkworks and use the pairing engine |
 | Aggregation | `groth16::aggregate_proofs` available | Not yet ported; on roadmap |
 

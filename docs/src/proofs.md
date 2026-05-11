@@ -27,6 +27,8 @@ Depth = 2
   still asserted in tests and available through the checked helper.
 - The prover combines H and private-variable L into one G1 MSM for the `C`
   proof element, since the algebra only needs their sum.
+- `setup_full` uses the measured BN254 G1 scalar/GLV path for G1 query
+  generation and a fixed-window batch path for the G2 query.
 - QAP conversion uses an arkworks-shaped full domain: constraints first,
   public-input selector rows next, zero padding last, and `t(x) = x^N - 1`.
 - The latest prover optimization work is now focused on the remaining

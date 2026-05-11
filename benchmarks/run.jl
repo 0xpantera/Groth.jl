@@ -34,6 +34,7 @@ const BENCHMARK_GROUP_ORDER = [
     :pairing_substeps,
     :py_ecc_primitives,
     :groth16,
+    :setup_full,
     :prove_full,
 ]
 const BENCHMARK_PROFILES = Dict(
@@ -47,6 +48,7 @@ const BENCHMARK_PROFILES = Dict(
     "stage7a" => [:bn254_primitives, :glv_scalar_tuning],
     "stage8" => [:prove_full],
     "stage8a" => [:scalar_plumbing, :prove_full],
+    "setup" => [:setup_full],
     "primitives" => [:bn254_primitives, :pairing_micro, :py_ecc_primitives],
 )
 
@@ -1446,6 +1448,24 @@ function bench_prove_full(results)
     end
 end
 
+function bench_setup_full(results)
+    println("\n== setup_full fixture baseline ==")
+    for fixture in default_prove_full_fixtures()
+        name = fixture.name
+        println("Fixture: $(name)")
+        println("  ", fixture.description)
+        println("  constraints=$(fixture.r1cs.num_constraints) vars=$(fixture.r1cs.num_vars) public=$(fixture.r1cs.num_public) domain=$(fixture.qap.domain.size)")
+
+        keypair = setup_full(fixture.qap; rng=MersenneTwister(fixture.setup_seed))
+        proof = prove_full(keypair.pk, fixture.qap, fixture.witness; rng=MersenneTwister(fixture.prove_seed))
+        verify_full(keypair.vk, proof, fixture.public_inputs) || error("setup_full[$(name)] produced keys that failed proof verification")
+
+        tr_setup = @benchmark setup_full($(fixture.qap); rng=MersenneTwister($(fixture.setup_seed))) seconds = 3 samples = 8
+        print_stats("setup_full[$(name)] end", tr_setup)
+        record_fixture_trial!(results, :setup_full, name, "end_to_end", tr_setup)
+    end
+end
+
 # -----------------------------------------------------------------------------
 # Entry point
 # -----------------------------------------------------------------------------
@@ -1494,6 +1514,7 @@ function main()
     :pairing_substeps in selected && bench_pairing_substeps(results)
     :py_ecc_primitives in selected && bench_py_ecc_primitives(results, meta)
     :groth16 in selected && bench_groth16(results)
+    :setup_full in selected && bench_setup_full(results)
     :prove_full in selected && bench_prove_full(results)
 
     results_out = joinpath(results_dir, "benchmark_results.json")

@@ -92,6 +92,9 @@ annotated rather than discarded), and follow-ups.
 - (2026-05-11) The prover combines the H and private-variable L contributions
   into one G1 MSM for the `C` proof element, preserving the same `H + L`
   algebra while reducing prover-shaped MSM work on the deterministic fixture.
+- (2026-05-11) `setup_full` routes G1 query generation through the BN254 scalar
+  dispatcher, whose GLV path beats fixed-base w-NAF for the measured setup
+  scalars; the G2 query uses a fixed-window batch path.
 - (2026-04-02) The current follow-through work has shifted from broad backend
   migration to the remaining prover and pairing specialization steps surfaced
   by the Stage 8A baseline.
@@ -131,6 +134,10 @@ annotated rather than discarded), and follow-ups.
   `generated_24_constraints` fixture reports `prove_full` at `26.643 ms`,
   `compute_h_total` at `1.481 ms`, `h_msm` at `8.726 ms`, `l_msm` at
   `3.871 ms`, `h_l_msm` at `11.029 ms`, and `final_c` at `2.140 ms`.
+- Latest setup-focused artifact: `benchmarks/artifacts/2026-05-11_175228`,
+  with tracked summary `docs/src/assets/setup_full_tuning_2026_05_11.json`.
+  The `generated_24_constraints` fixture reports `setup_full` at `116.918 ms`,
+  down from the `142.715 ms` pre-change baseline.
 
 ## Docs
 

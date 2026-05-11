@@ -948,6 +948,50 @@ function batch_mul(table::FixedBaseTable{G}, scalars::Vector{<:Integer}) where {
     return [mul_fixed(table, ki) for ki in scalars]
 end
 
+function _fixed_window_multiples(table::FixedBaseTable{G}) where {G<:GroupElem}
+    base = table.precomp[1]
+    multiples = Vector{G}(undef, 1 << table.window)
+    multiples[1] = zero(base)
+    multiples[2] = base
+    @inbounds for i in 3:length(multiples)
+        multiples[i] = multiples[i - 1] + base
+    end
+    return multiples
+end
+
+function _mul_fixed_windowed(multiples::Vector{G}, limbs::NTuple{4,UInt64}, bits::Int, window::Int) where {G<:GroupElem}
+    bits == 0 && return multiples[1]
+
+    acc = multiples[1]
+    top_shift = ((bits - 1) ÷ window) * window
+    first_window = true
+
+    @inbounds for shift in top_shift:-window:0
+        if first_window
+            first_window = false
+        else
+            for _ in 1:window
+                acc = acc + acc
+            end
+        end
+
+        digit = _limbs_window_digit(limbs, shift, window)
+        digit == 0 || (acc = acc + multiples[digit + 1])
+    end
+
+    return acc
+end
+
+function _batch_mul_fixed_window(table::FixedBaseTable{G}, scalars::Vector{BN254Fr}) where {G<:GroupElem}
+    multiples = _fixed_window_multiples(table)
+    points = Vector{G}(undef, length(scalars))
+    @inbounds for i in eachindex(scalars)
+        limbs = canonical_limbs(scalars[i])
+        points[i] = _mul_fixed_windowed(multiples, limbs, _limbs_bit_length(limbs), table.window)
+    end
+    return points
+end
+
 function batch_mul(table::FixedBaseTable{G}, scalars::Vector{BN254Fr}) where {G<:GroupElem}
     return [mul_fixed(table, ki) for ki in scalars]
 end

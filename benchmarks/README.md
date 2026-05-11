@@ -361,6 +361,25 @@ generated fixture remains the better continuity signal for prover-shaped tuning.
 Relative to the previous coset-only H baseline `2026-05-11_133047`, the
 generated fixture improved `prove_full` by `6.96%` and `final_c` by `5.14%`.
 
+## Setup Query Generation Snapshot (2026-05-11)
+
+- Setup profile run:
+  `artifacts/2026-05-11_175228/results/benchmark_results.json`
+- Tracked summary:
+  `../docs/src/assets/setup_full_tuning_2026_05_11.json`
+
+The setup profile times `setup_full` on the same deterministic fixtures used by
+the prover benchmark. It proves and verifies once per fixture before timing.
+
+| Fixture | Domain | Baseline median | Current median | Change |
+| --- | ---: | ---: | ---: | ---: |
+| `sum_of_products_small` | `16` | `47.910 ms` | `46.007 ms` | `-3.97%` |
+| `generated_24_constraints` | `32` | `142.715 ms` | `116.918 ms` | `-18.08%` |
+
+The setup pass keeps a fixed-window batch path for the G2 query, but routes G1
+setup queries through the BN254 scalar dispatcher because the measured GLV path
+beats fixed-base w-NAF for the full-width setup scalars.
+
 Generate a full report (run -> plot -> compare) for latest run:
 
 ```

@@ -183,6 +183,21 @@ glv_component_bits(component::Tuple{Bool,BigInt}) = iszero(component[2]) ? 0 : n
             @test z_coord(pts[3]) == one(BN254Fq)
             @test to_affine(pts[1]) == expected[1]
             @test to_affine(pts[3]) == expected[3]
+
+            left = [double(scalar_mul(g1_generator(), 11)), zero(G1Point)]
+            right = [double(scalar_mul(g1_generator(), 13)), double(scalar_mul(g1_generator(), 17))]
+            left_expected = [iszero(point) ? nothing : to_affine(point) for point in left]
+            right_expected = [to_affine(point) for point in right]
+
+            GrothCurves.batch_to_affine!(left, right)
+
+            @test z_coord(left[1]) == one(BN254Fq)
+            @test iszero(left[2])
+            @test z_coord(right[1]) == one(BN254Fq)
+            @test z_coord(right[2]) == one(BN254Fq)
+            @test to_affine(left[1]) == left_expected[1]
+            @test to_affine(right[1]) == right_expected[1]
+            @test to_affine(right[2]) == right_expected[2]
         end
     end
     
@@ -292,6 +307,21 @@ glv_component_bits(component::Tuple{Bool,BigInt}) = iszero(component[2]) ? 0 : n
             @test z_coord(pts[3]) == one(Fp2Element)
             @test to_affine(pts[1]) == expected[1]
             @test to_affine(pts[3]) == expected[3]
+
+            left = [double(scalar_mul(g2_generator(), 11)), zero(G2Point)]
+            right = [double(scalar_mul(g2_generator(), 13)), double(scalar_mul(g2_generator(), 17))]
+            left_expected = [iszero(point) ? nothing : to_affine(point) for point in left]
+            right_expected = [to_affine(point) for point in right]
+
+            GrothCurves.batch_to_affine!(left, right)
+
+            @test z_coord(left[1]) == one(Fp2Element)
+            @test iszero(left[2])
+            @test z_coord(right[1]) == one(Fp2Element)
+            @test z_coord(right[2]) == one(Fp2Element)
+            @test to_affine(left[1]) == left_expected[1]
+            @test to_affine(right[1]) == right_expected[1]
+            @test to_affine(right[2]) == right_expected[2]
         end
     end
 

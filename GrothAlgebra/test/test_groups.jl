@@ -193,8 +193,10 @@ using Test
     @testset "Fixed-base BN254Fr scalars" begin
         P = TestPoint(2, 3)
         table = build_fixed_table(P; window=4)
-        scalars = [bn254_fr(0), bn254_fr(1), bn254_fr(5), bn254_fr(17)]
-        @test batch_mul(table, scalars) == [scalar_mul(P, 0), scalar_mul(P, 1), scalar_mul(P, 5), scalar_mul(P, 17)]
+        scalar_ints = [BigInt(0), BigInt(1), BigInt(5), BigInt(17), (BigInt(1) << 180) + 12345]
+        scalars = map(bn254_fr, scalar_ints)
+        @test batch_mul(table, scalars) == [scalar_mul(P, k) for k in scalar_ints]
+        @test GrothAlgebra._batch_mul_fixed_window(table, scalars) == [scalar_mul(P, k) for k in scalar_ints]
     end
     
     @testset "w-NAF Scalar Multiplication" begin
