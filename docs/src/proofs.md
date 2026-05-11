@@ -23,7 +23,8 @@ Depth = 2
 
 ## Implementation Notes
 
-- Coset FFT path is the default; dense vs coset parity is asserted to guard regressions.
+- `prove_full` uses the coset-only H quotient path; dense vs coset parity is
+  still asserted in tests and available through the checked helper.
 - QAP conversion uses an arkworks-shaped full domain: constraints first,
   public-input selector rows next, zero padding last, and `t(x) = x^N - 1`.
 - The latest prover optimization work is now focused on the remaining

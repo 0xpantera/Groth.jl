@@ -140,19 +140,9 @@ function evaluate_qap(qap::QAP{F}, witness::Witness{F}, x::F) where F
     return (u_eval, v_eval, w_eval)
 end
 
-"""
-    compute_h_polynomial(qap::QAP{F}, witness::Witness{F}) where F
-
-Compute the quotient polynomial ``h(x)``:
-
-```math
-h(x) = \\frac{u(x)v(x) - w(x)}{t(x)}
-```
-"""
-function compute_h_polynomial(qap::QAP{F}, witness::Witness{F}; use_coset::Bool=true) where F
+function combined_qap_polynomials(qap::QAP{F}, witness::Witness{F}) where F
     w_vals = witness.values
 
-    # Compute linear combinations of polynomials
     u_poly = zero(Polynomial{F})
     v_poly = zero(Polynomial{F})
     w_poly = zero(Polynomial{F})
@@ -163,13 +153,20 @@ function compute_h_polynomial(qap::QAP{F}, witness::Witness{F}; use_coset::Bool=
         w_poly = w_poly + w_vals[i] * qap.w[i]
     end
 
+    return u_poly, v_poly, w_poly
+end
+
+function compute_h_polynomial_dense(qap::QAP{F}, u_poly::Polynomial{F}, v_poly::Polynomial{F}, w_poly::Polynomial{F}) where F
     p_poly = fft_polynomial_multiply(u_poly, v_poly) - w_poly
-    dense_result = polynomial_division(p_poly, qap.t)
+    return polynomial_division(p_poly, qap.t)
+end
 
-    if !use_coset
-        return dense_result
-    end
+function compute_h_polynomial_dense(qap::QAP{F}, witness::Witness{F}) where F
+    u_poly, v_poly, w_poly = combined_qap_polynomials(qap, witness)
+    return compute_h_polynomial_dense(qap, u_poly, v_poly, w_poly)
+end
 
+function compute_h_polynomial_coset(qap::QAP{F}, u_poly::Polynomial{F}, v_poly::Polynomial{F}, w_poly::Polynomial{F}) where F
     coset = qap.coset_domain
     u_eval = fft(u_poly.coeffs, coset)
     v_eval = fft(v_poly.coeffs, coset)
@@ -181,13 +178,39 @@ function compute_h_polynomial(qap::QAP{F}, witness::Witness{F}; use_coset::Bool=
         h_eval[i] = numerator * vanishing_inv[i]
     end
     coeffs = GrothAlgebra.ifft!(h_eval, coset)
-    dense_len = length(dense_result.coeffs)
-    dense_len < length(coeffs) && (coeffs = coeffs[1:dense_len])
-    coset_result = Polynomial{F}(coeffs)
+    return Polynomial{F}(coeffs)
+end
+
+function compute_h_polynomial_coset(qap::QAP{F}, witness::Witness{F}) where F
+    u_poly, v_poly, w_poly = combined_qap_polynomials(qap, witness)
+    return compute_h_polynomial_coset(qap, u_poly, v_poly, w_poly)
+end
+
+function compute_h_polynomial_checked(qap::QAP{F}, witness::Witness{F}) where F
+    u_poly, v_poly, w_poly = combined_qap_polynomials(qap, witness)
+    dense_result = compute_h_polynomial_dense(qap, u_poly, v_poly, w_poly)
+    coset_result = compute_h_polynomial_coset(qap, u_poly, v_poly, w_poly)
 
     coset_result == dense_result || error("Coset Groth16 path diverged from dense fallback")
 
     return coset_result
+end
+
+"""
+    compute_h_polynomial(qap::QAP{F}, witness::Witness{F}; use_coset::Bool=true) where F
+
+Compute the quotient polynomial ``h(x)``:
+
+```math
+h(x) = \\frac{u(x)v(x) - w(x)}{t(x)}
+```
+
+By default this computes both the dense quotient and the coset quotient and
+asserts that they agree. Pass `use_coset=false` for the dense quotient only.
+The prover's hot path calls the internal coset-only helper directly.
+"""
+function compute_h_polynomial(qap::QAP{F}, witness::Witness{F}; use_coset::Bool=true) where F
+    return use_coset ? compute_h_polynomial_checked(qap, witness) : compute_h_polynomial_dense(qap, witness)
 end
 
 """

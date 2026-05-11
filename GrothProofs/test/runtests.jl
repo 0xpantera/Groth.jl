@@ -300,8 +300,10 @@ end
         end
 
         h_dense = compute_h_polynomial(qap, witness; use_coset=false)
-        h_coset = compute_h_polynomial(qap, witness; use_coset=true)
-        @test h_coset == h_dense
+        h_checked = compute_h_polynomial(qap, witness; use_coset=true)
+        h_fast = GrothProofs.compute_h_polynomial_coset(qap, witness)
+        @test h_checked == h_dense
+        @test h_fast == h_dense
     end
 end
 
@@ -355,9 +357,11 @@ end
 
         u_poly, v_poly, w_poly = combined_qap_polynomials(qap, w)
         h_dense = compute_h_polynomial(qap, w; use_coset=false)
-        h_coset = compute_h_polynomial(qap, w; use_coset=true)
-        @test h_coset == h_dense
-        h_poly = h_coset
+        h_checked = compute_h_polynomial(qap, w; use_coset=true)
+        h_fast = GrothProofs.compute_h_polynomial_coset(qap, w)
+        @test h_checked == h_dense
+        @test h_fast == h_dense
+        h_poly = h_fast
         t_poly = qap.t
 
         # Choose a few points outside the active constraint index range.
@@ -379,8 +383,10 @@ end
     @test qap_power.domain.size == next_power_of_two(r1cs_power.num_constraints + r1cs_power.num_public)
     witness_power = create_witness_square_offset(2, 3, 5)
     h_dense_power = compute_h_polynomial(qap_power, witness_power; use_coset=false)
-    h_coset_power = compute_h_polynomial(qap_power, witness_power; use_coset=true)
-    @test h_coset_power == h_dense_power
+    h_checked_power = compute_h_polynomial(qap_power, witness_power; use_coset=true)
+    h_fast_power = GrothProofs.compute_h_polynomial_coset(qap_power, witness_power)
+    @test h_checked_power == h_dense_power
+    @test h_fast_power == h_dense_power
 
     r1cs_subset = create_r1cs_example_multiplication()
     qap_subset = r1cs_to_qap(r1cs_subset)
@@ -388,8 +394,10 @@ end
     @test qap_subset.num_constraints < qap_subset.domain.size
     witness_subset = create_witness_multiplication(3, 5, 7, 11)
     h_dense_subset = compute_h_polynomial(qap_subset, witness_subset; use_coset=false)
-    h_coset_subset = compute_h_polynomial(qap_subset, witness_subset; use_coset=true)
-    @test h_coset_subset == h_dense_subset
+    h_checked_subset = compute_h_polynomial(qap_subset, witness_subset; use_coset=true)
+    h_fast_subset = GrothProofs.compute_h_polynomial_coset(qap_subset, witness_subset)
+    @test h_checked_subset == h_dense_subset
+    @test h_fast_subset == h_dense_subset
 end
 
 @testset "Groth16 rejects unsatisfied witness" begin
@@ -403,7 +411,18 @@ end
     bad_witness = Witness(bad_values)
     @test !is_satisfied(r1cs, bad_witness)
 
-    @test_throws ErrorException prove_full(keypair.pk, qap, bad_witness; rng=MersenneTwister(1234))
+    @test_throws ErrorException prove_full(keypair.pk, qap, bad_witness; rng=MersenneTwister(1234), checked_h=true)
+
+    fast_result = try
+        prove_full(keypair.pk, qap, bad_witness; rng=MersenneTwister(1234))
+    catch err
+        err
+    end
+    if fast_result isa Groth16Proof
+        @test !verify_full(keypair.vk, fast_result, public_inputs_for(r1cs, bad_witness))
+    else
+        @test fast_result isa Exception
+    end
 end
 
 @testset "High-level wrapper API and conventions" begin

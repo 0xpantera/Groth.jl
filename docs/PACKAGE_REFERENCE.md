@@ -82,10 +82,13 @@ annotated rather than discarded), and follow-ups.
 **Implementation notes**
 - (original) QAP interpolation used dense Lagrange polys over `[1..n]`, with a
   future FFT path planned.
-- (2025-09-29) Coset path is default; dense vs coset equality asserted.
+- (2025-09-29) Coset path became default with dense vs coset equality
+  assertions.
 - (2026-05-11) QAP conversion now matches arkworks domain population:
   constraints first, public-input selector rows next, zero padding last, with
   `t(x) = x^N - 1` over the full power-of-two domain.
+- (2026-05-11) `prove_full` now uses a coset-only H quotient path; the checked
+  dense/coset helper remains available for tests and debugging.
 - (2026-04-02) The current follow-through work has shifted from broad backend
   migration to the remaining prover and pairing specialization steps surfaced
   by the Stage 8A baseline.
@@ -119,10 +122,11 @@ annotated rather than discarded), and follow-ups.
 - The focused backend profiles are now staged through `stage8a`, with
   deterministic prover fixtures and `_semantic` proof checks wired into the
   `prove_full` path.
-- Latest QAP-domain-aligned Stage 8 artifact:
-  `benchmarks/artifacts/2026-05-11_130524`, with
-  `generated_24_constraints prove_full` at `29.989 ms`, `h_msm` at
-  `9.168 ms`, `l_msm` at `4.028 ms`, and `final_c` at `2.211 ms`.
+- Latest QAP-domain-aligned Stage 8 artifact after coset-only H proving:
+  `benchmarks/artifacts/2026-05-11_133047`, with
+  `generated_24_constraints prove_full` at `28.636 ms`, `compute_h_total` at
+  `1.445 ms`, `h_msm` at `8.925 ms`, `l_msm` at `3.906 ms`, and `final_c` at
+  `2.256 ms`.
 
 ## Docs
 

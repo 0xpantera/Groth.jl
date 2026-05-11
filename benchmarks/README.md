@@ -44,7 +44,7 @@ This directory contains a self-contained BenchmarkTools environment and four scr
   - continuity fixture: `sum_of_products_small`
   - larger deterministic fixture: `generated_24_constraints`
   - end-to-end prove time plus subphases for witness scalar conversion, query MSMs,
-    `compute_h_polynomial`, `H` MSM, `L` MSM, and final `C` assembly
+    coset-only H quotient computation, `H` MSM, `L` MSM, and final `C` assembly
 - Stage 8A prover scalar plumbing comparison
   - direct `BigInt` vs native `BN254Fr` comparisons for prover-like scalar
     multiplication and MSM workloads on the deterministic `generated_24_constraints`
@@ -321,35 +321,39 @@ The key profiler result is that the Stage 8A
 elsewhere, but the hot prover scalar conversions identified in Stage 8 have now
 been removed from the main `prove_full` path.
 
-## QAP Domain Alignment Snapshot (2026-05-11)
+## QAP Domain and H Quotient Snapshot (2026-05-11)
 
 - Stage 8 run:
-  `artifacts/2026-05-11_130524/results/benchmark_results.json`
+  `artifacts/2026-05-11_133047/results/benchmark_results.json`
 - Plots:
-  `artifacts/2026-05-11_130524/plots/`
+  `artifacts/2026-05-11_133047/plots/`
 
 This run uses the arkworks-shaped QAP domain: active constraints first,
-public-input selector rows next, and zero padding to the next power of two. The
-fixtures prove once and assert `verify_full` before timing.
+public-input selector rows next, and zero padding to the next power of two.
+`prove_full` computes H through the coset-only quotient path, while the checked
+dense/coset helper remains covered by tests. The fixtures prove once and assert
+`verify_full` before timing.
 
 - `sum_of_products_small`
   - constraints/public/domain: `3 / 6 / 16`
-  - `prove_full` end-to-end: `11.298 ms`
-  - `compute_h_total`: `0.360 ms`
-  - `h_msm`: `5.702 ms`
-  - `final_c`: `2.222 ms`
+  - `prove_full` end-to-end: `11.063 ms`
+  - `compute_h_total`: `0.243 ms`
+  - `h_msm`: `5.399 ms`
+  - `final_c`: `2.530 ms`
 - `generated_24_constraints`
   - constraints/public/domain: `24 / 8 / 32`
-  - `prove_full` end-to-end: `29.989 ms`
-  - `compute_h_total`: `1.723 ms`
-  - `h_msm`: `9.168 ms`
-  - `l_msm`: `4.028 ms`
-  - `final_c`: `2.211 ms`
+  - `prove_full` end-to-end: `28.636 ms`
+  - `compute_h_total`: `1.445 ms`
+  - `h_msm`: `8.925 ms`
+  - `l_msm`: `3.906 ms`
+  - `final_c`: `2.256 ms`
 
 The small fixture now has a larger QAP domain because `3 constraints + 6 public`
 rounds up to `16`; treat it as a correctness-and-continuity fixture, not as a
 like-for-like timing comparison with the old constraint-only layout. The
 generated fixture remains the better continuity signal for prover-shaped tuning.
+Relative to `2026-05-11_130524`, the generated fixture improved `prove_full` by
+`4.51%` and `compute_h_total` by `16.13%`.
 
 Generate a full report (run -> plot -> compare) for latest run:
 

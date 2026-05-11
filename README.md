@@ -44,8 +44,8 @@ The project has moved well beyond a minimal Groth16 demo.
 - QAP conversion now follows the arkworks domain shape: constraints first,
   public-input selector rows next, and zero padding to the next power of two.
 - The current larger deterministic `prove_full` baseline after QAP domain
-  alignment is `29.989 ms` in
-  [benchmarks/artifacts/2026-05-11_130524](./benchmarks/artifacts/2026-05-11_130524),
+  alignment and coset-only H proving is `28.636 ms` in
+  [benchmarks/artifacts/2026-05-11_133047](./benchmarks/artifacts/2026-05-11_133047),
   down from the original `136.187 ms` baseline captured at the start of the
   performance investigation.
 - The active roadmap has shifted from broad backend replacement to targeted

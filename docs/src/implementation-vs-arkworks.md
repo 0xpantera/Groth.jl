@@ -18,7 +18,8 @@ Depth = 2
 
 **Refactor snapshot (Sep 2025):**
 
-- Coset path is the default (`compute_h_polynomial` asserts coset vs dense parity).
+- `prove_full` uses the coset-only quotient path; `compute_h_polynomial` remains
+  the checked dense/coset helper for tests and debugging.
 - QAP conversion feeds full-domain evaluation vectors to IFFT directly, so the
   Groth16 path no longer needs subset coefficient recovery.
 
@@ -46,7 +47,7 @@ tuning signal.
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
 | R1CS → QAP | Domain fully populated, IFFT then FFT on the coset. | Same structure; constraints, public-input selector slots, and zero padding are all explicit before IFFT. |
-| Prover | Coset FFT path, dense available for debugging. | Coset path is default; dense exists only for assertions. |
+| Prover | Coset FFT path, dense available for debugging. | `prove_full` uses coset-only H computation; dense/coset parity is kept in explicit debug/test helpers. |
 | Prepared verifier | `PreparedVerifyingKey` batches pairings. | `prepare_verifying_key`, `prepare_inputs`, and `verify_with_prepared` mirror the API. |
 | Aggregation | Optional `groth16::aggregate_proofs`. | Not yet ported; tracked on the roadmap. |
 

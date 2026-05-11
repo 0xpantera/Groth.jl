@@ -533,7 +533,7 @@ function bench_scalar_plumbing(results)
 
     witness_scalars_fr = witness_to_scalars(witness)
     witness_scalars_bigint = witness_to_scalars_bigint(witness)
-    h_poly = compute_h_polynomial(qap, witness)
+    h_poly = GrothProofs.compute_h_polynomial_coset(qap, witness)
     h_scalars_fr = h_poly.coeffs
     h_scalars_bigint = map(field_to_bigint, h_poly.coeffs)
     priv_scalars_fr = witness.values[(pk.num_public + 1):end]
@@ -1390,8 +1390,8 @@ function bench_prove_full(results)
         record_fixture_trial!(results, :prove_full, name, "msm_a_b1_g1", tr_msm_a_b1)
         record_fixture_trial!(results, :prove_full, name, "msm_b_g2", tr_msm_b2)
 
-        _ = compute_h_polynomial(qap, witness)
-        tr_h_total = @benchmark compute_h_polynomial($qap, $witness) seconds = 2 samples = 8
+        _ = GrothProofs.compute_h_polynomial_coset(qap, witness)
+        tr_h_total = @benchmark GrothProofs.compute_h_polynomial_coset($qap, $witness) seconds = 2 samples = 8
         print_stats("prove_full[$(name)] h_total", tr_h_total)
         record_fixture_trial!(results, :prove_full, name, "compute_h_total", tr_h_total)
 

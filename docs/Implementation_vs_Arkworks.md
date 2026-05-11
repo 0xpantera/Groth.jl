@@ -13,7 +13,8 @@ intentionally diverge from their design.
 | Vanishing on coset | `domain.evaluate_vanishing_polynomial(g)` with cached powers | Uses the full-domain closed form `g^n - 1`, cached as a constant inverse over the shifted coset |
 
 Aug 2025 refactor summary:
-- Coset path is default (`compute_h_polynomial` asserts coset/dense equality).
+- `prove_full` uses the coset-only quotient path; `compute_h_polynomial` remains
+  the checked dense/coset helper for tests and debugging.
 - QAP conversion feeds full-domain evaluation vectors to IFFT directly, so no
   subset coefficient recovery helper is needed for the Groth16 path.
 
@@ -40,7 +41,7 @@ prover path.
 | Topic | Arkworks | Groth.jl |
 | --- | --- | --- |
 | R1CS → QAP | Domain filled completely, IFFT → FFT on coset | Same structure; constraints, public-input selector slots, and zero padding are all explicit before IFFT |
-| Prover | Coset FFT path by default, dense path available for debugging | Coset path now default, dense used only for assertions |
+| Prover | Coset FFT path by default, dense path available for debugging | `prove_full` uses coset-only H computation; dense/coset parity is kept in explicit debug/test helpers |
 | Prepared verifier | `PreparedVerifyingKey` with batched pairing | `prepare_verifying_key`, `prepare_inputs`, `verify_with_prepared` mirror arkworks and use the pairing engine |
 | Aggregation | `groth16::aggregate_proofs` available | Not yet ported; on roadmap |
 
