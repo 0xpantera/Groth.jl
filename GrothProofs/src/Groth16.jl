@@ -260,11 +260,11 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
         L = zero(G1Point)
     end
 
-    # Cross terms in C (arkworks style): C = s*g_a + r*g1_b - r*s*δ + L + H
-    # where g_a = A (includes r*δ), and g1_b = (β + Σ v_i) + s*δ in G1
+    # Cross terms in C. This is algebraically equivalent to
+    # `s*A + r*(B1_g1 + s*δ) - r*s*δ + L + H`, but avoids one G1 scalar
+    # multiplication by expanding A = A1_g1 + r*δ.
     rs_delta = scalar_mul(pk.delta_g1, r * s)
-    g1_b_full = B1_g1 + scalar_mul(pk.delta_g1, s)
-    C = H + L + scalar_mul(g1_b_full, r) + scalar_mul(A, s) - rs_delta
+    C = H + L + scalar_mul(B1_g1, r) + scalar_mul(A1_g1, s) + rs_delta
 
     return Groth16Proof(A, B, C)
 end

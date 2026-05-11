@@ -259,8 +259,7 @@ function l_msm(pk::ProvingKey, witness::Witness)
     return GrothAlgebra.multi_scalar_mul(pk.L_query_g1, priv_scalars)
 end
 
-function assemble_c(pk::ProvingKey, A, B1_g1, H, L, r, s)
+function assemble_c(pk::ProvingKey, A1_g1, B1_g1, H, L, r, s)
     rs_delta = scalar_mul(pk.delta_g1, r * s)
-    g1_b_full = B1_g1 + scalar_mul(pk.delta_g1, s)
-    return H + L + scalar_mul(g1_b_full, r) + scalar_mul(A, s) - rs_delta
+    return H + L + scalar_mul(B1_g1, r) + scalar_mul(A1_g1, s) + rs_delta
 end
