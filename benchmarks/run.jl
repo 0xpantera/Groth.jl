@@ -1435,8 +1435,8 @@ function bench_prove_full(results)
         ab_terms = assemble_ab_terms(pk, accum.A_acc_g1, accum.B_acc_g1, accum.B_acc_g2, r_rand, s_rand)
         H = h_msm(pk, h_poly)
         L = l_msm(pk, witness)
-        _ = assemble_c(pk, ab_terms.A, ab_terms.B1_g1, H, L, r_rand, s_rand)
-        tr_final_c = @benchmark assemble_c($pk, $(ab_terms.A), $(ab_terms.B1_g1), $H, $L, $r_rand, $s_rand) seconds = 1 samples = 10
+        _ = assemble_c(pk, ab_terms.A1_g1, ab_terms.B1_g1, H, L, r_rand, s_rand)
+        tr_final_c = @benchmark assemble_c($pk, $(ab_terms.A1_g1), $(ab_terms.B1_g1), $H, $L, $r_rand, $s_rand) seconds = 1 samples = 10
         print_stats("prove_full[$(name)] C_final", tr_final_c)
         record_fixture_trial!(results, :prove_full, name, "final_c", tr_final_c)
     end
