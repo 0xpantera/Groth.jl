@@ -174,6 +174,9 @@ using GrothAlgebra
         @test GrothCurves.cyclotomic_square(m) == square(m)
         @test GrothCurves.cyclotomic_exp(m, 11) == m^11
         @test exp_by_u(m) == m^GrothCurves.BN254_U
+        @test cyclotomic_exp_by_u(m) == exp_by_u(m)
+        @test cyclotomic_exp_by_u(cyclotomic_exp_by_u(m)) ==
+              GrothCurves.cyclotomic_exp(m, GrothCurves.BN254_U^2)
     end
 
     @testset "Pairing Consistency" begin

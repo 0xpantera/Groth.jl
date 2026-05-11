@@ -448,6 +448,31 @@ limb-native GLV H/L MSM at `9.538 ms`, and end-to-end `prove_full` at
 `26.606 ms`. The practical interpretation is a modest scalar-plumbing cleanup,
 not a new MSM algorithm.
 
+## Final Exponentiation / GT Snapshot (2026-05-11)
+
+- Baseline run:
+  `artifacts/2026-05-11_212628/results/benchmark_results.json`
+- Current run:
+  `artifacts/2026-05-11_212945/results/benchmark_results.json`
+- Tracked summary:
+  `../docs/src/assets/final_exp_gt_specialization_2026_05_11.json`
+
+This run adds a cyclotomic `u` exponent helper for values already placed in the
+cyclotomic subgroup by `final_exponentiation_easy`, and it removes integer
+scalar multiplication from the cyclotomic square recombination.
+
+| Workload | Baseline | Current | Change |
+| --- | ---: | ---: | ---: |
+| Single pairing | `3.135 ms` | `2.835 ms` | `-9.57%` |
+| Final exponentiation | `1.270 ms` | `0.939 ms` | `-26.03%` |
+| Final exponentiation hard part | `1.301 ms` | `0.930 ms` | `-28.51%` |
+| Generic `exp_by_u` | `0.379 ms` | `0.385 ms` | `+1.61%` |
+| Cyclotomic `u` exponent | - | `0.243 ms` | `-36.90%` vs current generic |
+
+The generic `exp_by_u(::Fp12Element)` remains available for arbitrary Fp12
+values; the optimized helper is only used in the GT-shaped hard
+final-exponentiation path.
+
 Generate a full report (run -> plot -> compare) for latest run:
 
 ```

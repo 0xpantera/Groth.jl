@@ -107,6 +107,9 @@ Return the inverse of a cyclotomic-subgroup element via conjugation.
 """
 cyclotomic_inverse(a::Fp12Element) = conjugate(a)
 
+@inline _fp2_double(a::Fp2Element) = a + a
+@inline _fp2_triple(a::Fp2Element) = _fp2_double(a) + a
+
 """
     cyclotomic_square(a::Fp12Element)
 
@@ -133,13 +136,13 @@ function cyclotomic_square(a::Fp12Element)
     t4 = (r4 + r5) * (mul_fp2_by_nonresidue(r5) + r4) - tmp - mul_fp2_by_nonresidue(tmp)
     t5 = tmp + tmp
 
-    z0 = (t0 - r0) * 2 + t0
-    z1 = (t1 + r1) * 2 + t1
+    z0 = _fp2_triple(t0) - _fp2_double(r0)
+    z1 = _fp2_triple(t1) + _fp2_double(r1)
     z2_tmp = mul_fp2_by_nonresidue(t5)
-    z2 = (r2 + z2_tmp) * 2 + z2_tmp
-    z3 = (t4 - r3) * 2 + t4
-    z4 = (t2 - r4) * 2 + t2
-    z5 = (r5 + t3) * 2 + t3
+    z2 = _fp2_double(r2) + _fp2_triple(z2_tmp)
+    z3 = _fp2_triple(t4) - _fp2_double(r3)
+    z4 = _fp2_triple(t2) - _fp2_double(r4)
+    z5 = _fp2_double(r5) + _fp2_triple(t3)
 
     return Fp12Element(Fp6Element(z0, z4, z3), Fp6Element(z2, z1, z5))
 end

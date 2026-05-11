@@ -848,6 +848,7 @@ function bench_pairing_substeps(results)
     frob2 = frobenius_p2(easy_pre)
     frob3 = frobenius_p3(easy_pre)
     exp_u = exp_by_u(easy_pre)
+    cyclo_exp_u = cyclotomic_exp_by_u(easy_pre)
     hard_pre = final_exponentiation_hard(easy_pre)
 
     record_semantic!(results, :pairing_substeps, "doubling_step", Dict(
@@ -864,6 +865,7 @@ function bench_pairing_substeps(results)
     record_semantic!(results, :pairing_substeps, "frobenius_p3", serialize_bn254(frob3))
     record_semantic!(results, :pairing_substeps, "final_exponentiation_easy", serialize_bn254(easy_pre))
     record_semantic!(results, :pairing_substeps, "exp_by_u", serialize_bn254(exp_u))
+    record_semantic!(results, :pairing_substeps, "cyclotomic_exp_by_u", serialize_bn254(cyclo_exp_u))
     record_semantic!(results, :pairing_substeps, "final_exponentiation_hard", serialize_bn254(hard_pre))
 
     _ = doubling_step(T_double)
@@ -874,6 +876,7 @@ function bench_pairing_substeps(results)
     _ = frobenius_p3(easy_pre)
     _ = final_exponentiation_easy(f_pre)
     _ = exp_by_u(easy_pre)
+    _ = cyclotomic_exp_by_u(easy_pre)
     _ = final_exponentiation_hard(easy_pre)
 
     tr_double = @benchmark doubling_step($T_double) seconds = 1 samples = 10
@@ -884,6 +887,7 @@ function bench_pairing_substeps(results)
     tr_frob3 = @benchmark frobenius_p3($easy_pre) seconds = 1 samples = 10
     tr_easy = @benchmark final_exponentiation_easy($f_pre) seconds = 1 samples = 10
     tr_exp_u = @benchmark exp_by_u($easy_pre) seconds = 1 samples = 10
+    tr_cyclo_exp_u = @benchmark cyclotomic_exp_by_u($easy_pre) seconds = 1 samples = 10
     tr_hard = @benchmark final_exponentiation_hard($easy_pre) seconds = 1 samples = 10
 
     print_stats("Pairing doubling_step", tr_double)
@@ -894,6 +898,7 @@ function bench_pairing_substeps(results)
     print_stats("Pairing frobenius_p3", tr_frob3)
     print_stats("Pairing final_exp_easy", tr_easy)
     print_stats("Pairing exp_by_u", tr_exp_u)
+    print_stats("Pairing cyclotomic_exp_by_u", tr_cyclo_exp_u)
     print_stats("Pairing final_exp_hard", tr_hard)
 
     record_simple!(results, :pairing_substeps, "doubling_step", tr_double)
@@ -904,6 +909,7 @@ function bench_pairing_substeps(results)
     record_simple!(results, :pairing_substeps, "frobenius_p3", tr_frob3)
     record_simple!(results, :pairing_substeps, "final_exponentiation_easy", tr_easy)
     record_simple!(results, :pairing_substeps, "exp_by_u", tr_exp_u)
+    record_simple!(results, :pairing_substeps, "cyclotomic_exp_by_u", tr_cyclo_exp_u)
     record_simple!(results, :pairing_substeps, "final_exponentiation_hard", tr_hard)
 end
 

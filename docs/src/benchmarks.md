@@ -399,6 +399,36 @@ moved from `27.626 ms` to `26.606 ms` (`-3.69%`), but the safer reading is that
 limb-native decomposition trims plumbing overhead without changing the broader
 prover performance picture.
 
+## Final Exponentiation / GT Snapshot (2026-05-11)
+
+- Baseline run:
+  `artifacts/2026-05-11_212628/results/benchmark_results.json`
+- Current run:
+  `artifacts/2026-05-11_212945/results/benchmark_results.json`
+- Tracked summary:
+  `docs/src/assets/final_exp_gt_specialization_2026_05_11.json`
+
+This pass keeps the generic `exp_by_u(::Fp12Element)` available for arbitrary
+`Fp12` values, but adds an explicit `cyclotomic_exp_by_u` helper for values
+already known to be in GT/cyclotomic form. The final exponentiation hard part
+uses that helper only after `final_exponentiation_easy` has established the
+cyclotomic subgroup condition. The existing cyclotomic square formula was also
+tightened to use field additions for doubling/tripling instead of integer
+scalar multiplication.
+
+| Workload | Baseline | Current | Change |
+| --- | ---: | ---: | ---: |
+| Single pairing | `3.135 ms` | `2.835 ms` | `-9.57%` |
+| Final exponentiation | `1.270 ms` | `0.939 ms` | `-26.03%` |
+| Final exponentiation hard part | `1.301 ms` | `0.930 ms` | `-28.51%` |
+| Generic `exp_by_u` | `0.379 ms` | `0.385 ms` | `+1.61%` |
+| Cyclotomic `u` exponent | - | `0.243 ms` | `-36.90%` vs current generic |
+
+Validation compares `cyclotomic_square(m)` against generic `square(m)`,
+`cyclotomic_exp_by_u(m)` against `exp_by_u(m)`, and a second `u` exponent
+against `cyclotomic_exp(m, BN254_U^2)` for deterministic easy-part pairing
+outputs. Pairing bilinearity and Groth16 verification tests pass unchanged.
+
 ## Latest Snapshot (2025‑09‑29)
 
 ```@example

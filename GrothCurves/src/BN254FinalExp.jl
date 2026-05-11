@@ -224,6 +224,29 @@ function exp_by_u(a::Fp12Element)
 end
 
 """
+    cyclotomic_exp_by_u(a::Fp12Element)
+
+Compute `a^u` for an element already known to be in the cyclotomic subgroup.
+The final exponentiation hard part only calls this after the easy part has
+established that condition.
+"""
+function cyclotomic_exp_by_u(a::Fp12Element)
+    result = one(Fp12Element)
+    base = a
+    u = UInt64(4965661367192848881)
+
+    while u != 0
+        if (u & UInt64(1)) == UInt64(1)
+            result = result * base
+        end
+        base = cyclotomic_square(base)
+        u >>= 1
+    end
+
+    return result
+end
+
+"""
     final_exponentiation_hard(m::Fp12Element)
 
 Compute the hard part of the final exponentiation using the standard BN254 formula.
@@ -234,9 +257,9 @@ involving u-powers and Frobenius maps.
 """
 function final_exponentiation_hard(m::Fp12Element)
     # Compute u-powers using cyclotomic exponentiation.
-    mx = exp_by_u(m)
-    mx2 = exp_by_u(mx)
-    mx3 = exp_by_u(mx2)
+    mx = cyclotomic_exp_by_u(m)
+    mx2 = cyclotomic_exp_by_u(mx)
+    mx3 = cyclotomic_exp_by_u(mx2)
 
     # Compute Frobenius images.
     mp = frobenius_p1(m)
@@ -256,27 +279,29 @@ function final_exponentiation_hard(m::Fp12Element)
     y5 = cyclotomic_inverse(mx2)
     y6 = cyclotomic_inverse(mx3 * mx3p)
 
-    y1_2 = y1 * y1
-    y2_2 = y2 * y2
-    y2_6 = (y2_2 * y2_2) * y2_2
-    y3_3 = (y3 * y3) * y3
-    y3_6 = y3_3 * y3_3
-    y3_12 = y3_6 * y3_6
-    y4_2 = y4 * y4
-    y4_4 = y4_2 * y4_2
-    y4_8 = y4_4 * y4_4
-    y4_16 = y4_8 * y4_8
+    y1_2 = cyclotomic_square(y1)
+    y2_2 = cyclotomic_square(y2)
+    y2_4 = cyclotomic_square(y2_2)
+    y2_6 = y2_4 * y2_2
+    y3_2 = cyclotomic_square(y3)
+    y3_3 = y3_2 * y3
+    y3_6 = cyclotomic_square(y3_3)
+    y3_12 = cyclotomic_square(y3_6)
+    y4_2 = cyclotomic_square(y4)
+    y4_4 = cyclotomic_square(y4_2)
+    y4_8 = cyclotomic_square(y4_4)
+    y4_16 = cyclotomic_square(y4_8)
     y4_18 = y4_16 * y4_2
-    y5_2 = y5 * y5
-    y5_4 = y5_2 * y5_2
-    y5_8 = y5_4 * y5_4
-    y5_16 = y5_8 * y5_8
+    y5_2 = cyclotomic_square(y5)
+    y5_4 = cyclotomic_square(y5_2)
+    y5_8 = cyclotomic_square(y5_4)
+    y5_16 = cyclotomic_square(y5_8)
     y5_30 = y5_16 * y5_8 * y5_4 * y5_2
-    y6_2 = y6 * y6
-    y6_4 = y6_2 * y6_2
-    y6_8 = y6_4 * y6_4
-    y6_16 = y6_8 * y6_8
-    y6_32 = y6_16 * y6_16
+    y6_2 = cyclotomic_square(y6)
+    y6_4 = cyclotomic_square(y6_2)
+    y6_8 = cyclotomic_square(y6_4)
+    y6_16 = cyclotomic_square(y6_8)
+    y6_32 = cyclotomic_square(y6_16)
     y6_36 = y6_32 * y6_4
 
     result = y0
@@ -320,7 +345,7 @@ end
 # Export functions
 export frobenius_map, frobenius_p1, frobenius_p2, frobenius_p3
 export final_exponentiation_easy, final_exponentiation_hard
-export final_exponentiation, exp_by_u
+export final_exponentiation, exp_by_u, cyclotomic_exp_by_u
 
 """
     final_exponentiation(::BN254Engine, f::Fp12Element)

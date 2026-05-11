@@ -65,8 +65,13 @@ The project has moved well beyond a minimal Groth16 demo.
 - Groth16 setup/proving now use an explicit G2 subgroup GLV helper for
   construction-owned key points, while generic G2 scalar multiplication remains
   the safe path for arbitrary verifier input.
+- Final exponentiation now uses an explicit cyclotomic `u` exponent path after
+  the easy part has placed the Miller-loop output in the cyclotomic subgroup.
+  The focused pairing benchmark moved final exponentiation from `1.270 ms` to
+  `0.939 ms` and single pairing from `3.135 ms` to `2.835 ms` in
+  [docs/src/assets/final_exp_gt_specialization_2026_05_11.json](./docs/src/assets/final_exp_gt_specialization_2026_05_11.json).
 - The active roadmap has shifted from broad backend replacement to targeted
-  specialization: limb-native inversion, final-exponentiation work,
+  specialization: limb-native inversion, remaining extension-field hot paths,
   prover-shaped MSM tuning, and then a fresh prover re-baseline.
 
 See [ROADMAP.md](./ROADMAP.md) for the staged backend history and remaining
@@ -168,7 +173,10 @@ Refreshed local arkworks primitive comparison
 | Single pairing | `2.960 ms` | `0.415 ms` | arkworks `7.14x` faster |
 
 These are primitive-level measurements, not end-to-end Groth16 prover
-comparisons.
+comparisons. A later same-machine local pairing microbenchmark after GT
+specialization measured single pairing at `2.835 ms`; the arkworks table above
+is kept as the preserved external-comparison artifact rather than rewritten
+across benchmark runs.
 
 Latest tracked `prove_full` prover fixture summary
 (`2026-05-11_195230`, limb-native GLV focused profile):

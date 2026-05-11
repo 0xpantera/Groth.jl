@@ -72,10 +72,16 @@ annotated rather than discarded), and follow-ups.
 - (2026-04-01) Stage 5 rewrote `BN254Curve.jl` around shared Jacobian helpers,
   specialized `Fp2` squaring in the curve hot path, and a lower-allocation
   `batch_to_affine!` implementation for both G1 and G2.
+- (2026-05-11) Final exponentiation now uses an explicit cyclotomic
+  `u`-exponent helper in the hard part after the easy part establishes
+  cyclotomic subgroup membership. `cyclotomic_square` also avoids integer
+  scalar multiplication in its recombination. The focused benchmark moved final
+  exponentiation from `1.270 ms` to `0.939 ms`.
 
 **Follow-ups**
 - Prototype a second curve/engine (e.g., BLS12-381) to validate abstractions.
-- Investigate GT cyclotomic optimisations if benchmarks surface bottlenecks.
+- Continue GT/pairing follow-through if new profiles surface another clear
+  bottleneck.
 
 ## GrothProofs
 
@@ -166,6 +172,11 @@ annotated rather than discarded), and follow-ups.
   with tracked summary `docs/src/assets/setup_full_tuning_2026_05_11.json`.
   The `generated_24_constraints` fixture reports `setup_full` at `116.918 ms`,
   down from the `142.715 ms` pre-change baseline.
+- Latest final-exponentiation/GT artifact:
+  `benchmarks/artifacts/2026-05-11_212945`, with tracked summary
+  `docs/src/assets/final_exp_gt_specialization_2026_05_11.json`. The focused
+  pairing benchmark reports final exponentiation at `0.939 ms`, down from the
+  same-turn baseline `1.270 ms`, and single pairing at `2.835 ms`.
 
 ## Docs
 
@@ -175,8 +186,8 @@ annotated rather than discarded), and follow-ups.
 
 ## Roadmap snapshot (see `ROADMAP.md`)
 
-- Immediate: limb-native inversion, final-exponentiation specialization,
-  extension-field hot paths, and prover-shaped MSM specialization.
+- Immediate: limb-native inversion, remaining extension-field hot paths, and
+  prover-shaped MSM specialization.
 - Stretch: proof aggregation, second curve prototype, then Stage 9
   parallelism / accelerators once the single-thread backend is tighter.
 
