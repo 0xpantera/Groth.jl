@@ -1,0 +1,68 @@
+{
+  "run_id": "2026-05-11_arkworks_bn254_refresh",
+  "timestamp_utc": "2026-05-11T08:49:21.939",
+  "scope": "Matched BN254 primitive comparison between local Groth.jl and local arkworks",
+  "machine": {
+    "architecture": "x86_64",
+    "cpu": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M",
+    "logical_cpus": 24,
+    "cores_per_socket": 12,
+    "threads_per_core": 2
+  },
+  "software": {
+    "groth_jl_git_branch": "docs/external-benchmark-summaries",
+    "groth_jl_git_commit": "15c8e10b45402bd196f4c8ff2cb244f9de97f632",
+    "julia_version": "1.12.5",
+    "rustc_version": "rustc 1.91.1 (ed61e7d7e 2025-11-07)",
+    "cargo_version": "cargo 1.91.1 (ea2d97820 2025-10-10)",
+    "arkworks_source": "local ark-works/algebra path dependencies"
+  },
+  "methodology": {
+    "description": "Temporary deterministic harnesses measured the same conceptual BN254 primitive operations for Groth.jl and arkworks. Each value is a median per operation.",
+    "warning": "These are primitive-level timings, not end-to-end Groth16 prover timings.",
+    "workloads": {
+      "g1_scalar": "[k]G1 generator for deterministic scalar k",
+      "g2_scalar": "[k]G2 generator for deterministic scalar k",
+      "g1_naive_accum_32": "sum_i [k_i]G1 for 32 deterministic scalars",
+      "g2_naive_accum_32": "sum_i [k_i]G2 for 32 deterministic scalars",
+      "single_pairing": "one reduced BN254 pairing e(G1, G2)"
+    }
+  },
+  "results": [
+    {
+      "workload": "G1 scalar multiplication",
+      "key": "g1_scalar",
+      "groth_jl_median_ms": 0.114906,
+      "arkworks_median_ms": 0.006536,
+      "arkworks_speedup_over_groth_jl": 17.58
+    },
+    {
+      "workload": "G2 scalar multiplication",
+      "key": "g2_scalar",
+      "groth_jl_median_ms": 0.223387,
+      "arkworks_median_ms": 0.017045,
+      "arkworks_speedup_over_groth_jl": 13.11
+    },
+    {
+      "workload": "G1 naive accumulation, N=32",
+      "key": "g1_naive_accum_32",
+      "groth_jl_median_ms": 3.462365,
+      "arkworks_median_ms": 0.182408,
+      "arkworks_speedup_over_groth_jl": 18.98
+    },
+    {
+      "workload": "G2 naive accumulation, N=32",
+      "key": "g2_naive_accum_32",
+      "groth_jl_median_ms": 7.323892,
+      "arkworks_median_ms": 0.481339,
+      "arkworks_speedup_over_groth_jl": 15.22
+    },
+    {
+      "workload": "Single pairing",
+      "key": "single_pairing",
+      "groth_jl_median_ms": 2.959938,
+      "arkworks_median_ms": 0.414575,
+      "arkworks_speedup_over_groth_jl": 7.14
+    }
+  ]
+}
