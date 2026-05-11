@@ -1,0 +1,88 @@
+{
+  "summary": "Limb-native BN254Fr GLV decomposition: BN254Fr scalar decomposition now stays in fixed-width UInt256/UInt512/Int256 arithmetic instead of converting through BigInt. The change preserves the previous BigInt decomposition results while reducing scalar-plumbing overhead in the prover-shaped fixture.",
+  "date": "2026-05-11",
+  "valid_artifact": "benchmarks/artifacts/2026-05-11_195230/results/benchmark_results.json",
+  "benchmark_profile": "custom",
+  "groups": [
+    "scalar_plumbing",
+    "glv_scalar_tuning",
+    "prove_full"
+  ],
+  "environment": {
+    "cpu_name": "znver5",
+    "julia_version": "1.12.6",
+    "threadpools": {
+      "default": 24,
+      "interactive": 1
+    },
+    "machine": "x86_64-linux-gnu"
+  },
+  "scalar_plumbing_generated_24_constraints": {
+    "g1_scalar_delta": {
+      "bigint_median_ms": 0.855,
+      "bn254fr_limb_native_median_ms": 0.804,
+      "relative_to_bigint": "-5.98%"
+    },
+    "g2_subgroup_delta": {
+      "bigint_median_ms": 1.734,
+      "bn254fr_limb_native_median_ms": 1.689,
+      "relative_to_bigint": "-2.60%"
+    },
+    "a_query_msm": {
+      "bigint_median_ms": 3.508,
+      "bn254fr_limb_native_median_ms": 3.357,
+      "relative_to_bigint": "-4.30%"
+    },
+    "b2_query_msm": {
+      "bigint_median_ms": 4.826,
+      "bn254fr_limb_native_median_ms": 4.704,
+      "relative_to_bigint": "-2.53%"
+    },
+    "h_msm": {
+      "bigint_median_ms": 9.893,
+      "bn254fr_limb_native_median_ms": 9.257,
+      "relative_to_bigint": "-6.43%"
+    },
+    "l_msm": {
+      "bigint_median_ms": 4.289,
+      "bn254fr_limb_native_median_ms": 4.137,
+      "relative_to_bigint": "-3.54%"
+    }
+  },
+  "prove_full": {
+    "sum_of_products_small": {
+      "domain_size": 16,
+      "prove_full_median_ms": 10.024,
+      "h_l_msm_generic_median_ms": 5.871,
+      "h_l_msm_glv_limb_native_median_ms": 4.717,
+      "h_l_msm_relative_to_generic": "-19.65%"
+    },
+    "generated_24_constraints": {
+      "domain_size": 32,
+      "prove_full_median_ms": 26.606,
+      "h_l_msm_generic_median_ms": 12.464,
+      "h_l_msm_glv_limb_native_median_ms": 9.538,
+      "h_l_msm_relative_to_generic": "-23.48%",
+      "previous_glv_msm_median_ms": 9.647,
+      "relative_to_previous_glv_msm": "-1.13%",
+      "previous_prove_full_median_ms": 27.626,
+      "relative_to_previous_prove_full": "-3.69%",
+      "h_l_query_g1_glv_backend": "g1_glv_pippenger_w5",
+      "h_l_query_g1_size": 51,
+      "h_l_query_g1_expanded_size": 90,
+      "h_l_query_g1_nonzero_scalars": 47,
+      "h_l_query_g1_glv_max_scalar_bits": 127
+    }
+  },
+  "validation": [
+    "BN254Fr GLV decomposition matches the previous BigInt decomposition on deterministic G1/G2 scalar fixtures.",
+    "GLV identities k == k1 + lambda*k2 mod r are checked for BN254Fr G1 and G2 decompositions.",
+    "BN254Fr scalar multiplication, G2 subgroup scalar multiplication, and G1 subgroup GLV-MSM results match reference/generic paths.",
+    "Pkg.test(\"GrothCurves\"), Pkg.test(\"GrothProofs\"), and include(\"scripts/test_all.jl\") passed."
+  ],
+  "notes": [
+    "This is a scalar-plumbing optimization, not a new MSM algorithm.",
+    "The generic Integer GLV decomposition remains BigInt-based for external integer callers.",
+    "The clean benchmark artifact is 2026-05-11_195230; an earlier same-turn run was discarded because the Julia session still had the pre-fix helper loaded."
+  ]
+}

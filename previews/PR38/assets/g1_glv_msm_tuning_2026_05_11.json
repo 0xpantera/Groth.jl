@@ -1,0 +1,48 @@
+{
+  "summary": "G1 GLV-MSM prover tuning: the combined H/L prover MSM now uses an explicit BN254 G1 subgroup GLV-MSM helper. The phase improves clearly, while full prove_full movement is modest and benchmark-noise sensitive.",
+  "candidate_run_id": "2026-05-11_193033",
+  "previous_run_id": "2026-05-11_190310",
+  "benchmark_profile": "custom",
+  "benchmark_groups": [
+    "prove_full"
+  ],
+  "julia_version": "1.12.6",
+  "threadpools": {
+    "default": 24,
+    "interactive": 1
+  },
+  "cpu": "znver5",
+  "fixtures": {
+    "sum_of_products_small": {
+      "constraints": 3,
+      "public_inputs": 6,
+      "domain_size": 16,
+      "prove_full_median_ms": 11.594,
+      "h_l_msm_generic_median_ms": 6.642,
+      "h_l_msm_glv_median_ms": 4.924,
+      "h_l_msm_relative_to_generic": "-25.87%"
+    },
+    "generated_24_constraints": {
+      "constraints": 24,
+      "public_inputs": 8,
+      "domain_size": 32,
+      "previous_prove_full_median_ms": 27.659,
+      "prove_full_median_ms": 27.626,
+      "prove_full_relative_to_previous": "-0.12%",
+      "h_l_msm_generic_median_ms": 11.907,
+      "h_l_msm_glv_median_ms": 9.647,
+      "h_l_msm_relative_to_generic": "-18.98%",
+      "h_l_query_g1_generic_backend": "pippenger_w5",
+      "h_l_query_g1_glv_backend": "g1_glv_pippenger_w5",
+      "h_l_query_g1_size": 51,
+      "h_l_query_g1_expanded_size": 90,
+      "h_l_query_g1_glv_max_scalar_bits": 127
+    }
+  },
+  "notes": [
+    "The A/B1 fused G1 query MSM was benchmarked separately in a quick timing check and did not improve, so it remains on the existing fused pair MSM path.",
+    "The GLV-MSM helper expands each G1 base into P and phi(P) terms and feeds the shorter signed components into the existing MSM backend.",
+    "The helper uses BigInt scalar decomposition today, so further wins likely require limb-native GLV decomposition before routing more prover buckets.",
+    "The generated fixture is the preferred continuity signal; end-to-end prove_full stayed essentially flat while the H/L phase improved."
+  ]
+}
