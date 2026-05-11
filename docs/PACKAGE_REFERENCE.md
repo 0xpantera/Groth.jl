@@ -59,6 +59,10 @@ annotated rather than discarded), and follow-ups.
   `g2_subgroup_scalar_mul` for points already known to be in the BN254
   prime-order subgroup, while generic G2 `scalar_mul` remains the safe path for
   arbitrary on-curve points.
+- (2026-05-11) `BN254Fr` GLV decomposition now stays in fixed-width
+  `UInt256`/`UInt512`/`Int256` arithmetic and matches the previous BigInt
+  decomposition exactly. The generic `Integer` decomposition remains
+  BigInt-based for external callers.
 - (2026-04-01) Stage 4 of the Montgomery roadmap replaced `SVector`-backed
   `Fp2`/`Fp6`/`Fp12` storage with concrete field members and specialized
   nonresidue helpers for `xi = 9 + u` and `v = (0, 1, 0)`. The first Stage 4
@@ -99,6 +103,10 @@ annotated rather than discarded), and follow-ups.
   GLV-MSM helper. The generated fixture's H/L phase measured `9.647 ms` versus
   `11.907 ms` for the generic MSM in the same run; end-to-end `prove_full`
   remained essentially flat at `27.626 ms`.
+- (2026-05-11) Limb-native `BN254Fr` GLV decomposition removes the BigInt
+  round trip from that H/L GLV-MSM expansion. The refreshed generated fixture
+  reports H/L GLV-MSM at `9.538 ms` versus generic H/L MSM at `12.464 ms`, with
+  `prove_full` at `26.606 ms`.
 - (2026-05-11) `setup_full` routes G1 query generation through the BN254 scalar
   dispatcher, whose GLV path beats fixed-base w-NAF for the measured setup
   scalars; the G2 query uses a fixed-window batch path.
@@ -148,6 +156,12 @@ annotated rather than discarded), and follow-ups.
   with tracked summary `docs/src/assets/g1_glv_msm_tuning_2026_05_11.json`.
   The `generated_24_constraints` fixture reports `prove_full` at `27.626 ms`,
   generic H/L MSM at `11.907 ms`, and G1 GLV H/L MSM at `9.647 ms`.
+- Latest limb-native GLV decomposition artifact:
+  `benchmarks/artifacts/2026-05-11_195230`, with tracked summary
+  `docs/src/assets/limb_native_glv_decomposition_2026_05_11.json`. The
+  `generated_24_constraints` fixture reports `prove_full` at `26.606 ms`,
+  generic H/L MSM at `12.464 ms`, and limb-native G1 GLV H/L MSM at
+  `9.538 ms`.
 - Latest setup-focused artifact: `benchmarks/artifacts/2026-05-11_175228`,
   with tracked summary `docs/src/assets/setup_full_tuning_2026_05_11.json`.
   The `generated_24_constraints` fixture reports `setup_full` at `116.918 ms`,

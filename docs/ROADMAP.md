@@ -73,6 +73,11 @@ an arkworks-aligned, production-friendly Groth16 stack.
   generated fixture measured `9.647 ms` for the H/L phase versus `11.907 ms`
   for the generic MSM in the same run, with end-to-end proving essentially
   flat at `27.626 ms`.
+- The BN254Fr GLV decomposition path now stays in fixed-width limb-native
+  arithmetic and matches the previous BigInt decomposition exactly. The
+  refreshed generated fixture measured `9.538 ms` for the H/L GLV-MSM phase
+  versus `12.464 ms` for generic H/L MSM in the same run, with `prove_full` at
+  `26.606 ms`.
 - `setup_full` query generation now uses BN254 G1 scalar/GLV dispatch for G1
   queries and a fixed-window G2 batch path; the generated fixture is now
   `116.918 ms`.

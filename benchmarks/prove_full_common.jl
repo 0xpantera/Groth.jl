@@ -222,7 +222,7 @@ function g1_glv_msm_selection_metadata(points::AbstractVector{G1Point}, scalars:
     max_bits = 0
     nonzero_scalars = 0
     @inbounds for scalar in scalars
-        ((_, k1), (_, k2)) = GrothCurves.glv_scalar_decomposition(G1Point, convert(BigInt, scalar))
+        ((_, k1), (_, k2)) = GrothCurves.glv_scalar_decomposition(G1Point, scalar)
         if !iszero(k1)
             expanded_size += 1
             max_bits = max(max_bits, GrothAlgebra._bit_length(k1))

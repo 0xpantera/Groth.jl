@@ -359,9 +359,45 @@ improve, so it remains on the existing fused pair MSM path.
 For the generated fixture, the H/L query has `51` original bases and expands to
 `90` GLV terms with maximum component width `127` bits. Interpretation: the
 MSM phase improvement is clear, but end-to-end proving is essentially flat
-relative to the preceding same-day run (`27.659 ms -> 27.626 ms`). The next GLV
-follow-through is limb-native decomposition; the current helper still pays
-`BigInt` decomposition cost.
+relative to the preceding same-day run (`27.659 ms -> 27.626 ms`).
+
+## Limb-Native GLV Decomposition Snapshot (2026-05-11)
+
+- Focused run:
+  `artifacts/2026-05-11_195230/results/benchmark_results.json`
+- Tracked summary:
+  `docs/src/assets/limb_native_glv_decomposition_2026_05_11.json`
+
+This pass keeps the same GLV lattice decomposition semantics, but routes
+`BN254Fr` scalars through fixed-width `UInt256`/`UInt512`/`Int256` arithmetic
+instead of decoding to `BigInt`. The generic `Integer` GLV path remains
+`BigInt`-based for external callers. Tests compare the new `BN254Fr`
+decomposition against the previous BigInt decomposition and re-check
+`k == k1 + lambda*k2 mod r` for G1 and G2.
+
+Scalar-plumbing medians on the generated fixture:
+
+| Workload | BigInt | BN254Fr limb-native | Change |
+| --- | ---: | ---: | ---: |
+| `g1_scalar_delta` | `0.855 ms` | `0.804 ms` | `-5.98%` |
+| `g2_subgroup_delta` | `1.734 ms` | `1.689 ms` | `-2.60%` |
+| `A_query` MSM | `3.508 ms` | `3.357 ms` | `-4.30%` |
+| `B2_query` MSM | `4.826 ms` | `4.704 ms` | `-2.53%` |
+| `H` MSM | `9.893 ms` | `9.257 ms` | `-6.43%` |
+| `L` MSM | `4.289 ms` | `4.137 ms` | `-3.54%` |
+
+Prover fixture summary:
+
+| Fixture | Generic H/L MSM | Limb-native GLV H/L MSM | Phase change | `prove_full` |
+| --- | ---: | ---: | ---: | ---: |
+| `sum_of_products_small` | `5.871 ms` | `4.717 ms` | `-19.65%` | `10.024 ms` |
+| `generated_24_constraints` | `12.464 ms` | `9.538 ms` | `-23.48%` | `26.606 ms` |
+
+For the generated fixture, the H/L GLV phase moved from `9.647 ms` in the prior
+G1 GLV-MSM artifact to `9.538 ms` here (`-1.13%`). End-to-end `prove_full`
+moved from `27.626 ms` to `26.606 ms` (`-3.69%`), but the safer reading is that
+limb-native decomposition trims plumbing overhead without changing the broader
+prover performance picture.
 
 ## Latest Snapshot (2025‑09‑29)
 
