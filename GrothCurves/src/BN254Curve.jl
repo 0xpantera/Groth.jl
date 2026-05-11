@@ -248,6 +248,75 @@ default for arbitrary on-curve points, including verifier subgroup checks.
 g2_subgroup_scalar_mul(p::G2Point, k::Integer) = glv_scalar_mul(p, k)
 g2_subgroup_scalar_mul(p::G2Point, k::GrothAlgebra.BN254Fr) = glv_scalar_mul(p, k)
 
+@inline _g1_glv_scalar_bigint(k::Integer) = BigInt(k)
+@inline _g1_glv_scalar_bigint(k::GrothAlgebra.BN254Fr) = _bn254fr_scalar_bigint(k)
+
+function _append_g1_glv_terms!(out_points::Vector{G1Point}, out_scalars::Vector{BigInt}, p::G1Point, scalar)
+    ((sgn_k1, k1), (sgn_k2, k2)) = glv_scalar_decomposition(G1Point, _g1_glv_scalar_bigint(scalar))
+
+    if !iszero(k1)
+        push!(out_points, p)
+        push!(out_scalars, sgn_k1 ? k1 : -k1)
+    end
+
+    if !iszero(k2)
+        push!(out_points, glv_endomorphism(p))
+        push!(out_scalars, sgn_k2 ? k2 : -k2)
+    end
+
+    return nothing
+end
+
+"""
+    g1_subgroup_multi_scalar_mul(points::Vector{G1Point}, scalars::Vector)
+
+Compute `sum(scalars[i] * points[i])` with BN254 G1 GLV decomposition,
+assuming every point is already in the prime-order G1 subgroup.
+
+This helper keeps the GLV-MSM precondition explicit; the generic
+`GrothAlgebra.multi_scalar_mul` API remains the arbitrary-group default.
+"""
+function g1_subgroup_multi_scalar_mul(points::Vector{G1Point}, scalars::Vector{S}) where {S}
+    length(points) == length(scalars) || throw(ArgumentError("Points and scalars must have the same length"))
+    isempty(points) && throw(ArgumentError("Cannot compute multi-scalar multiplication of empty vectors"))
+
+    if length(points) == 1
+        return GrothAlgebra.scalar_mul(points[1], scalars[1])
+    end
+
+    glv_points = G1Point[]
+    glv_scalars = BigInt[]
+    sizehint!(glv_points, 2 * length(points))
+    sizehint!(glv_scalars, 2 * length(scalars))
+
+    @inbounds for i in eachindex(points, scalars)
+        _append_g1_glv_terms!(glv_points, glv_scalars, points[i], scalars[i])
+    end
+
+    isempty(glv_points) && return zero(points[1])
+    return GrothAlgebra.multi_scalar_mul(glv_points, glv_scalars)
+end
+
+"""
+    g1_subgroup_multi_scalar_mul_pair(points_a::Vector{G1Point}, points_b::Vector{G1Point}, scalars::Vector)
+
+Compute two BN254 G1 GLV-MSMs over the same scalar vector. This helper is
+intended for subgroup-owned CRS/query points; it preserves the generic MSM API
+for arbitrary group elements.
+"""
+function g1_subgroup_multi_scalar_mul_pair(points_a::Vector{G1Point}, points_b::Vector{G1Point}, scalars::Vector{S}) where {S}
+    if length(points_a) != length(points_b) || length(points_a) != length(scalars)
+        throw(ArgumentError("Point and scalar vectors must have the same length"))
+    end
+
+    isempty(points_a) && throw(ArgumentError("Cannot compute multi-scalar multiplication of empty vectors"))
+
+    return (
+        g1_subgroup_multi_scalar_mul(points_a, scalars),
+        g1_subgroup_multi_scalar_mul(points_b, scalars),
+    )
+end
+
 """
     GrothAlgebra.scalar_mul(p::G1Point, k::Integer)
     GrothAlgebra.scalar_mul(p::G1Point, k::GrothAlgebra.BN254Fr)

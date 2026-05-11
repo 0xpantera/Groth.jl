@@ -17,6 +17,7 @@ const PROVE_FULL_PHASE_ORDER = [
     "h_parity_assert",
     "h_msm",
     "l_msm",
+    "h_l_msm_generic",
     "h_l_msm",
     "final_c",
 ]
@@ -177,7 +178,11 @@ function fixture_metadata(fixture)
             "b_query_g2" => msm_selection_metadata(pk.B_query_g2, witness.values),
             "h_query_g1" => msm_selection_metadata(pk.H_query_g1[1:length(h_poly.coeffs)], h_poly.coeffs),
             "l_query_g1" => msm_selection_metadata(pk.L_query_g1, witness.values[(pk.num_public + 1):end]),
-            "h_l_query_g1" => msm_selection_metadata(
+            "h_l_query_g1_generic" => msm_selection_metadata(
+                vcat(pk.H_query_g1[1:length(h_poly.coeffs)], pk.L_query_g1),
+                vcat(h_poly.coeffs, witness.values[(pk.num_public + 1):end]),
+            ),
+            "h_l_query_g1" => g1_glv_msm_selection_metadata(
                 vcat(pk.H_query_g1[1:length(h_poly.coeffs)], pk.L_query_g1),
                 vcat(h_poly.coeffs, witness.values[(pk.num_public + 1):end]),
             ),
@@ -208,6 +213,35 @@ function msm_selection_metadata(points::AbstractVector, scalars::AbstractVector{
         "nonzero_scalars" => stats.nonzero_count,
         "compact_scalars" => stats.compact_scalar_count,
         "max_scalar_bits" => stats.max_bits,
+        "selected" => selected,
+    )
+end
+
+function g1_glv_msm_selection_metadata(points::AbstractVector{G1Point}, scalars::AbstractVector{BN254Fr})
+    expanded_size = 0
+    max_bits = 0
+    nonzero_scalars = 0
+    @inbounds for scalar in scalars
+        ((_, k1), (_, k2)) = GrothCurves.glv_scalar_decomposition(G1Point, convert(BigInt, scalar))
+        if !iszero(k1)
+            expanded_size += 1
+            max_bits = max(max_bits, GrothAlgebra._bit_length(k1))
+        end
+        if !iszero(k2)
+            expanded_size += 1
+            max_bits = max(max_bits, GrothAlgebra._bit_length(k2))
+        end
+        nonzero_scalars += Int(!(iszero(k1) && iszero(k2)))
+    end
+
+    selected = expanded_size <= 1 ? "scalar_mul" :
+        GrothAlgebra._use_straus_msm(expanded_size, max_bits) ? "straus" :
+        "g1_glv_pippenger_w$(GrothAlgebra._pippenger_window(G1Point, expanded_size))"
+    return Dict{String,Any}(
+        "size" => length(points),
+        "expanded_size" => expanded_size,
+        "nonzero_scalars" => nonzero_scalars,
+        "max_scalar_bits" => max_bits,
         "selected" => selected,
     )
 end
@@ -318,6 +352,24 @@ function l_msm(pk::ProvingKey, witness::Witness)
 end
 
 function h_l_msm(pk::ProvingKey, h_poly, witness::Witness)
+    hk = length(h_poly.coeffs)
+    pts_h = pk.H_query_g1[1:hk]
+    m = length(witness.values)
+    if m <= pk.num_public
+        return GrothCurves.g1_subgroup_multi_scalar_mul(pts_h, h_poly.coeffs)
+    end
+    priv_scalars = witness.values[(pk.num_public+1):m]
+    hl_len = hk + length(priv_scalars)
+    pts_hl = Vector{G1Point}(undef, hl_len)
+    scalars_hl = Vector{eltype(h_poly.coeffs)}(undef, hl_len)
+    copyto!(pts_hl, 1, pts_h, 1, hk)
+    copyto!(pts_hl, hk + 1, pk.L_query_g1, 1, length(priv_scalars))
+    copyto!(scalars_hl, 1, h_poly.coeffs, 1, hk)
+    copyto!(scalars_hl, hk + 1, priv_scalars, 1, length(priv_scalars))
+    return GrothCurves.g1_subgroup_multi_scalar_mul(pts_hl, scalars_hl)
+end
+
+function h_l_msm_generic(pk::ProvingKey, h_poly, witness::Witness)
     hk = length(h_poly.coeffs)
     pts_h = pk.H_query_g1[1:hk]
     m = length(witness.values)

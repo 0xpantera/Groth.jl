@@ -28,6 +28,8 @@ Depth = 2
 - `g2_subgroup_scalar_mul` exposes BN254 G2 GLV acceleration only for points
   already known to be in the prime-order subgroup. Generic `scalar_mul` remains
   the safe scalar path for arbitrary G2 points.
+- `g1_subgroup_multi_scalar_mul` exposes BN254 G1 GLV decomposition for
+  subgroup-owned variable-base MSM workloads.
 
 ## Follow-ups
 
@@ -51,6 +53,8 @@ ProjectivePoint
 GrothCurves.doubling_step
 GrothCurves.addition_step
 GrothCurves.evaluate_line
+GrothCurves.g1_subgroup_multi_scalar_mul
+GrothCurves.g1_subgroup_multi_scalar_mul_pair
 GrothCurves.g2_subgroup_scalar_mul
 ```
 

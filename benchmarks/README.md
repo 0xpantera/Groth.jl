@@ -403,6 +403,28 @@ already known to be in `G2[r]`. Groth16 setup/proving uses it for fixed G2 key
 points constructed from the generator; verifier subgroup checks keep generic
 G2 scalar multiplication for arbitrary proof input.
 
+## G1 GLV-MSM Prover Snapshot (2026-05-11)
+
+- Focused run:
+  `artifacts/2026-05-11_193033/results/benchmark_results.json`
+- Tracked summary:
+  `../docs/src/assets/g1_glv_msm_tuning_2026_05_11.json`
+
+The prover now routes the combined H/L G1 MSM through explicit subgroup-owned
+GLV decomposition. A quick A/B1 pair check did not improve, so that bucket stays
+on the existing fused pair MSM.
+
+| Fixture | Generic H/L MSM | G1 GLV H/L MSM | Phase change | `prove_full` |
+| --- | ---: | ---: | ---: | ---: |
+| `sum_of_products_small` | `6.642 ms` | `4.924 ms` | `-25.87%` | `11.594 ms` |
+| `generated_24_constraints` | `11.907 ms` | `9.647 ms` | `-18.98%` | `27.626 ms` |
+
+The generated fixture H/L query has `51` original bases and expands to `90` GLV
+terms with `127`-bit maximum components. Treat this as a clear H/L phase win
+with essentially flat end-to-end prover movement; the helper still uses
+`BigInt` decomposition, so limb-native GLV decomposition is the natural next
+follow-through.
+
 Generate a full report (run -> plot -> compare) for latest run:
 
 ```

@@ -69,6 +69,10 @@ an arkworks-aligned, production-friendly Groth16 stack.
 - `prove_full` combines the H and private-variable L contributions into one G1
   MSM for the `C` proof element; the Stage 8 generated fixture is now
   `26.643 ms`.
+- The combined H/L G1 prover MSM now uses explicit subgroup-owned GLV. The
+  generated fixture measured `9.647 ms` for the H/L phase versus `11.907 ms`
+  for the generic MSM in the same run, with end-to-end proving essentially
+  flat at `27.626 ms`.
 - `setup_full` query generation now uses BN254 G1 scalar/GLV dispatch for G1
   queries and a fixed-window G2 batch path; the generated fixture is now
   `116.918 ms`.

@@ -26,7 +26,8 @@ Depth = 2
 - `prove_full` uses the coset-only H quotient path; dense vs coset parity is
   still asserted in tests and available through the checked helper.
 - The prover combines H and private-variable L into one G1 MSM for the `C`
-  proof element, since the algebra only needs their sum.
+  proof element, since the algebra only needs their sum. That combined H/L MSM
+  now uses explicit BN254 G1 GLV decomposition on subgroup-owned CRS points.
 - `setup_full` uses the measured BN254 G1 scalar/GLV path for G1 query
   generation and a fixed-window batch path for the G2 query.
 - Fixed G2 key elements and the prover `delta_g2` randomizer term use the
