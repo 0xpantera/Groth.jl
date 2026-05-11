@@ -1,0 +1,144 @@
+{
+  "generated_on": "2026-05-11",
+  "scope": "BN254 primitive benchmark summaries for external references",
+  "notes": [
+    "Large raw benchmark artifacts under benchmarks/artifacts/ are intentionally ignored by git.",
+    "py_ecc comparisons are primitive-only comparisons, not Groth16 prover comparisons.",
+    "arkworks comparisons are primitive-only comparisons from deterministic local harnesses, not Groth16 prover comparisons."
+  ],
+  "py_ecc": {
+    "reference": "local sibling py_ecc checkout, optimized_bn128 primitives",
+    "methodology": "Matched deterministic primitive workloads run from Groth.jl/benchmarks/py_ecc_bn254_bench.py through benchmarks/run.jl when py_ecc is available.",
+    "latest_artifact": {
+      "run_id": "2026-04-01_174825",
+      "ignored_path": "benchmarks/artifacts/2026-04-01_174825/results/benchmark_results.json",
+      "git_branch": "feat/bn254-montgomery-stage7-msm-specialization",
+      "git_commit": "25f22b89a41ad0966540e30d6709a45447f72adc",
+      "machine": "x86_64-linux-gnu",
+      "cpu_name": "znver5"
+    },
+    "latest_medians_ms": [
+      {
+        "workload": "G1 scalar multiplication",
+        "groth_jl": 0.126106,
+        "py_ecc": 0.264137842,
+        "groth_speedup_over_py_ecc": 2.09
+      },
+      {
+        "workload": "G2 scalar multiplication",
+        "groth_jl": 0.254944,
+        "py_ecc": 1.491973147,
+        "groth_speedup_over_py_ecc": 5.85
+      },
+      {
+        "workload": "G1 naive accumulation, N=32",
+        "groth_jl": 4.577,
+        "py_ecc": 12.451884058,
+        "groth_speedup_over_py_ecc": 2.72
+      },
+      {
+        "workload": "G2 naive accumulation, N=32",
+        "groth_jl": 11.512,
+        "py_ecc": 69.238143342,
+        "groth_speedup_over_py_ecc": 6.01
+      },
+      {
+        "workload": "single pairing",
+        "groth_jl": 3.14,
+        "py_ecc": 149.689095502,
+        "groth_speedup_over_py_ecc": 47.67
+      }
+    ],
+    "historical_artifacts": [
+      {
+        "run_id": "2026-03-31_212200",
+        "summary": "First external primitive comparison baseline before scalar tuning.",
+        "medians_ms": {
+          "g1_scalar_groth_jl": 0.380709,
+          "g1_scalar_py_ecc": 0.278111,
+          "g2_scalar_groth_jl": 2.092,
+          "g2_scalar_py_ecc": 1.497173,
+          "single_pairing_groth_jl": 51.616,
+          "single_pairing_py_ecc": 146.293964
+        }
+      },
+      {
+        "run_id": "2026-03-31_215847",
+        "summary": "After scalar multiplication tuning; Groth.jl passed py_ecc on G1 scalar and was near tied on G2 scalar.",
+        "medians_ms": {
+          "g1_scalar_groth_jl": 0.25028,
+          "g1_scalar_py_ecc": 0.269185,
+          "g2_scalar_groth_jl": 1.522,
+          "g2_scalar_py_ecc": 1.477362,
+          "single_pairing_groth_jl": 51.649,
+          "single_pairing_py_ecc": 147.930778
+        }
+      }
+    ]
+  },
+  "arkworks": {
+    "reference": "local ark-works checkout aligned to upstream arkworks-rs before comparison",
+    "methodology": "Temporary deterministic one-off harnesses measured the same conceptual BN254 primitive operations on both sides. The tracked docs asset preserves the measured medians and run metadata.",
+    "latest_refresh": {
+      "run_id": "2026-05-11_arkworks_bn254_refresh",
+      "summary_path": "docs/src/assets/arkworks_benchmark_refresh_2026_05_11.json",
+      "groth_jl_git_branch": "docs/external-benchmark-summaries",
+      "groth_jl_git_commit": "15c8e10b45402bd196f4c8ff2cb244f9de97f632",
+      "julia_version": "1.12.5",
+      "rustc_version": "rustc 1.91.1 (ed61e7d7e 2025-11-07)",
+      "cargo_version": "cargo 1.91.1 (ea2d97820 2025-10-10)",
+      "cpu": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M"
+    },
+    "latest_medians_ms": [
+      {
+        "workload": "G1 scalar multiplication",
+        "groth_jl": 0.114906,
+        "arkworks": 0.006536,
+        "arkworks_speedup_over_groth_jl": 17.58
+      },
+      {
+        "workload": "G2 scalar multiplication",
+        "groth_jl": 0.223387,
+        "arkworks": 0.017045,
+        "arkworks_speedup_over_groth_jl": 13.11
+      },
+      {
+        "workload": "G1 naive accumulation, N=32",
+        "groth_jl": 3.462365,
+        "arkworks": 0.182408,
+        "arkworks_speedup_over_groth_jl": 18.98
+      },
+      {
+        "workload": "G2 naive accumulation, N=32",
+        "groth_jl": 7.323892,
+        "arkworks": 0.481339,
+        "arkworks_speedup_over_groth_jl": 15.22
+      },
+      {
+        "workload": "single pairing",
+        "groth_jl": 2.959938,
+        "arkworks": 0.414575,
+        "arkworks_speedup_over_groth_jl": 7.14
+      }
+    ],
+    "historical_sources": [
+      "execplans/arkworks_apples_to_apples_benchmarking.md",
+      "execplans/bn254_montgomery_stage7a_glv_scalar_mul.md"
+    ],
+    "historical_scalar_medians_ms": [
+      {
+        "workload": "G1 scalar multiplication",
+        "groth_jl": 0.186,
+        "arkworks": 0.00579,
+        "arkworks_speedup_over_groth_jl": 32.12
+      },
+      {
+        "workload": "G2 scalar multiplication",
+        "groth_jl": 0.202,
+        "arkworks": 0.0173,
+        "arkworks_speedup_over_groth_jl": 11.68
+      }
+    ],
+    "interpretation": "The refreshed local primitive comparison shows arkworks still leads Groth.jl on matched BN254 scalar, naive accumulation, and pairing workloads. This should be read as a primitive benchmark summary, not an end-to-end Groth16 prover benchmark."
+  }
+}

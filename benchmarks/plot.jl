@@ -93,13 +93,21 @@ end
 
 median_ms(entry) = entry["median_seconds"] * 1e3
 
+function series_label(label::AbstractString)
+    label == "groth_jl" && return "Groth.jl"
+    label == "py_ecc" && return "py_ecc"
+    label == "bn254fr" && return "BN254Fr"
+    return replace(label, "_" => " ")
+end
+
 function plot_group(results::AbstractDict, out_dir::String, key::Symbol, title::String, labels::Vector{String}, outfile::String)
     group = get(results, String(key), nothing)
     group === nothing && return
     Ns = sort(parse.(Int, collect(keys(group))))
     data = [median_ms(group[string(N)][labels[j]]) for j in eachindex(labels), N in Ns]
     groupedbar(string.(Ns), permutedims(data), bar_position=:dodge,
-        legend=:topleft, title=title, xlabel="N", ylabel="median time (ms)")
+        legend=:topleft, title=title, xlabel="N", ylabel="median time (ms)",
+        label=permutedims(series_label.(labels)))
     png(joinpath(out_dir, outfile))
 end
 
@@ -110,7 +118,8 @@ function plot_categorical_group(results::AbstractDict, out_dir::String, key::Sym
     isempty(present) && return
     data = [median_ms(group[category][labels[j]]) for j in eachindex(labels), category in present]
     groupedbar(present, permutedims(data), bar_position=:dodge,
-        legend=:topleft, title=title, xlabel="", ylabel="median time (ms)")
+        legend=:topleft, title=title, xlabel="", ylabel="median time (ms)",
+        label=permutedims(series_label.(labels)))
     png(joinpath(out_dir, outfile))
 end
 
@@ -145,7 +154,7 @@ function plot_scalar_plumbing_summary(results::AbstractDict, out_dir::String)
         legend=:topleft,
         title="BN254Fr scalar plumbing: BigInt vs field scalars",
         ylabel="median time (ms)",
-        label=["bigint" "bn254fr"],
+        label=permutedims(series_label.(["bigint", "bn254fr"])),
         xrotation=20,
     )
     png(joinpath(out_dir, "scalar_plumbing.png"))

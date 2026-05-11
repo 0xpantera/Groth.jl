@@ -110,6 +110,46 @@ Key notebooks live in `GrothExamples/`, starting with:
 - [docs/RareSkills_Groth16_Map.md](./docs/RareSkills_Groth16_Map.md) —
   textbook-to-code mapping
 
+## Benchmark summary
+
+The benchmark harness writes raw JSON/PNG artifacts under
+`benchmarks/artifacts/`, which are intentionally ignored by git. The durable
+external-comparison summary is tracked at
+`docs/src/assets/external_benchmark_summary.json`, with narrative context in
+`docs/src/benchmarks.md`.
+
+Latest preserved `py_ecc` primitive comparison (`2026-04-01_174825`):
+
+| Workload | Groth.jl | `py_ecc` | Result |
+| --- | ---: | ---: | ---: |
+| G1 scalar multiplication | `0.126 ms` | `0.264 ms` | Groth.jl `2.09x` faster |
+| G2 scalar multiplication | `0.255 ms` | `1.492 ms` | Groth.jl `5.85x` faster |
+| G1 naive accumulation, N=32 | `4.577 ms` | `12.452 ms` | Groth.jl `2.72x` faster |
+| G2 naive accumulation, N=32 | `11.512 ms` | `69.238 ms` | Groth.jl `6.01x` faster |
+| Single pairing | `3.140 ms` | `149.689 ms` | Groth.jl `47.67x` faster |
+
+Tracked copies of the plots generated for that preserved artifact:
+
+| Scalar multiplication | Pairing |
+| --- | --- |
+| ![Groth.jl vs py_ecc scalar multiplication](docs/src/assets/py_ecc_scalar_2026_04_01_174825.png) | ![Groth.jl vs py_ecc pairing](docs/src/assets/py_ecc_pairing_2026_04_01_174825.png) |
+| G1 naive accumulation | G2 naive accumulation |
+| ![Groth.jl vs py_ecc G1 naive accumulation](docs/src/assets/py_ecc_naive_accum_g1_2026_04_01_174825.png) | ![Groth.jl vs py_ecc G2 naive accumulation](docs/src/assets/py_ecc_naive_accum_g2_2026_04_01_174825.png) |
+
+Refreshed local arkworks primitive comparison
+(`2026-05-11_arkworks_bn254_refresh`):
+
+| Workload | Groth.jl | arkworks | Result |
+| --- | ---: | ---: | ---: |
+| G1 scalar multiplication | `0.115 ms` | `0.00654 ms` | arkworks `17.58x` faster |
+| G2 scalar multiplication | `0.223 ms` | `0.0170 ms` | arkworks `13.11x` faster |
+| G1 naive accumulation, N=32 | `3.462 ms` | `0.182 ms` | arkworks `18.98x` faster |
+| G2 naive accumulation, N=32 | `7.324 ms` | `0.481 ms` | arkworks `15.22x` faster |
+| Single pairing | `2.960 ms` | `0.415 ms` | arkworks `7.14x` faster |
+
+These are primitive-level measurements, not end-to-end Groth16 prover
+comparisons.
+
 ## Performance Snapshot
 
 Groth.jl now has two useful external reference points:
