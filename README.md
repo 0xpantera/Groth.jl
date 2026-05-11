@@ -54,6 +54,11 @@ The project has moved well beyond a minimal Groth16 demo.
   from `11.907 ms` to `9.647 ms`; end-to-end `prove_full` stayed essentially
   flat at `27.626 ms` in
   [docs/src/assets/g1_glv_msm_tuning_2026_05_11.json](./docs/src/assets/g1_glv_msm_tuning_2026_05_11.json).
+- The BN254Fr GLV decomposition path now stays in fixed-width limb-native
+  arithmetic instead of converting through `BigInt`. The generated fixture's
+  H/L GLV-MSM measured `9.538 ms`, and scalar-plumbing checks show low
+  single-digit percentage wins across the relevant BN254Fr paths in
+  [docs/src/assets/limb_native_glv_decomposition_2026_05_11.json](./docs/src/assets/limb_native_glv_decomposition_2026_05_11.json).
 - The current larger deterministic `setup_full` fixture is `116.918 ms` in
   [docs/src/assets/setup_full_tuning_2026_05_11.json](./docs/src/assets/setup_full_tuning_2026_05_11.json),
   down from the `142.715 ms` pre-change baseline on the same fixture.
@@ -166,17 +171,19 @@ These are primitive-level measurements, not end-to-end Groth16 prover
 comparisons.
 
 Latest tracked `prove_full` prover fixture summary
-(`2026-05-11_193033`, G1 GLV-MSM focused profile):
+(`2026-05-11_195230`, limb-native GLV focused profile):
 
 | Fixture | Domain | `prove_full` | Key prover phases |
 | --- | ---: | ---: | --- |
-| `sum_of_products_small` | `16` | `11.594 ms` | H+L MSM `4.924 ms`, final C `2.444 ms` |
-| `generated_24_constraints` | `32` | `27.626 ms` | H+L MSM `9.647 ms`, final C `2.488 ms` |
+| `sum_of_products_small` | `16` | `10.024 ms` | H+L MSM `4.717 ms`, final C `2.270 ms` |
+| `generated_24_constraints` | `32` | `26.606 ms` | H+L MSM `9.538 ms`, final C `2.341 ms` |
 
 The current production H/L MSM uses explicit BN254 G1 GLV decomposition on
-subgroup-owned CRS points. In the generated fixture it was `18.98%` faster than
-the generic H/L MSM measured in the same run; the end-to-end prover movement is
-small enough that we treat it as flat rather than a headline speedup.
+subgroup-owned CRS points. In the generated fixture it was `23.48%` faster than
+the generic H/L MSM measured in the same run. Limb-native decomposition removes
+the previous `BN254Fr` to `BigInt` round trip for this path; the end-to-end
+movement is still small enough to treat as a plumbing win rather than a headline
+prover speedup.
 
 Latest tracked `setup_full` fixture summary
 (`2026-05-11_175228`, setup profile):

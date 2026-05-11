@@ -35,8 +35,9 @@ function scalar_mul_reference(P, k::Integer)
     return result
 end
 
-glv_signed_value(component::Tuple{Bool,BigInt}) = component[1] ? component[2] : -component[2]
-glv_component_bits(component::Tuple{Bool,BigInt}) = iszero(component[2]) ? 0 : ndigits(component[2], base=2)
+glv_signed_value(component::Tuple{Bool,<:Integer}) = component[1] ? component[2] : -component[2]
+glv_component_bits(component::Tuple{Bool,<:Integer}) = iszero(component[2]) ? 0 : ndigits(component[2], base=2)
+glv_component_bigint(component::Tuple{Bool,<:Integer}) = (component[1], BigInt(component[2]))
 
 @testset "BN254 Curve Operations" begin
     
@@ -437,6 +438,31 @@ glv_component_bits(component::Tuple{Bool,BigInt}) = iszero(component[2]) ? 0 : n
 
             for scalar in fr_scalars
                 scalar_big = convert(BigInt, scalar)
+                @test map(glv_component_bigint, GrothCurves.glv_scalar_decomposition(G1Point, scalar)) ==
+                      GrothCurves.glv_scalar_decomposition(G1Point, scalar_big)
+                @test map(glv_component_bigint, GrothCurves.glv_scalar_decomposition(G2Point, scalar)) ==
+                      GrothCurves.glv_scalar_decomposition(G2Point, scalar_big)
+
+                g1_k1, g1_k2 = GrothCurves.glv_scalar_decomposition(G1Point, scalar)
+                g2_k1, g2_k2 = GrothCurves.glv_scalar_decomposition(G2Point, scalar)
+                @test g1_k1[2] isa GrothAlgebra.Int256
+                @test g1_k2[2] isa GrothAlgebra.Int256
+                @test g2_k1[2] isa GrothAlgebra.Int256
+                @test g2_k2[2] isa GrothAlgebra.Int256
+
+                g1_lhs = mod(
+                    BigInt(glv_signed_value(g1_k1)) +
+                    BigInt(glv_signed_value(g1_k2)) * GrothCurves.glv_lambda(G1Point),
+                    GrothCurves.BN254_ORDER_R,
+                )
+                g2_lhs = mod(
+                    BigInt(glv_signed_value(g2_k1)) +
+                    BigInt(glv_signed_value(g2_k2)) * GrothCurves.glv_lambda(G2Point),
+                    GrothCurves.BN254_ORDER_R,
+                )
+                @test g1_lhs == scalar_big
+                @test g2_lhs == scalar_big
+
                 @test scalar_mul(g1, scalar) == scalar_mul_reference(g1, scalar_big)
                 @test scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar_big)
                 @test g2_subgroup_scalar_mul(g2, scalar) == scalar_mul_reference(g2, scalar_big)

@@ -421,9 +421,32 @@ on the existing fused pair MSM.
 
 The generated fixture H/L query has `51` original bases and expands to `90` GLV
 terms with `127`-bit maximum components. Treat this as a clear H/L phase win
-with essentially flat end-to-end prover movement; the helper still uses
-`BigInt` decomposition, so limb-native GLV decomposition is the natural next
-follow-through.
+with essentially flat end-to-end prover movement. At this point the helper
+still used `BigInt` decomposition, which motivated the limb-native follow-up
+below.
+
+## Limb-Native GLV Decomposition Snapshot (2026-05-11)
+
+- Focused run:
+  `artifacts/2026-05-11_195230/results/benchmark_results.json`
+- Tracked summary:
+  `../docs/src/assets/limb_native_glv_decomposition_2026_05_11.json`
+
+This run keeps the same GLV decomposition semantics but routes `BN254Fr`
+decomposition through fixed-width limb-native arithmetic instead of converting
+through `BigInt`. The generated fixture scalar-plumbing checks report:
+
+| Workload | BigInt | BN254Fr limb-native | Change |
+| --- | ---: | ---: | ---: |
+| `g1_scalar_delta` | `0.855 ms` | `0.804 ms` | `-5.98%` |
+| `A_query` MSM | `3.508 ms` | `3.357 ms` | `-4.30%` |
+| `H` MSM | `9.893 ms` | `9.257 ms` | `-6.43%` |
+| `L` MSM | `4.289 ms` | `4.137 ms` | `-3.54%` |
+
+The refreshed generated fixture reports generic H/L MSM at `12.464 ms`,
+limb-native GLV H/L MSM at `9.538 ms`, and end-to-end `prove_full` at
+`26.606 ms`. The practical interpretation is a modest scalar-plumbing cleanup,
+not a new MSM algorithm.
 
 Generate a full report (run -> plot -> compare) for latest run:
 

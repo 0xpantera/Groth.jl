@@ -29,6 +29,23 @@ const BN254_G2_GLV_DECOMP_MATRIX = (
     parse(BigInt, "9931322734385697763"),
     -parse(BigInt, "147946756881789319000765030803803410728"),
 )
+const _GLVUInt256 = GrothAlgebra.UInt256
+const _GLVUInt512 = GrothAlgebra.UInt512
+const _GLVInt256 = GrothAlgebra.Int256
+const BN254_ORDER_R_U256 = parse(_GLVUInt256, "21888242871839275222246405745257275088548364400416034343698204186575808495617")
+const BN254_ORDER_R_U512 = _GLVUInt512(BN254_ORDER_R_U256)
+const BN254_G1_GLV_DECOMP_MATRIX_I256 = (
+    -parse(_GLVInt256, "147946756881789319000765030803803410728"),
+    parse(_GLVInt256, "9931322734385697763"),
+    -parse(_GLVInt256, "9931322734385697763"),
+    -parse(_GLVInt256, "147946756881789319010696353538189108491"),
+)
+const BN254_G2_GLV_DECOMP_MATRIX_I256 = (
+    -parse(_GLVInt256, "147946756881789319010696353538189108491"),
+    -parse(_GLVInt256, "9931322734385697763"),
+    parse(_GLVInt256, "9931322734385697763"),
+    -parse(_GLVInt256, "147946756881789319000765030803803410728"),
+)
 # Keep small and medium scalars on the existing w-NAF path; the Stage 7A
 # scalar sweep shows GLV only starts to pull ahead on larger bitlengths.
 const BN254_G1_GLV_THRESHOLD_BITS = 192
@@ -104,10 +121,39 @@ G2Point(X::Fp2Element, Y::Fp2Element) = G2Point(X, Y, G2_AFFINE_Z)
 
 @inline _square(x) = x * x
 @inline _square(x::Fp2Element) = square(x)
-@inline _glv_bit_length(k::BigInt) = iszero(k) ? 0 : ndigits(k, base=2)
+@inline _glv_bit_length(k::Integer) = iszero(k) ? 0 : ndigits(k, base=2)
 
-@inline function _glv_decomposition_bits(k1::BigInt, k2::BigInt)
+@inline function _glv_decomposition_bits(k1::Integer, k2::Integer)
     return max(_glv_bit_length(k1), _glv_bit_length(k2))
+end
+
+@inline function _u256_from_limbs(limbs::NTuple{4,UInt64})
+    return _GLVUInt256(limbs[1]) |
+           (_GLVUInt256(limbs[2]) << 64) |
+           (_GLVUInt256(limbs[3]) << 128) |
+           (_GLVUInt256(limbs[4]) << 192)
+end
+
+@inline _bn254fr_scalar_u256(k::GrothAlgebra.BN254Fr) =
+    _u256_from_limbs(GrothAlgebra.canonical_limbs(k))
+
+@inline function _round_mul_div_order(k::_GLVUInt256, coeff_abs::_GLVUInt256)
+    numerator = _GLVUInt512(k) * _GLVUInt512(coeff_abs)
+    quotient, remainder = divrem(numerator, BN254_ORDER_R_U512)
+    if remainder + remainder > BN254_ORDER_R_U512
+        quotient += _GLVUInt512(1)
+    end
+    return _GLVInt256(quotient)
+end
+
+@inline function _round_signed_mul_div_order(k::_GLVUInt256, coeff::_GLVInt256)
+    if coeff < _GLVInt256(0)
+        numerator = _GLVUInt512(k) * _GLVUInt512(_GLVUInt256(-coeff))
+        quotient = numerator ÷ BN254_ORDER_R_U512
+        return -_GLVInt256(quotient)
+    end
+
+    return _round_mul_div_order(k, _GLVUInt256(coeff))
 end
 
 function _glv_scalar_decomposition(k::Integer, coeffs::NTuple{4,BigInt})
@@ -134,15 +180,36 @@ function _glv_scalar_decomposition(k::Integer, coeffs::NTuple{4,BigInt})
     return ((k1 >= 0, abs(k1)), (k2 >= 0, abs(k2)))
 end
 
+function _glv_scalar_decomposition(k::_GLVUInt256, coeffs::NTuple{4,_GLVInt256})
+    iszero(k) && return ((true, _GLVInt256(0)), (true, _GLVInt256(0)))
+
+    n11, n12, n21, n22 = coeffs
+    beta_1 = _round_signed_mul_div_order(k, n22)
+    beta_2 = _round_signed_mul_div_order(k, -n12)
+
+    b1 = beta_1 * n11 + beta_2 * n21
+    b2 = beta_1 * n12 + beta_2 * n22
+    k1 = _GLVInt256(k) - b1
+    k2 = -b2
+
+    return ((k1 >= _GLVInt256(0), abs(k1)), (k2 >= _GLVInt256(0), abs(k2)))
+end
+
 """
     glv_scalar_decomposition(::Type{G1Point}, k::Integer)
     glv_scalar_decomposition(::Type{G2Point}, k::Integer)
+    glv_scalar_decomposition(::Type{G1Point}, k::GrothAlgebra.BN254Fr)
+    glv_scalar_decomposition(::Type{G2Point}, k::GrothAlgebra.BN254Fr)
 
 Decompose a scalar into the signed two-term representation used by the BN254
 GLV scalar-multiplication path for the selected group.
 """
 glv_scalar_decomposition(::Type{G1Point}, k::Integer) = _glv_scalar_decomposition(k, BN254_G1_GLV_DECOMP_MATRIX)
 glv_scalar_decomposition(::Type{G2Point}, k::Integer) = _glv_scalar_decomposition(k, BN254_G2_GLV_DECOMP_MATRIX)
+glv_scalar_decomposition(::Type{G1Point}, k::GrothAlgebra.BN254Fr) =
+    _glv_scalar_decomposition(_bn254fr_scalar_u256(k), BN254_G1_GLV_DECOMP_MATRIX_I256)
+glv_scalar_decomposition(::Type{G2Point}, k::GrothAlgebra.BN254Fr) =
+    _glv_scalar_decomposition(_bn254fr_scalar_u256(k), BN254_G2_GLV_DECOMP_MATRIX_I256)
 
 glv_lambda(::Type{G1Point}) = BN254_G1_GLV_LAMBDA
 glv_lambda(::Type{G2Point}) = BN254_G2_GLV_LAMBDA
@@ -231,7 +298,7 @@ function glv_scalar_mul(p::P, k::GrothAlgebra.BN254Fr) where {P<:ProjectivePoint
         return p
     end
 
-    coeffs = glv_scalar_decomposition(P, _bn254fr_scalar_bigint(k))
+    coeffs = glv_scalar_decomposition(P, k)
     return _glv_joint_scalar_mul(p, coeffs, glv_endomorphism(p))
 end
 
@@ -267,6 +334,27 @@ function _append_g1_glv_terms!(out_points::Vector{G1Point}, out_scalars::Vector{
     return nothing
 end
 
+function _append_g1_glv_terms!(
+    out_points::Vector{G1Point},
+    out_scalars::Vector{_GLVInt256},
+    p::G1Point,
+    scalar::GrothAlgebra.BN254Fr,
+)
+    ((sgn_k1, k1), (sgn_k2, k2)) = glv_scalar_decomposition(G1Point, scalar)
+
+    if !iszero(k1)
+        push!(out_points, p)
+        push!(out_scalars, sgn_k1 ? k1 : -k1)
+    end
+
+    if !iszero(k2)
+        push!(out_points, glv_endomorphism(p))
+        push!(out_scalars, sgn_k2 ? k2 : -k2)
+    end
+
+    return nothing
+end
+
 """
     g1_subgroup_multi_scalar_mul(points::Vector{G1Point}, scalars::Vector)
 
@@ -286,6 +374,27 @@ function g1_subgroup_multi_scalar_mul(points::Vector{G1Point}, scalars::Vector{S
 
     glv_points = G1Point[]
     glv_scalars = BigInt[]
+    sizehint!(glv_points, 2 * length(points))
+    sizehint!(glv_scalars, 2 * length(scalars))
+
+    @inbounds for i in eachindex(points, scalars)
+        _append_g1_glv_terms!(glv_points, glv_scalars, points[i], scalars[i])
+    end
+
+    isempty(glv_points) && return zero(points[1])
+    return GrothAlgebra.multi_scalar_mul(glv_points, glv_scalars)
+end
+
+function g1_subgroup_multi_scalar_mul(points::Vector{G1Point}, scalars::Vector{GrothAlgebra.BN254Fr})
+    length(points) == length(scalars) || throw(ArgumentError("Points and scalars must have the same length"))
+    isempty(points) && throw(ArgumentError("Cannot compute multi-scalar multiplication of empty vectors"))
+
+    if length(points) == 1
+        return GrothAlgebra.scalar_mul(points[1], scalars[1])
+    end
+
+    glv_points = G1Point[]
+    glv_scalars = _GLVInt256[]
     sizehint!(glv_points, 2 * length(points))
     sizehint!(glv_scalars, 2 * length(scalars))
 
