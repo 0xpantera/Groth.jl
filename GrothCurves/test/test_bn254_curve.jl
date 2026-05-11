@@ -392,6 +392,28 @@ glv_component_bits(component::Tuple{Bool,BigInt}) = iszero(component[2]) ? 0 : n
 
             @test multi_scalar_mul(g1_points, msm_scalars) == multi_scalar_mul(g1_points, msm_bigints)
             @test multi_scalar_mul(g2_points, msm_scalars) == multi_scalar_mul(g2_points, msm_bigints)
+
+            prover_points = [scalar_mul(g1, i + 20) for i in 1:8]
+            prover_scalars = [
+                bn254_fr(1),
+                bn254_fr(2),
+                bn254_fr(3),
+                bn254_fr(4),
+                bn254_fr(benchmark_scalar(701)),
+                bn254_fr(benchmark_scalar(702)),
+                bn254_fr(benchmark_scalar(703)),
+                bn254_fr(benchmark_scalar(704)),
+            ]
+            prover_bigints = map(x -> convert(BigInt, x), prover_scalars)
+
+            @test GrothAlgebra._pippenger_window(G1Point, 8, 254, 8, 4) == 2
+            @test GrothAlgebra._pippenger_window(G1Point, 8, 254, 8, 3) == 3
+            @test multi_scalar_mul(prover_points, prover_scalars) == multi_scalar_mul(prover_points, prover_bigints)
+
+            prover_points_b = [scalar_mul(g1, i + 40) for i in 1:8]
+            pair_a, pair_b = GrothAlgebra.multi_scalar_mul_pair(prover_points, prover_points_b, prover_scalars)
+            @test pair_a == multi_scalar_mul(prover_points, prover_scalars)
+            @test pair_b == multi_scalar_mul(prover_points_b, prover_scalars)
         end
     end
     

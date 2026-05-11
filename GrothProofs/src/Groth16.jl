@@ -235,9 +235,8 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
 
     # Accumulators for queries via MSM (fallbacks to scalar loops for tiny sizes)
     scalars = w_vals[1:m]
-    A_acc_g1 = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, scalars)
+    A_acc_g1, B_acc_g1 = GrothAlgebra.multi_scalar_mul_pair(pk.A_query_g1, pk.B_query_g1, scalars)
     B_acc_g2 = GrothAlgebra.multi_scalar_mul(pk.B_query_g2, scalars)
-    B_acc_g1 = GrothAlgebra.multi_scalar_mul(pk.B_query_g1, scalars)
 
     # A and B
     A1_g1 = pk.alpha_g1 + A_acc_g1

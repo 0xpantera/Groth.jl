@@ -1375,15 +1375,19 @@ function bench_prove_full(results)
         scalars = witness_to_scalars(witness)
         _ = GrothAlgebra.multi_scalar_mul(pk.A_query_g1, scalars)
         _ = GrothAlgebra.multi_scalar_mul(pk.B_query_g1, scalars)
+        _ = GrothAlgebra.multi_scalar_mul_pair(pk.A_query_g1, pk.B_query_g1, scalars)
         _ = GrothAlgebra.multi_scalar_mul(pk.B_query_g2, scalars)
         tr_msm_a = @benchmark GrothAlgebra.multi_scalar_mul($pk.A_query_g1, $scalars) seconds = 1 samples = 10
         tr_msm_b1 = @benchmark GrothAlgebra.multi_scalar_mul($pk.B_query_g1, $scalars) seconds = 1 samples = 10
+        tr_msm_a_b1 = @benchmark GrothAlgebra.multi_scalar_mul_pair($pk.A_query_g1, $pk.B_query_g1, $scalars) seconds = 1 samples = 10
         tr_msm_b2 = @benchmark GrothAlgebra.multi_scalar_mul($pk.B_query_g2, $scalars) seconds = 1 samples = 10
         print_stats("prove_full[$(name)] A_msm", tr_msm_a)
         print_stats("prove_full[$(name)] B1_msm", tr_msm_b1)
+        print_stats("prove_full[$(name)] A+B1_msm", tr_msm_a_b1)
         print_stats("prove_full[$(name)] B2_msm", tr_msm_b2)
         record_fixture_trial!(results, :prove_full, name, "msm_a_g1", tr_msm_a)
         record_fixture_trial!(results, :prove_full, name, "msm_b_g1", tr_msm_b1)
+        record_fixture_trial!(results, :prove_full, name, "msm_a_b1_g1", tr_msm_a_b1)
         record_fixture_trial!(results, :prove_full, name, "msm_b_g2", tr_msm_b2)
 
         _ = compute_h_polynomial(qap, witness)
