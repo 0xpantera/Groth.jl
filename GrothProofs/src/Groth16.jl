@@ -2,8 +2,8 @@
 Groth16 proof system implementation (production-style scaffold).
 
 Provides Proving/Verification keys and standard Groth16 equations.
-The prover uses the coset FFT pipeline by default; the dense path survives as a
-consistency check.
+The prover uses the coset FFT pipeline by default; dense/coset parity checks
+survive in tests and explicit debug helpers.
 """
 
 using GrothAlgebra
@@ -96,8 +96,8 @@ export Groth16Proof
     setup_full(qap::QAP{F}; rng=Random.GLOBAL_RNG, engine=BN254_ENGINE) where F
 
 Generate production-style Groth16 keys (ProvingKey, VerificationKey).
-Keys work with the coset FFT prover pipeline while retaining the dense fallback
-for parity assertions.
+Keys work with the coset FFT prover pipeline while retaining dense quotient
+helpers for tests and debugging.
 
 Security note: `rng` defaults to `Random.GLOBAL_RNG` (often `MersenneTwister`).
 Use a CSPRNG for real deployments.
@@ -217,15 +217,16 @@ function setup_full(qap::QAP{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abs
 end
 
 """
-    prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng=Random.GLOBAL_RNG, debug_no_random=false) where F
+    prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng=Random.GLOBAL_RNG, debug_no_random=false, checked_h=false) where F
 
 Construct a Groth16 proof with the coset FFT pipeline.
 
 Set `debug_no_random=true` to omit prover randomness during testing.
+Set `checked_h=true` to compute dense/coset quotient parity during debugging.
 Security note: `rng` defaults to `Random.GLOBAL_RNG` (often `MersenneTwister`).
 Use a CSPRNG for real deployments.
 """
-function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::AbstractRNG=Random.GLOBAL_RNG, debug_no_random::Bool=false) where F
+function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::AbstractRNG=Random.GLOBAL_RNG, debug_no_random::Bool=false, checked_h::Bool=false) where F
     w_vals = witness.values
     m = qap.num_vars
 
@@ -244,9 +245,11 @@ function prove_full(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::Abstr
     A = A1_g1 + scalar_mul(pk.delta_g1, r)
     B = pk.beta_g2 + B_acc_g2 + scalar_mul(pk.delta_g2, s)
 
-    # h(x): compute via coset FFT path and map coefficients via H_query
-    h_poly = compute_h_polynomial(qap, witness)
+    # h(x): compute via the fast coset-only FFT path unless debugging asks for
+    # the dense/coset parity check.
+    h_poly = checked_h ? compute_h_polynomial_checked(qap, witness) : compute_h_polynomial_coset(qap, witness)
     hk = length(h_poly.coeffs)
+    hk <= length(pk.H_query_g1) || error("H polynomial degree exceeds proving key H query length; witness may not satisfy the QAP")
     pts_h = pk.H_query_g1[1:hk]
     scalars_h = h_poly.coeffs
     H = GrothAlgebra.multi_scalar_mul(pts_h, scalars_h)
@@ -452,18 +455,18 @@ function setup(r1cs::R1CS{F}; rng::AbstractRNG=Random.GLOBAL_RNG, engine::Abstra
 end
 
 """
-    prove(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng=Random.GLOBAL_RNG, debug_no_random=false) where F
+    prove(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng=Random.GLOBAL_RNG, debug_no_random=false, checked_h=false) where F
 
 High-level proving wrapper over `prove_full`.
 """
-function prove(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::AbstractRNG=Random.GLOBAL_RNG, debug_no_random::Bool=false) where F
+function prove(pk::ProvingKey, qap::QAP{F}, witness::Witness{F}; rng::AbstractRNG=Random.GLOBAL_RNG, debug_no_random::Bool=false, checked_h::Bool=false) where F
     if length(witness.values) != qap.num_vars
         throw(ArgumentError("Witness length $(length(witness.values)) does not match QAP num_vars $(qap.num_vars)"))
     end
     if !isone(witness.values[1])
         throw(ArgumentError("Witness convention violation: values[1] must be one($F)"))
     end
-    return prove_full(pk, qap, witness; rng=rng, debug_no_random=debug_no_random)
+    return prove_full(pk, qap, witness; rng=rng, debug_no_random=debug_no_random, checked_h=checked_h)
 end
 
 """

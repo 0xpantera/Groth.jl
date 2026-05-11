@@ -154,9 +154,9 @@ function main()
         )
         capture_profile(
             joinpath(profiles_dir, "compute_h_$(fixture.name).txt"),
-            "compute_h_polynomial",
+            "compute_h_polynomial_coset",
             fixture,
-            () -> compute_h_polynomial(fixture.qap, fixture.witness);
+            () -> GrothProofs.compute_h_polynomial_coset(fixture.qap, fixture.witness);
             repetitions = repetitions,
         )
         capture_profile(

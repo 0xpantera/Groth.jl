@@ -48,9 +48,10 @@ graph TD
 - **Groth.jl counterparts:**
   - `GrothProofs/R1CS.jl` ships multiplication, sum-of-products, affine-product, and square-offset circuits plus randomised fixtures.
   - `GrothProofs/QAP.jl` records the active constraint points and builds an arkworks-shaped power-of-two domain: constraint rows first, public-input selector rows next, and zero padding last.
-- **What changes in code:** the prover defaults to the coset quotient path, and
-  the dense path survives only as a parity assertion. The current performance
-  work is now focused more on prover hot paths than on broad domain rewrites.
+- **What changes in code:** `prove_full` uses the coset-only quotient path, while
+  dense/coset parity survives in tests and debugging helpers. The current
+  performance work is focused more on prover hot paths than on broad domain
+  rewrites.
 
 ## Groth16 Pipeline
 
