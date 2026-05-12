@@ -1,8 +1,8 @@
 # Implementation Notes
 
-This page centralises repository-wide commentary that used to live in
-`PACKAGE_REFERENCE.md` and the pairing-oriented status note. For package-specific
-API details, see the dedicated chapters in this manual.
+This page centralises repository-wide commentary that used to live in older
+package-reference notes and the pairing-oriented status note. For
+package-specific API details, see the dedicated chapters in this manual.
 
 ```@contents
 Pages = ["implementation-notes.md"]

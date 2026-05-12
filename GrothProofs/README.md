@@ -40,9 +40,9 @@ GrothAlgebra; in the monorepo this wiring is handled by the root workspace.
 
 ## Further reading
 
-- Package reference: `docs/PACKAGE_REFERENCE.md` (GrothProofs section)
-- Arkworks comparison: `docs/Implementation_vs_Arkworks.md`
-- Roadmap status: `docs/ROADMAP.md`
+- Package docs: `docs/src/proofs.md`
+- Arkworks comparison: `docs/src/implementation-vs-arkworks.md`
+- Roadmap status: `ROADMAP.md`
 - Tutorials: `GrothExamples/`
 
 The top-level README outlines the preferred workflow and benchmarking commands.

@@ -39,9 +39,9 @@ one_third = GF7(1) / GF7(3)
 
 ## Further reading
 
-- Package reference: `docs/PACKAGE_REFERENCE.md` (GrothAlgebra section)
-- Arkworks comparison: `docs/Implementation_vs_Arkworks.md`
-- Project roadmap: `docs/ROADMAP.md`
+- Package docs: `docs/src/algebra.md`
+- Arkworks comparison: `docs/src/implementation-vs-arkworks.md`
+- Project roadmap: `ROADMAP.md`
 
 GrothAlgebra is developed alongside the other packages in this monorepo; see the
 root README for the full workflow.
