@@ -1,29 +1,28 @@
-# [RareSkills / zk-book ↔ Groth.jl Map](@id rareskills-map)
+# [RareSkills ZK Book ↔ Groth.jl Map](@id rareskills-map)
 
-This page stitches together the local `zk-book/` checkout, the RareSkills
-Groth16 material, and the production implementations inside Groth.jl. Use it as
-a compass when moving from conceptual chapters to code.
+This page stitches together the RareSkills ZK Book material and the production
+implementations inside Groth.jl. Use it as a compass when moving from
+conceptual chapters to code.
 
 ```@contents
 Pages = ["rareskills-map.md"]
 Depth = 2
 ```
 
-```mermaid
-graph TD
-    FF["Finite Fields / Modular Arithmetic\\nzk-book ch. 3"] --> GA["GrothAlgebra/FiniteFields.jl"]
-    SUB["Group Theory / Subgroups\\nzk-book ch. 6"] --> GA
-    ECC["Elliptic Curve Arithmetic\\ncontent/elliptic-curve-addition"] --> GC["GrothCurves/BN254Curve.jl"]
-    PAIR["Pairings & Final Exponentiation\\ncontent/bilinear-pairing"] --> GP["GrothCurves/BN254MillerLoop.jl"]
-    R1CS["Rank-1 Constraint Systems\\ncontent/rank-1-constraint-system"] --> PR1["GrothProofs/R1CS.jl"]
-    QAP["QAP & r1cs→qap\\ncontent/r1cs-to-qap"] --> PQ["GrothProofs/QAP.jl"]
-    G16["Groth16 Protocol\\ncontent/groth16"] --> PG["GrothProofs/Groth16.jl"]
-    EX["Worked Circuits\\ncontent/groth16"] --> EXJ["GrothExamples/"]
-```
+| RareSkills ZK Book concept | Groth.jl implementation |
+| --- | --- |
+| Finite fields and modular arithmetic | `GrothAlgebra/FiniteFields.jl` |
+| Group theory and subgroups | `GrothAlgebra/Group.jl` |
+| Elliptic curve arithmetic | `GrothCurves/BN254Curve.jl` |
+| Pairings and final exponentiation | `GrothCurves/BN254MillerLoop.jl`, `GrothCurves/BN254FinalExp.jl`, `GrothCurves/BN254Pairing.jl` |
+| Rank-1 constraint systems | `GrothProofs/R1CS.jl` |
+| Lagrange interpolation, QAP, and R1CS to QAP | `GrothAlgebra/Polynomial.jl`, `GrothProofs/QAP.jl` |
+| Trusted setup and Groth16 proving/verification | `GrothProofs/Groth16.jl` |
+| Worked circuits and tutorials | `GrothExamples/` |
 
 ## Algebraic Foundations
 
-- **zk-book / RareSkills concepts:** finite fields and modular arithmetic,
+- **RareSkills ZK Book concepts:** finite fields and modular arithmetic,
   group theory, homomorphisms, multiplicative subgroups, polynomial arithmetic,
   and inner-product algebra.
 - **Groth.jl counterparts:**
@@ -37,7 +36,7 @@ graph TD
 
 ## Curves, Towers, and Pairings
 
-- **zk-book / RareSkills concepts:** elliptic curve addition, elliptic curves
+- **RareSkills ZK Book concepts:** elliptic curve addition, elliptic curves
   over finite fields, bilinear pairings, Miller loops, and final
   exponentiation.
 - **Groth.jl counterparts:**
@@ -48,7 +47,7 @@ graph TD
 
 ## Constraint Systems and QAPs
 
-- **zk-book / RareSkills concepts:** arithmetic circuits, rank-1 constraint
+- **RareSkills ZK Book concepts:** arithmetic circuits, rank-1 constraint
   systems, Lagrange interpolation, Schwartz-Zippel, quadratic arithmetic
   programs, and R1CS to QAP.
 - **Groth.jl counterparts:**
@@ -61,7 +60,7 @@ graph TD
 
 ## Groth16 Pipeline
 
-- **zk-book / RareSkills concepts:** trusted setup, evaluating a QAP on a
+- **RareSkills ZK Book concepts:** trusted setup, evaluating a QAP on a
   trusted setup, and Groth16 proving and verification.
 - **Groth.jl counterparts:**
   - `GrothProofs/Groth16.jl` wires setup/prove/verify, including the prepared verifier path and batched pairings via `pairing_batch`.
@@ -71,7 +70,7 @@ graph TD
 
 ## How to Use the Map
 
-1. Start with the `zk-book` / RareSkills section you are studying.
+1. Start with the RareSkills ZK Book section you are studying.
 2. Jump to the matching Groth.jl module listed above.
 3. Compare representation choices—projective vs affine, batched MSM, FFT preparation—to understand how the production prover keeps the algebraic guarantees while optimising for performance.
 

@@ -155,7 +155,7 @@ The concept-to-code maps are:
 - `docs/src/rareskills-map.md`
 - `docs/src/textbook-to-optimized.md`
 
-Those pages map `zk-book` / RareSkills Groth16 concepts to Groth.jl modules and
+Those pages map RareSkills ZK Book Groth16 concepts to Groth.jl modules and
 explain where optimized implementation paths intentionally diverge from the
 direct textbook shape.
 
@@ -276,9 +276,8 @@ Frobenius coefficients, and final-exponentiation addition chains.
 
 ## Concept Map
 
-For studying from the local `zk-book/` checkout, use
-`docs/src/rareskills-map.md` as the maintained map from concepts to code. The
-high-level correspondence is:
+For studying from the RareSkills ZK Book, use `docs/src/rareskills-map.md` as
+the maintained map from concepts to code. The high-level correspondence is:
 
 | Concept | Groth.jl package |
 | --- | --- |

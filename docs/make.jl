@@ -15,7 +15,7 @@ const PAGES = [
         "Groth16 End-to-End" => "groth16-e2e.md",
     ],
     "Learning Path" => [
-        "RareSkills / zk-book Map" => "rareskills-map.md",
+        "RareSkills ZK Book Map" => "rareskills-map.md",
         "Textbook To Optimized Code" => "textbook-to-optimized.md",
         "Architecture Map" => "architecture.md",
     ],
