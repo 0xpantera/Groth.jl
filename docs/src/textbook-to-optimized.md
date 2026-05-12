@@ -178,8 +178,9 @@ paths.
 
 - [RareSkills / zk-book ↔ Groth.jl Map](@ref rareskills-map) maps conceptual
   chapters to modules.
-- `docs/CRYPTOGRAPHIC_ARCHITECTURE.md` separates reusable ZK infrastructure,
-  curve-specific primitives, and Groth16-specific protocol code.
+- [Groth.jl Cryptographic Architecture Map](@ref architecture-map) separates
+  reusable ZK infrastructure, curve-specific primitives, and Groth16-specific
+  protocol code.
 - [Implementation vs Arkworks](@ref implementation-vs-arkworks) compares
   Groth.jl's current implementation shape to arkworks.
 

@@ -1,4 +1,4 @@
-# Groth.jl Cryptographic Architecture Map
+# [Groth.jl Cryptographic Architecture Map](@id architecture-map)
 
 This is an educational reference for understanding how the Groth.jl packages
 fit together. It is not an API specification; prefer the package source,
@@ -150,7 +150,7 @@ log is archived at:
 
 - `docs/history/bn254-montgomery-backend-roadmap.md`
 
-The concept-to-code map is:
+The concept-to-code maps are:
 
 - `docs/src/rareskills-map.md`
 - `docs/src/textbook-to-optimized.md`
