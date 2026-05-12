@@ -20,7 +20,7 @@ const PAGES = [
     "References" => [
         "Implementation Notes" => "implementation-notes.md",
         "Implementation vs Arkworks" => "implementation-vs-arkworks.md",
-        "RareSkills Map" => "rareskills-map.md",
+        "RareSkills / zk-book Map" => "rareskills-map.md",
         "Benchmarks" => "benchmarks.md",
     ],
 ]

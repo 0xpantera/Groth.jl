@@ -108,7 +108,7 @@ an arkworks-aligned, production-friendly Groth16 stack.
 
 - Implementation notes: `docs/src/implementation-notes.md`
 - Implementation vs arkworks: `docs/src/implementation-vs-arkworks.md`
-- RareSkills mapping: `docs/src/rareskills-map.md`
+- RareSkills / zk-book mapping: `docs/src/rareskills-map.md`
 - Historical BN254 backend migration log:
   `docs/history/bn254-montgomery-backend-roadmap.md`
 
