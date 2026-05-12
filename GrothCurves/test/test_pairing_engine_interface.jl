@@ -32,6 +32,16 @@ function test_pairing_engine_interface(engine::AbstractPairingEngine)
                         pairing(engine, points_g1[3], points_g2[3])
         prod_batch = pairing_batch(engine, points_g1, points_g2)
         @test prod_batch == prod_separate
+
+        # Prepared G2 pairings reuse fixed-side Miller-loop line coefficients.
+        prepared_g2 = prepare_g2(engine, Q)
+        @test pairing(engine, P, prepared_g2) == pairing(engine, P, Q)
+        @test final_exponentiation(engine, miller_loop(engine, P, prepared_g2)) ==
+              pairing(engine, P, Q)
+
+        prepared_points_g2 = prepare_g2.(Ref(engine), points_g2)
+        @test pairing_batch(engine, points_g1, prepared_points_g2) == prod_batch
+        @test pairing(engine, P, prepare_g2(engine, zero(G2Point))) == one(GTElement)
     end
 end
 

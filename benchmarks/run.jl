@@ -789,11 +789,13 @@ function bench_pairing_throughput(results)
         rng = MersenneTwister(200 + N)
         p_vec = [scalar_mul(g1, rand_scalar_nonzero(rng)) for _ in 1:N]
         q_vec = [scalar_mul(g2, rand_scalar_nonzero(rng)) for _ in 1:N]
+        q_prepared_vec = prepare_g2.(Ref(ENGINE), q_vec)
         println("Batch size N = ", N)
         for (P, Q) in zip(p_vec, q_vec)
             pairing(ENGINE, P, Q)
         end
         pairing_batch(ENGINE, p_vec, q_vec)
+        pairing_batch(ENGINE, p_vec, q_prepared_vec)
         tr_seq = @benchmark begin
             acc = one(GTElement)
             @inbounds for i in eachindex($p_vec)
@@ -802,10 +804,13 @@ function bench_pairing_throughput(results)
             acc
         end seconds = 2 samples = 8
         tr_batch = @benchmark pairing_batch($ENGINE, $p_vec, $q_vec) seconds = 2 samples = 8
+        tr_batch_prepared = @benchmark pairing_batch($ENGINE, $p_vec, $q_prepared_vec) seconds = 2 samples = 8
         print_stats("Pairing sequential (N=$(N))", tr_seq)
         print_stats("Pairing batch (N=$(N))", tr_batch)
+        print_stats("Pairing batch prepared (N=$(N))", tr_batch_prepared)
         record_result!(results, :pairing, string(N), "sequential", tr_seq)
         record_result!(results, :pairing, string(N), "batch", tr_batch)
+        record_result!(results, :pairing, string(N), "batch_prepared", tr_batch_prepared)
     end
 end
 

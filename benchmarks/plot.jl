@@ -250,7 +250,7 @@ function main()
         "BN254 pairing: Groth.jl vs py_ecc", "py_ecc_pairing.png")
 
     # Pairing summaries
-    plot_group(res, out_dir, :pairing, "Pairing sequential vs batch", ["sequential", "batch"], "pairing.png")
+    plot_group(res, out_dir, :pairing, "Pairing sequential vs batch", ["sequential", "batch", "batch_prepared"], "pairing.png")
     plot_single_ops(res, out_dir, :pairing_single,
         ["pairing", "miller_loop", "final_exponentiation"],
         "Pairing micro-operations", "pairing_ops.png")

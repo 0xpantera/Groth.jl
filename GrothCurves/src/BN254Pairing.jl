@@ -47,6 +47,15 @@ Call `optimal_ate_pairing`.
 pairing(engine::BN254Engine, P::G1Point, Q::G2Point) = optimal_ate_pairing(engine, P, Q)
 pairing(P::G1Point, Q::G2Point) = pairing(BN254_ENGINE, P, Q)
 
+function pairing(engine::BN254Engine, P::G1Point, Q_prepared::BN254G2Prepared)
+    if iszero(P) || Q_prepared.infinity
+        return one(GTElement)
+    end
+    return final_exponentiation(engine, miller_loop(engine, P, Q_prepared))
+end
+
+pairing(P::G1Point, Q_prepared::BN254G2Prepared) = pairing(BN254_ENGINE, P, Q_prepared)
+
 """
     pairing_batch(P_vec::Vector{G1Point}, Q_vec::Vector{G2Point})
 
@@ -80,7 +89,29 @@ function pairing_batch(engine::BN254Engine, P_vec::Vector{G1Point}, Q_vec::Vecto
     return final_exponentiation(engine, f)
 end
 
+function pairing_batch(engine::BN254Engine, P_vec::Vector{G1Point}, Q_vec::Vector{BN254G2Prepared})
+    if length(P_vec) != length(Q_vec)
+        throw(ArgumentError("Input vectors must have the same length"))
+    end
+
+    if isempty(P_vec)
+        return one(GTElement)
+    end
+
+    f = one(Fp12Element)
+    for (P, Q) in zip(P_vec, Q_vec)
+        if !iszero(P) && !Q.infinity
+            f = f * miller_loop(engine, P, Q)
+        end
+    end
+
+    return final_exponentiation(engine, f)
+end
+
 pairing_batch(P_vec::Vector{G1Point}, Q_vec::Vector{G2Point}) =
+    pairing_batch(BN254_ENGINE, P_vec, Q_vec)
+
+pairing_batch(P_vec::Vector{G1Point}, Q_vec::Vector{BN254G2Prepared}) =
     pairing_batch(BN254_ENGINE, P_vec, Q_vec)
 
 # Export pairing functions and engine

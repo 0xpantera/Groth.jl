@@ -67,6 +67,18 @@ struct LineCoeffs
 end
 
 """
+    BN254G2Prepared
+
+Precomputed Miller-loop line coefficients for a fixed BN254 G2 point.
+The coefficients are independent of the G1 evaluation point, so verifier paths
+can cache them for fixed verification-key elements.
+"""
+struct BN254G2Prepared
+    lines::Vector{LineCoeffs}
+    infinity::Bool
+end
+
+"""
     doubling_step(T::G2Point) -> (G2Point, LineCoeffs)
 
 Compute the doubling step in the Miller loop.
@@ -357,7 +369,88 @@ Convenience overload that reuses the shared BN254 engine.
 """
 miller_loop(P::G1Point, Q::G2Point) = miller_loop(BN254_ENGINE, P, Q)
 
+function prepare_g2(::BN254Engine, Q::G2Point)
+    if iszero(Q)
+        return BN254G2Prepared(LineCoeffs[], true)
+    end
+
+    line_count = length(ATE_LOOP_COUNT_NAF) - 1 + count(!iszero, @view ATE_LOOP_COUNT_NAF[1:end-1]) + 2
+    lines = Vector{LineCoeffs}(undef, line_count)
+    idx = 1
+
+    T = Q
+    Q_x, Q_y = to_affine(Q)
+    neg_Q_y = -Q_y
+
+    for i in (length(ATE_LOOP_COUNT_NAF)):-1:2
+        T, line_coeffs = doubling_step(T)
+        lines[idx] = line_coeffs
+        idx += 1
+
+        bit = ATE_LOOP_COUNT_NAF[i-1]
+        if bit == 1
+            T, line_coeffs = _addition_step_mixed(T, Q_x, Q_y)
+            lines[idx] = line_coeffs
+            idx += 1
+        elseif bit == -1
+            T, line_coeffs = _addition_step_mixed(T, Q_x, neg_Q_y)
+            lines[idx] = line_coeffs
+            idx += 1
+        end
+    end
+
+    Q_pi = frobenius_g2(Q, 1)
+    Q_pi2 = frobenius_g2(Q, 2)
+
+    Q_pi_x, Q_pi_y = to_affine(Q_pi)
+    T, line_coeffs = _addition_step_mixed(T, Q_pi_x, Q_pi_y)
+    lines[idx] = line_coeffs
+    idx += 1
+
+    Q_pi2_x, Q_pi2_y = to_affine(Q_pi2)
+    _, line_coeffs = _addition_step_mixed(T, Q_pi2_x, -Q_pi2_y)
+    lines[idx] = line_coeffs
+
+    return BN254G2Prepared(lines, false)
+end
+
+prepare_g2(Q::G2Point) = prepare_g2(BN254_ENGINE, Q)
+
+function miller_loop(::BN254Engine, P::G1Point, Q_prepared::BN254G2Prepared)
+    if iszero(P) || Q_prepared.infinity
+        return one(Fp12Element)
+    end
+
+    f = one(Fp12Element)
+    P_x, P_y = to_affine(P)
+    idx = 1
+
+    for i in (length(ATE_LOOP_COUNT_NAF)):-1:2
+        if i != length(ATE_LOOP_COUNT_NAF)
+            f = square(f)
+        end
+
+        f = mul_by_line(f, Q_prepared.lines[idx], P_x, P_y)
+        idx += 1
+
+        bit = ATE_LOOP_COUNT_NAF[i-1]
+        if bit != 0
+            f = mul_by_line(f, Q_prepared.lines[idx], P_x, P_y)
+            idx += 1
+        end
+    end
+
+    f = mul_by_line(f, Q_prepared.lines[idx], P_x, P_y)
+    idx += 1
+    f = mul_by_line(f, Q_prepared.lines[idx], P_x, P_y)
+
+    return f
+end
+
+miller_loop(P::G1Point, Q_prepared::BN254G2Prepared) = miller_loop(BN254_ENGINE, P, Q_prepared)
+
 # Export functions
 export LineCoeffs, doubling_step, addition_step, evaluate_line, miller_loop
 export frobenius_g2, p_power_endomorphism
 export ATE_LOOP_COUNT_NAF
+export BN254G2Prepared, prepare_g2
