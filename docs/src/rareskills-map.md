@@ -9,16 +9,44 @@ Pages = ["rareskills-map.md"]
 Depth = 2
 ```
 
-| RareSkills ZK Book concept | Groth.jl implementation |
-| --- | --- |
-| Finite fields and modular arithmetic | `GrothAlgebra/FiniteFields.jl` |
-| Group theory and subgroups | `GrothAlgebra/Group.jl` |
-| Elliptic curve arithmetic | `GrothCurves/BN254Curve.jl` |
-| Pairings and final exponentiation | `GrothCurves/BN254MillerLoop.jl`, `GrothCurves/BN254FinalExp.jl`, `GrothCurves/BN254Pairing.jl` |
-| Rank-1 constraint systems | `GrothProofs/R1CS.jl` |
-| Lagrange interpolation, QAP, and R1CS to QAP | `GrothAlgebra/Polynomial.jl`, `GrothProofs/QAP.jl` |
-| Trusted setup and Groth16 proving/verification | `GrothProofs/Groth16.jl` |
-| Worked circuits and tutorials | `GrothExamples/` |
+```mermaid
+flowchart LR
+    subgraph Book["RareSkills ZK Book concepts"]
+        direction TB
+        FF["Finite fields<br/>modular arithmetic"]
+        SUB["Group theory<br/>subgroups"]
+        POLY["Lagrange interpolation<br/>polynomials"]
+        ECC["Elliptic curve arithmetic"]
+        PAIR["Pairings<br/>final exponentiation"]
+        R1CS["Rank-1 constraint systems"]
+        QAP["QAP<br/>R1CS to QAP"]
+        G16["Trusted setup<br/>Groth16"]
+        EX["Worked circuits<br/>tutorials"]
+    end
+
+    subgraph Code["Groth.jl implementation"]
+        direction TB
+        GA["GrothAlgebra/FiniteFields.jl"]
+        GG["GrothAlgebra/Group.jl"]
+        PA["GrothAlgebra/Polynomial.jl"]
+        GC["GrothCurves/BN254Curve.jl"]
+        GP["GrothCurves pairing pipeline"]
+        PR1["GrothProofs/R1CS.jl"]
+        PQ["GrothProofs/QAP.jl"]
+        PG["GrothProofs/Groth16.jl"]
+        EXJ["GrothExamples/"]
+    end
+
+    FF --> GA
+    SUB --> GG
+    POLY --> PA
+    ECC --> GC
+    PAIR --> GP
+    R1CS --> PR1
+    QAP --> PQ
+    G16 --> PG
+    EX --> EXJ
+```
 
 ## Algebraic Foundations
 

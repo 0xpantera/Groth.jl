@@ -1,4 +1,5 @@
 using Documenter
+using DocumenterMermaid
 using Documenter.Remotes
 using GrothAlgebra
 using GrothCurves
