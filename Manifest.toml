@@ -2,7 +2,7 @@
 
 julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "256a1a2d81bfcaa67e6912372173dd151b7bad16"
+project_hash = "44178f3129a9ec399c0d8471e53ac9a18a1d8008"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -463,11 +463,6 @@ version = "1.0.2"
 deps = ["BenchmarkTools", "BitIntegers", "Primes", "StaticArrays"]
 path = "GrothAlgebra"
 uuid = "c7a79d44-cfd6-4e24-8a20-28d2d2e8370b"
-version = "1.0.0-DEV"
-
-[[deps.GrothCrypto]]
-path = "GrothCrypto"
-uuid = "08fad72d-3c18-4088-bc06-6cd170572595"
 version = "1.0.0-DEV"
 
 [[deps.GrothCurves]]

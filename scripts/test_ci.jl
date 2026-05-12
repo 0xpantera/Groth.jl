@@ -5,7 +5,6 @@ using Test
 const PACKAGE_DIRS = [
     "GrothAlgebra",
     "GrothCurves",
-    "GrothCrypto",
     "GrothProofs",
 ]
 
