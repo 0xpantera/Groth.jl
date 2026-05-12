@@ -3,6 +3,11 @@
 Groth.jl is a Julia research platform for **BN254 algebra, pairings, and
 Groth16**.
 
+The project has two explicit roles: it is a learning bridge from RareSkills /
+`zk-book` concepts to inspectable Julia code, and it is a performance-oriented
+implementation whose hot paths no longer always look like the simplest
+textbook derivations.
+
 It combines:
 
 - inspectable finite-field, extension-field, curve, and pairing code
@@ -131,6 +136,8 @@ Key notebooks live in `GrothExamples/`, starting with:
 - [docs/src/benchmarks.md](./docs/src/benchmarks.md) — docs-site benchmark page
 - [docs/src/implementation-notes.md](./docs/src/implementation-notes.md) —
   package-level implementation notes
+- [docs/src/textbook-to-optimized.md](./docs/src/textbook-to-optimized.md) —
+  how textbook concepts map onto optimized implementation paths
 - [docs/src/implementation-vs-arkworks.md](./docs/src/implementation-vs-arkworks.md) —
   structural comparison with arkworks
 - [docs/src/rareskills-map.md](./docs/src/rareskills-map.md) —

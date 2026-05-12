@@ -153,9 +153,11 @@ log is archived at:
 The concept-to-code map is:
 
 - `docs/src/rareskills-map.md`
+- `docs/src/textbook-to-optimized.md`
 
-That page is the current map from `zk-book` / RareSkills Groth16 concepts to
-Groth.jl modules.
+Those pages map `zk-book` / RareSkills Groth16 concepts to Groth.jl modules and
+explain where optimized implementation paths intentionally diverge from the
+direct textbook shape.
 
 ## Reusable Vs Curve-Specific Vs Groth16-Specific
 

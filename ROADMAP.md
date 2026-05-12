@@ -107,6 +107,8 @@ an arkworks-aligned, production-friendly Groth16 stack.
 ## References
 
 - Implementation notes: `docs/src/implementation-notes.md`
+- Textbook to optimized implementation map:
+  `docs/src/textbook-to-optimized.md`
 - Implementation vs arkworks: `docs/src/implementation-vs-arkworks.md`
 - RareSkills / zk-book mapping: `docs/src/rareskills-map.md`
 - Historical BN254 backend migration log:

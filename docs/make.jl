@@ -19,6 +19,7 @@ const PAGES = [
     ],
     "References" => [
         "Implementation Notes" => "implementation-notes.md",
+        "Textbook To Optimized Code" => "textbook-to-optimized.md",
         "Implementation vs Arkworks" => "implementation-vs-arkworks.md",
         "RareSkills / zk-book Map" => "rareskills-map.md",
         "Benchmarks" => "benchmarks.md",
