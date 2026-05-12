@@ -74,8 +74,10 @@ The project has moved well beyond a minimal Groth16 demo.
   specialization: limb-native inversion, remaining extension-field hot paths,
   prover-shaped MSM tuning, and then a fresh prover re-baseline.
 
-See [ROADMAP.md](./ROADMAP.md) for the staged backend history and remaining
-specialization work.
+See [ROADMAP.md](./ROADMAP.md) for the active roadmap and remaining
+specialization work. The detailed BN254 Montgomery backend migration log is
+archived in
+[docs/history/bn254-montgomery-backend-roadmap.md](./docs/history/bn254-montgomery-backend-roadmap.md).
 
 ## Repository Layout
 
@@ -123,16 +125,18 @@ Key notebooks live in `GrothExamples/`, starting with:
 
 ## Documentation Map
 
-- [ROADMAP.md](./ROADMAP.md) — staged BN254 backend roadmap and remaining work
+- [ROADMAP.md](./ROADMAP.md) — active project roadmap and remaining work
 - [benchmarks/README.md](./benchmarks/README.md) — benchmark methodology and
   current artifacts
 - [docs/src/benchmarks.md](./docs/src/benchmarks.md) — docs-site benchmark page
-- [docs/PACKAGE_REFERENCE.md](./docs/PACKAGE_REFERENCE.md) — package-level
-  reference and repository notes
-- [docs/Implementation_vs_Arkworks.md](./docs/Implementation_vs_Arkworks.md) —
+- [docs/src/implementation-notes.md](./docs/src/implementation-notes.md) —
+  package-level implementation notes
+- [docs/src/implementation-vs-arkworks.md](./docs/src/implementation-vs-arkworks.md) —
   structural comparison with arkworks
-- [docs/RareSkills_Groth16_Map.md](./docs/RareSkills_Groth16_Map.md) —
+- [docs/src/rareskills-map.md](./docs/src/rareskills-map.md) —
   textbook-to-code mapping
+- [docs/history/bn254-montgomery-backend-roadmap.md](./docs/history/bn254-montgomery-backend-roadmap.md) —
+  archived BN254 Montgomery backend migration log
 
 ## Benchmark summary
 

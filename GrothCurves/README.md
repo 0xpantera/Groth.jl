@@ -36,12 +36,12 @@ When adding new curves or engines:
 1. Implement `miller_loop`, `final_exponentiation`, and (optionally)
    `pairing_batch` for the new engine type.
 2. Extend the interface tests in `test/test_pairing_engine_interface.jl`.
-3. Document the addition in `docs/PACKAGE_REFERENCE.md`.
+3. Document the addition in the package docs under `docs/src/`.
 
 ## Further reading
 
-- Package reference: `docs/PACKAGE_REFERENCE.md` (GrothCurves section)
-- Arkworks comparison: `docs/Implementation_vs_Arkworks.md`
-- Roadmap milestones: `docs/ROADMAP.md`
+- Package docs: `docs/src/curves.md`
+- Arkworks comparison: `docs/src/implementation-vs-arkworks.md`
+- Roadmap milestones: `ROADMAP.md`
 
 See the repository README for development workflow and related packages.
