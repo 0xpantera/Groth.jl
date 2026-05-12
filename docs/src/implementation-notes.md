@@ -63,5 +63,5 @@ Depth = 2
   some implementation paths no longer look like direct textbook derivations.
 - [Implementation vs Arkworks](@ref implementation-vs-arkworks) compares our
   choices against arkworks (`ark-ff`, `ark-poly`, `ark-groth16`).
-- [RareSkills / zk-book ↔ Groth.jl Map](@ref rareskills-map) links textbook
+- [RareSkills ZK Book ↔ Groth.jl Map](@ref rareskills-map) links textbook
   chapters to the corresponding Julia modules.

@@ -1,6 +1,6 @@
 # [From Textbook To Optimized Code](@id textbook-to-optimized)
 
-Groth.jl started as a learning project: a way to turn RareSkills / `zk-book`
+Groth.jl started as a learning project: a way to turn RareSkills ZK Book
 Groth16 concepts into concrete Julia code. The project still serves that role,
 but it has also become a performance-oriented BN254 and Groth16 implementation.
 
@@ -176,7 +176,7 @@ paths.
 
 ## Related Maps
 
-- [RareSkills / zk-book ↔ Groth.jl Map](@ref rareskills-map) maps conceptual
+- [RareSkills ZK Book ↔ Groth.jl Map](@ref rareskills-map) maps conceptual
   chapters to modules.
 - [Groth.jl Cryptographic Architecture Map](@ref architecture-map) separates
   reusable ZK infrastructure, curve-specific primitives, and Groth16-specific

@@ -3,10 +3,10 @@
 Groth.jl is a Julia research platform for **BN254 algebra, pairings, and
 Groth16**.
 
-The project has two explicit roles: it is a learning bridge from RareSkills /
-`zk-book` concepts to inspectable Julia code, and it is a performance-oriented
-implementation whose hot paths no longer always look like the simplest
-textbook derivations.
+The project has two explicit roles: it is a learning bridge from the RareSkills
+ZK Book concepts to inspectable Julia code, and it is a performance-oriented
+implementation whose hot paths no longer always look like the simplest textbook
+derivations.
 
 It combines:
 
@@ -143,7 +143,7 @@ Key notebooks live in `GrothExamples/`, starting with:
 - [docs/src/implementation-vs-arkworks.md](./docs/src/implementation-vs-arkworks.md) —
   structural comparison with arkworks
 - [docs/src/rareskills-map.md](./docs/src/rareskills-map.md) —
-  RareSkills / zk-book concept-to-code mapping
+  RareSkills ZK Book concept-to-code mapping
 - [docs/src/architecture.md](./docs/src/architecture.md) —
   educational architecture map for package layers and reusable components
 - [docs/src/api.md](./docs/src/api.md) — exported symbols and API docstrings
