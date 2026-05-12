@@ -331,11 +331,11 @@ export setup_full, prove_full, verify_full
 
 Cache `e(α,β)` and negated `γ`, `δ` elements for the prepared verifier path.
 """
-struct PreparedVerificationKey{E<:AbstractPairingEngine}
+struct PreparedVerificationKey{E<:AbstractPairingEngine,PG2}
     vk::VerificationKey{E}
     alpha_g1_beta_g2::GTElement
-    gamma_g2_neg::G2Point
-    delta_g2_neg::G2Point
+    gamma_g2_neg::PG2
+    delta_g2_neg::PG2
 end
 
 """
@@ -345,11 +345,15 @@ Compute cached `e(α,β)` and negated `γ`, `δ` for prepared verification.
 """
 function prepare_verifying_key(vk::VerificationKey{E}) where {E<:AbstractPairingEngine}
     engine = vk.engine
-    return PreparedVerificationKey{E}(
+    beta_g2_prepared = prepare_g2(engine, vk.beta_g2)
+    gamma_g2_neg = prepare_g2(engine, -vk.gamma_g2)
+    delta_g2_neg = prepare_g2(engine, -vk.delta_g2)
+    PG2 = typeof(gamma_g2_neg)
+    return PreparedVerificationKey{E,PG2}(
         vk,
-        pairing(engine, vk.alpha_g1, vk.beta_g2),
-        -vk.gamma_g2,
-        -vk.delta_g2,
+        pairing(engine, vk.alpha_g1, beta_g2_prepared),
+        gamma_g2_neg,
+        delta_g2_neg,
     )
 end
 
@@ -398,9 +402,10 @@ function verify_with_prepared(pvk::PreparedVerificationKey{E}, proof::Groth16Pro
 
     # Multi-pairing product, single final exponentiation
     engine = pvk.vk.engine
+    proof_b_prepared = prepare_g2(engine, proof.B)
     prod = pairing_batch(engine,
         [proof.A, prepared_inputs, proof.C],
-        [proof.B, pvk.gamma_g2_neg, pvk.delta_g2_neg],
+        [proof_b_prepared, pvk.gamma_g2_neg, pvk.delta_g2_neg],
     )
     return prod == pvk.alpha_g1_beta_g2
 end

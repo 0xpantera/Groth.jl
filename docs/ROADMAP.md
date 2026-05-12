@@ -87,6 +87,10 @@ an arkworks-aligned, production-friendly Groth16 stack.
   recomputing affine addend data in the ate loop. The focused pairing benchmark
   moved the Miller loop from `1.854 ms` to `0.827 ms`, with single pairing at
   `1.713 ms`.
+- BN254 G2 preparation now caches Miller-loop line coefficients for fixed G2
+  points. Prepared Groth16 verification moved from `6.999 ms` to `6.639 ms`,
+  and prepared pairing batch `N=16` measured `13.854 ms` versus `18.212 ms`
+  for the unprepared batch path in the same run.
 - `setup_full` query generation now uses BN254 G1 scalar/GLV dispatch for G1
   queries and a fixed-window G2 batch path; the generated fixture is now
   `116.918 ms`.
