@@ -1,0 +1,36 @@
+{
+  "summary": "Setup query-generation tuning: G1 setup queries now use the BN254 scalar dispatcher, whose measured GLV path beats fixed-base w-NAF for full-width setup scalars; the G2 query uses a fixed-window batch path.",
+  "candidate_run_id": "2026-05-11_175228",
+  "benchmark_profile": "setup",
+  "julia_version": "1.12.6",
+  "threadpools": {
+    "default": 24,
+    "interactive": 1
+  },
+  "cpu": "znver5",
+  "fixtures": {
+    "sum_of_products_small": {
+      "constraints": 3,
+      "public_inputs": 6,
+      "domain_size": 16,
+      "baseline_median_ms": 47.91,
+      "candidate_median_ms": 46.007,
+      "relative_to_baseline": "-3.97%",
+      "candidate_memory_bytes": 39455512
+    },
+    "generated_24_constraints": {
+      "constraints": 24,
+      "public_inputs": 8,
+      "domain_size": 32,
+      "baseline_median_ms": 142.715,
+      "candidate_median_ms": 116.918,
+      "relative_to_baseline": "-18.08%",
+      "candidate_memory_bytes": 103991784
+    }
+  },
+  "notes": [
+    "Baseline medians were captured before the branch changes using the same deterministic fixtures and setup seeds.",
+    "The setup profile proves and verifies once per fixture before timing setup_full.",
+    "Stage 8 prove_full rerun 2026-05-11_175426 reported no regressions above the configured 20% threshold versus 2026-05-11_165756."
+  ]
+}

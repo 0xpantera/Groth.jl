@@ -1,0 +1,70 @@
+{
+  "summary": "Prover-shaped MSM tuning follow-through: prove_full now combines H and L into one G1 MSM because the Groth16 C element only uses H + L.",
+  "baseline_run_id": "2026-05-11_133047",
+  "candidate_run_id": "2026-05-11_165756",
+  "benchmark_profile": "stage8",
+  "julia_version": "1.12.6",
+  "threadpools": {
+    "default": 24,
+    "interactive": 1
+  },
+  "cpu": "znver5",
+  "fixtures": {
+    "sum_of_products_small": {
+      "constraints": 3,
+      "public_inputs": 6,
+      "domain_size": 16,
+      "median_ms": {
+        "prove_full": 10.943,
+        "compute_h_total": 0.233678,
+        "h_msm": 5.458,
+        "l_msm": 0.054632,
+        "h_l_msm": 5.619,
+        "final_c": 2.133
+      },
+      "msm_selection": {
+        "h_query_g1": "pippenger_w3",
+        "l_query_g1": "straus",
+        "h_l_query_g1": "pippenger_w3"
+      }
+    },
+    "generated_24_constraints": {
+      "constraints": 24,
+      "public_inputs": 8,
+      "domain_size": 32,
+      "median_ms": {
+        "prove_full": 26.643,
+        "compute_h_total": 1.481,
+        "h_msm": 8.726,
+        "l_msm": 3.871,
+        "h_l_msm": 11.029,
+        "final_c": 2.14
+      },
+      "baseline_median_ms": {
+        "prove_full": 28.636,
+        "compute_h_total": 1.445,
+        "h_msm": 8.925,
+        "l_msm": 3.906,
+        "final_c": 2.256
+      },
+      "relative_to_baseline": {
+        "prove_full": "-6.96%",
+        "final_c": "-5.14%"
+      },
+      "msm_selection": {
+        "a_query_g1": "pippenger_w3",
+        "a_b1_query_g1": "pippenger_pair_w2",
+        "b_query_g1": "pippenger_w3",
+        "b_query_g2": "pippenger_w2",
+        "h_query_g1": "pippenger_w3",
+        "l_query_g1": "pippenger_w3",
+        "h_l_query_g1": "pippenger_w5"
+      }
+    }
+  },
+  "notes": [
+    "H and L are still reported separately as diagnostic phases; prove_full uses the combined H+L path.",
+    "The generated fixture is the preferred continuity signal for prover-shaped tuning because the small fixture is intentionally domain-rounded for correctness coverage.",
+    "The comparison script reported no regressions above the configured 20% threshold."
+  ]
+}
