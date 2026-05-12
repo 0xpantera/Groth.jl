@@ -134,7 +134,9 @@ Key notebooks live in `GrothExamples/`, starting with:
 - [docs/src/implementation-vs-arkworks.md](./docs/src/implementation-vs-arkworks.md) —
   structural comparison with arkworks
 - [docs/src/rareskills-map.md](./docs/src/rareskills-map.md) —
-  textbook-to-code mapping
+  RareSkills / zk-book concept-to-code mapping
+- [docs/CRYPTOGRAPHIC_ARCHITECTURE.md](./docs/CRYPTOGRAPHIC_ARCHITECTURE.md) —
+  educational architecture map for package layers and reusable components
 - [docs/history/bn254-montgomery-backend-roadmap.md](./docs/history/bn254-montgomery-backend-roadmap.md) —
   archived BN254 Montgomery backend migration log
 
