@@ -46,6 +46,8 @@ an arkworks-aligned, production-friendly Groth16 stack.
 | Track | Items |
 | --- | --- |
 | Performance | Evaluate FFT twiddle caching, implement Pippenger-style variable/fixed-base MSM (with thresholds and w-NAF tables), keep batch normalisation fast, explore GT optimisations |
+| Tooling | Add benchmark-report smoke checks to CI, revisit a broader Julia-version matrix once runner stability is confirmed, and keep branch-protection checks aligned with docs/test/benchmark gates |
+| Documentation | Keep README/package docs aligned with the root-workspace workflow and notebook-first `GrothExamples`; promote durable findings from task plans into tracked docs |
 
 ### MSM & Batch Optimisation Notes
 

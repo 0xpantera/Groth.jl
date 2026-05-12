@@ -85,7 +85,6 @@ Groth.jl/
 ├── GrothCurves/    # BN254 tower fields, curve arithmetic, pairing engine
 ├── GrothProofs/    # R1CS, QAP, Groth16 prover / verifier
 ├── GrothExamples/  # Pluto notebooks and walkthroughs
-├── GrothCrypto/    # higher-level protocol space
 ├── benchmarks/     # BenchmarkTools environment, plots, profiling scripts
 └── docs/           # reference docs, benchmarks, implementation notes
 ```

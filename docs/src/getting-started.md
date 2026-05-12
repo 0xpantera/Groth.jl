@@ -25,7 +25,6 @@ This runs package tests for:
 
 - `GrothAlgebra`
 - `GrothCurves`
-- `GrothCrypto`
 - `GrothProofs`
 
 `GrothExamples` is notebook-first and intentionally excluded from `Pkg.test()`
