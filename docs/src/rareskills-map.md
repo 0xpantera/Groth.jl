@@ -75,4 +75,8 @@ graph TD
 2. Jump to the matching Groth.jl module listed above.
 3. Compare representation choices—projective vs affine, batched MSM, FFT preparation—to understand how the production prover keeps the algebraic guarantees while optimising for performance.
 
+For a focused explanation of why the optimized code no longer always looks like
+the textbook derivation, see [From Textbook To Optimized Code](@ref
+textbook-to-optimized).
+
 Update this page whenever new features land or the textbook mapping shifts.
