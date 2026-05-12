@@ -10,27 +10,34 @@ DocMeta.setdocmeta!(GrothProofs, :DocTestSetup, :(using GrothProofs); recursive=
 
 const PAGES = [
     "Home" => "index.md",
-    "Getting Started" => "getting-started.md",
-    "Groth16 End-to-End" => "groth16-e2e.md",
+    "Start Here" => [
+        "Getting Started" => "getting-started.md",
+        "Groth16 End-to-End" => "groth16-e2e.md",
+    ],
+    "Learning Path" => [
+        "RareSkills / zk-book Map" => "rareskills-map.md",
+        "Textbook To Optimized Code" => "textbook-to-optimized.md",
+        "Architecture Map" => "architecture.md",
+    ],
     "Packages" => [
         "Groth Algebra" => "algebra.md",
         "Groth Curves" => "curves.md",
         "Groth Proofs" => "proofs.md",
     ],
-    "References" => [
-        "Implementation Notes" => "implementation-notes.md",
-        "Textbook To Optimized Code" => "textbook-to-optimized.md",
-        "Implementation vs Arkworks" => "implementation-vs-arkworks.md",
-        "RareSkills / zk-book Map" => "rareskills-map.md",
+    "Engineering" => [
         "Benchmarks" => "benchmarks.md",
+        "Benchmark Snapshots" => "benchmark-snapshots.md",
+        "Implementation vs Arkworks" => "implementation-vs-arkworks.md",
+        "Implementation Notes" => "implementation-notes.md",
     ],
+    "API Reference" => "api.md",
 ]
 
 makedocs(
     sitename="Groth.jl",
     format=Documenter.HTML(
         prettyurls=true,
-        collapselevel=1,
+        collapselevel=2,
         inventory_version="dev",
     ),
     modules=[GrothAlgebra, GrothCurves, GrothProofs],

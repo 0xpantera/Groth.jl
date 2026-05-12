@@ -134,6 +134,8 @@ Key notebooks live in `GrothExamples/`, starting with:
 - [benchmarks/README.md](./benchmarks/README.md) — benchmark methodology and
   current artifacts
 - [docs/src/benchmarks.md](./docs/src/benchmarks.md) — docs-site benchmark page
+- [docs/src/benchmark-snapshots.md](./docs/src/benchmark-snapshots.md) —
+  historical benchmark and tuning snapshots
 - [docs/src/implementation-notes.md](./docs/src/implementation-notes.md) —
   package-level implementation notes
 - [docs/src/textbook-to-optimized.md](./docs/src/textbook-to-optimized.md) —
@@ -142,8 +144,9 @@ Key notebooks live in `GrothExamples/`, starting with:
   structural comparison with arkworks
 - [docs/src/rareskills-map.md](./docs/src/rareskills-map.md) —
   RareSkills / zk-book concept-to-code mapping
-- [docs/CRYPTOGRAPHIC_ARCHITECTURE.md](./docs/CRYPTOGRAPHIC_ARCHITECTURE.md) —
+- [docs/src/architecture.md](./docs/src/architecture.md) —
   educational architecture map for package layers and reusable components
+- [docs/src/api.md](./docs/src/api.md) — exported symbols and API docstrings
 - [docs/history/bn254-montgomery-backend-roadmap.md](./docs/history/bn254-montgomery-backend-roadmap.md) —
   archived BN254 Montgomery backend migration log
 
