@@ -1,0 +1,77 @@
+{
+  "summary": "Safe G2 GLV exposure: Groth16 setup/proving now use an explicit subgroup-only G2 GLV helper for construction-owned key points, while generic G2 scalar multiplication remains the safe arbitrary-point default.",
+  "candidate_run_id": "2026-05-11_190310",
+  "benchmark_profile": "custom",
+  "benchmark_groups": [
+    "glv_scalar_tuning",
+    "scalar_plumbing",
+    "setup_full",
+    "prove_full"
+  ],
+  "julia_version": "1.12.6",
+  "threadpools": {
+    "default": 24,
+    "interactive": 1
+  },
+  "cpu": "znver5",
+  "g2_scalar_sweep": {
+    "bits_32": {
+      "default_median_ms": 0.334726,
+      "wnaf_median_ms": 0.314399,
+      "subgroup_glv_median_ms": 0.334892
+    },
+    "bits_64": {
+      "default_median_ms": 0.525459,
+      "wnaf_median_ms": 0.529532,
+      "subgroup_glv_median_ms": 0.554383
+    },
+    "bits_128": {
+      "default_median_ms": 1.014,
+      "wnaf_median_ms": 1.072,
+      "subgroup_glv_median_ms": 1.504
+    },
+    "bits_192": {
+      "default_median_ms": 1.544,
+      "wnaf_median_ms": 1.632,
+      "subgroup_glv_median_ms": 1.609
+    },
+    "bits_254": {
+      "default_median_ms": 2.455,
+      "wnaf_median_ms": 2.44,
+      "subgroup_glv_median_ms": 1.612,
+      "subgroup_glv_speedup_vs_default": "1.52x",
+      "subgroup_glv_memory_bytes": 1241864,
+      "default_memory_bytes": 1943968
+    }
+  },
+  "scalar_plumbing": {
+    "g2_subgroup_scalar_bigint_median_ms": 1.537,
+    "g2_subgroup_scalar_bn254fr_median_ms": 1.549,
+    "previous_g2_scalar_bn254fr_median_ms": 2.355,
+    "relative_to_previous_g2_scalar_bn254fr": "-34.22%"
+  },
+  "fixtures": {
+    "sum_of_products_small": {
+      "constraints": 3,
+      "public_inputs": 6,
+      "domain_size": 16,
+      "setup_full_median_ms": 42.992,
+      "prove_full_median_ms": 10.658
+    },
+    "generated_24_constraints": {
+      "constraints": 24,
+      "public_inputs": 8,
+      "domain_size": 32,
+      "setup_full_median_ms": 118.747,
+      "prove_full_median_ms": 27.659,
+      "b2_msm_median_ms": 4.286,
+      "final_c_median_ms": 2.175
+    }
+  },
+  "notes": [
+    "The generic G2 scalar path intentionally remains w-NAF so verifier subgroup checks stay valid for arbitrary on-curve input.",
+    "The subgroup GLV helper is only safe when the caller already knows the point is in G2[r].",
+    "The scalar sweep shows subgroup GLV is most useful for full-width scalars; Groth16 setup/prover randomizers are full-width except for rare zero draws handled by the helper.",
+    "The setup/prove fixture medians are close enough to prior same-day runs that the main conclusion is safe exposure and scalar-path improvement, not a new end-to-end prover claim."
+  ]
+}
